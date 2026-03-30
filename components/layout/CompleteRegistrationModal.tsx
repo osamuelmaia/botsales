@@ -1,10 +1,10 @@
 "use client"
 
-import { useState } from "react"
+import { useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 import * as Dialog from "@radix-ui/react-dialog"
-import { Loader2, ArrowRight, ArrowLeft } from "lucide-react"
+import { Loader2, ArrowRight, ArrowLeft, Search } from "lucide-react"
 
 // ─── Country codes ────────────────────────────────────────────────────────────
 
@@ -54,8 +54,6 @@ const BR_STATES = [
   "RS","RO","RR","SC","SP","SE","TO",
 ]
 
-// ─── Input style ──────────────────────────────────────────────────────────────
-
 const inputCls =
   "w-full h-10 rounded-md border border-gray-300 px-3 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent"
 
@@ -63,9 +61,12 @@ const inputCls =
 
 export function CompleteRegistrationModal() {
   const router = useRouter()
+  const numberRef = useRef<HTMLInputElement>(null)
+
   const [open, setOpen] = useState(false)
   const [step, setStep] = useState(1)
   const [saving, setSaving] = useState(false)
+  const [loadingCep, setLoadingCep] = useState(false)
 
   // Step 1
   const [personType, setPersonType] = useState<"INDIVIDUAL" | "COMPANY">("INDIVIDUAL")
@@ -82,6 +83,40 @@ export function CompleteRegistrationModal() {
   const [city, setCity] = useState("")
   const [state, setState] = useState("")
 
+  // ─── CEP lookup ─────────────────────────────────────────────────────────────
+
+  async function lookupCep(digits: string) {
+    setLoadingCep(true)
+    try {
+      const res = await fetch(`https://viacep.com.br/ws/${digits}/json/`)
+      const data = await res.json()
+      if (data.erro) {
+        toast.error("CEP não encontrado")
+        return
+      }
+      setStreet(data.logradouro ?? "")
+      setNeighborhood(data.bairro ?? "")
+      setCity(data.localidade ?? "")
+      setState(data.uf ?? "")
+      // Move focus to number field
+      setTimeout(() => numberRef.current?.focus(), 50)
+    } catch {
+      toast.error("Erro ao buscar CEP")
+    } finally {
+      setLoadingCep(false)
+    }
+  }
+
+  function handleZipChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const masked = maskZip(e.target.value)
+    setZipCode(masked)
+    if (masked.replace(/\D/g, "").length === 8) {
+      lookupCep(masked.replace(/\D/g, ""))
+    }
+  }
+
+  // ─── Handlers ───────────────────────────────────────────────────────────────
+
   function handleOpen(v: boolean) {
     setOpen(v)
     if (!v) setStep(1)
@@ -96,16 +131,13 @@ export function CompleteRegistrationModal() {
     e.preventDefault()
     setSaving(true)
 
-    const phoneDigits = phone.replace(/\D/g, "")
-    const fullPhone = `${countryCode}${phoneDigits}`
-
     const res = await fetch("/api/users/me", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         personType,
         document: document.replace(/\D/g, ""),
-        phone: fullPhone,
+        phone: `${countryCode}${phone.replace(/\D/g, "")}`,
         zipCode: zipCode.replace(/\D/g, ""),
         street,
         number,
@@ -129,6 +161,8 @@ export function CompleteRegistrationModal() {
     router.refresh()
   }
 
+  // ─── Render ─────────────────────────────────────────────────────────────────
+
   return (
     <Dialog.Root open={open} onOpenChange={handleOpen}>
       <Dialog.Trigger asChild>
@@ -142,7 +176,7 @@ export function CompleteRegistrationModal() {
         <Dialog.Content className="fixed z-50 left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-md bg-white rounded-xl shadow-xl flex flex-col max-h-[90vh]">
 
           {/* Header */}
-          <div className="flex items-start justify-between px-6 pt-5 pb-4 border-b border-gray-100">
+          <div className="flex items-start justify-between px-6 pt-5 pb-4 border-b border-gray-100 shrink-0">
             <div>
               <Dialog.Title className="text-base font-semibold text-gray-900">
                 Completar Cadastro
@@ -154,17 +188,17 @@ export function CompleteRegistrationModal() {
                 </span>
               </p>
             </div>
-            {/* Step dots */}
             <div className="flex items-center gap-1.5 mt-1">
               <span className="h-2 w-6 rounded-full bg-gray-900" />
-              <span className={`h-2 rounded-full transition-all ${step === 2 ? "w-6 bg-gray-900" : "w-2 bg-gray-200"}`} />
+              <span className={`h-2 rounded-full transition-all duration-300 ${step === 2 ? "w-6 bg-gray-900" : "w-2 bg-gray-200"}`} />
             </div>
           </div>
 
           {/* ── Step 1: Dados pessoais ────────────────────────────── */}
           {step === 1 && (
-            <form onSubmit={handleNext} className="flex flex-col flex-1 overflow-y-auto">
-              <div className="p-6 space-y-4">
+            <form onSubmit={handleNext} className="flex flex-col flex-1 min-h-0">
+              <div className="p-6 space-y-4 overflow-y-auto flex-1">
+
                 {/* Tipo pessoa */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -230,7 +264,9 @@ export function CompleteRegistrationModal() {
                     <input
                       value={phone}
                       onChange={(e) =>
-                        setPhone(countryCode === "+55" ? maskPhoneBR(e.target.value) : e.target.value.replace(/\D/g, "").slice(0, 15))
+                        setPhone(countryCode === "+55"
+                          ? maskPhoneBR(e.target.value)
+                          : e.target.value.replace(/\D/g, "").slice(0, 15))
                       }
                       required
                       className={inputCls}
@@ -240,7 +276,7 @@ export function CompleteRegistrationModal() {
                 </div>
               </div>
 
-              <div className="px-6 pb-6">
+              <div className="px-6 pb-6 shrink-0">
                 <button
                   type="submit"
                   className="w-full h-10 bg-gray-900 text-white rounded-md text-sm font-medium hover:bg-gray-800 flex items-center justify-center gap-2 transition-colors"
@@ -253,18 +289,28 @@ export function CompleteRegistrationModal() {
 
           {/* ── Step 2: Endereço ─────────────────────────────────── */}
           {step === 2 && (
-            <form onSubmit={handleSubmit} className="flex flex-col flex-1 overflow-y-auto">
-              <div className="p-6 space-y-4">
+            <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0">
+              <div className="p-6 space-y-4 overflow-y-auto flex-1">
+
                 {/* CEP */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">CEP</label>
-                  <input
-                    value={zipCode}
-                    onChange={(e) => setZipCode(maskZip(e.target.value))}
-                    required
-                    className={inputCls}
-                    placeholder="00000-000"
-                  />
+                  <div className="relative">
+                    <input
+                      value={zipCode}
+                      onChange={handleZipChange}
+                      required
+                      maxLength={9}
+                      className={inputCls + " pr-9"}
+                      placeholder="00000-000"
+                      autoFocus
+                    />
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none">
+                      {loadingCep
+                        ? <Loader2 className="h-4 w-4 animate-spin" />
+                        : <Search className="h-4 w-4" />}
+                    </span>
+                  </div>
                 </div>
 
                 {/* Logradouro + Número */}
@@ -282,6 +328,7 @@ export function CompleteRegistrationModal() {
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Número</label>
                     <input
+                      ref={numberRef}
                       value={number}
                       onChange={(e) => setNumber(e.target.value)}
                       required
@@ -345,7 +392,7 @@ export function CompleteRegistrationModal() {
                 </div>
               </div>
 
-              <div className="px-6 pb-6 flex gap-2">
+              <div className="px-6 pb-6 flex gap-2 shrink-0">
                 <button
                   type="button"
                   onClick={() => setStep(1)}
@@ -355,7 +402,7 @@ export function CompleteRegistrationModal() {
                 </button>
                 <button
                   type="submit"
-                  disabled={saving}
+                  disabled={saving || loadingCep}
                   className="flex-1 h-10 bg-gray-900 text-white rounded-md text-sm font-medium hover:bg-gray-800 disabled:opacity-50 flex items-center justify-center gap-2 transition-colors"
                 >
                   {saving && <Loader2 className="h-4 w-4 animate-spin" />}
