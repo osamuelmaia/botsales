@@ -5,7 +5,7 @@ export const productSchema = z
     name: z.string().min(2, "Nome deve ter ao menos 2 caracteres"),
     description: z.string().max(300, "Máximo 300 caracteres").optional(),
     priceInCents: z
-      .number({ invalid_type_error: "Informe um preço válido" })
+      .number({ message: "Informe um preço válido" })
       .int()
       .positive("Preço deve ser maior que zero"),
     paymentMethods: z
