@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { decryptToken } from "@/lib/utils"
-import { executeFlow } from "@/lib/bot-runner"
+import { executeFlow, resumeFlow } from "@/lib/bot-runner"
 
 type Params = { params: { botId: string } }
 
@@ -36,6 +36,8 @@ export async function POST(request: Request, { params }: Params) {
     return NextResponse.json({ ok: true })
   }
 
+  const token = decryptToken(bot.tokenEncrypted)
+
   // ── /start command ────────────────────────────────────────────────────────
   if (update.message?.text === "/start" && update.message.chat) {
     const chatId = update.message.chat.id
@@ -54,13 +56,27 @@ export async function POST(request: Request, { params }: Params) {
 
   // ── callback_query (inline button press) ──────────────────────────────────
   if (update.callback_query) {
-    const token = decryptToken(bot.tokenEncrypted)
+    const cbData = update.callback_query.data ?? ""
+    const chatId = update.callback_query.message?.chat.id
+
+    // Answer immediately to dismiss the loading spinner
     await fetch(`https://api.telegram.org/bot${token}/answerCallbackQuery`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ callback_query_id: update.callback_query.id }),
       signal: AbortSignal.timeout(5000),
     }).catch(() => {})
+
+    // Resume flow when user clicks a button gate
+    // callback_data format: "r:<nodeId>:<nextBlockIndex>"
+    if (cbData.startsWith("r:") && chatId) {
+      const parts = cbData.split(":")
+      const nodeId = parts[1]
+      const fromBlockIndex = parseInt(parts[2] ?? "0", 10)
+      if (nodeId) {
+        await resumeFlow(bot.id, chatId, nodeId, fromBlockIndex)
+      }
+    }
   }
 
   return NextResponse.json({ ok: true })
