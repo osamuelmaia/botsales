@@ -91,6 +91,7 @@ export async function GET(_req: Request, { params }: Params) {
     id: e.id,
     source: e.sourceNodeId,
     target: e.targetNodeId,
+    type: "deletable",
     ...(e.label ? { label: e.label } : {}),
   }))
 
@@ -147,15 +148,19 @@ export async function POST(request: Request, { params }: Params) {
     )
   }
 
-  // Full replace inside a transaction + sync channelId to bot
-  await prisma.$transaction([
-    prisma.bot.update({
+  // Filter edges to only include those where both source and target exist in nodes
+  const nodeIds = new Set(nodes.map((n) => n.id))
+  const validEdges = edges.filter((e) => nodeIds.has(e.source) && nodeIds.has(e.target))
+
+  // Full replace inside a sequential transaction + sync channelId to bot
+  await prisma.$transaction(async (tx) => {
+    await tx.bot.update({
       where: { id: params.id },
       data: { channelId: startNodeChannelId.trim() },
-    }),
-    prisma.flowEdge.deleteMany({ where: { botId: params.id } }),
-    prisma.flowNode.deleteMany({ where: { botId: params.id } }),
-    prisma.flowNode.createMany({
+    })
+    await tx.flowEdge.deleteMany({ where: { botId: params.id } })
+    await tx.flowNode.deleteMany({ where: { botId: params.id } })
+    await tx.flowNode.createMany({
       data: nodes.map((n) => ({
         id: n.id,
         botId: params.id,
@@ -164,17 +169,17 @@ export async function POST(request: Request, { params }: Params) {
         posY: n.position.y,
         data: n.data as Prisma.InputJsonValue,
       })),
-    }),
-    prisma.flowEdge.createMany({
-      data: edges.map((e) => ({
+    })
+    await tx.flowEdge.createMany({
+      data: validEdges.map((e) => ({
         id: e.id,
         botId: params.id,
         sourceNodeId: e.source,
         targetNodeId: e.target,
         label: e.label,
       })),
-    }),
-  ])
+    })
+  })
 
   return NextResponse.json({ ok: true })
 }
