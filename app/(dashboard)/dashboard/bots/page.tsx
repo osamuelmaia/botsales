@@ -2,9 +2,10 @@
 
 import { useEffect, useState } from "react"
 import { toast } from "sonner"
-import { Plus, Settings, Trash2, Bot, Loader2 } from "lucide-react"
+import { Plus, Settings, Trash2, Bot, Loader2, GitBranch } from "lucide-react"
 import * as Dialog from "@radix-ui/react-dialog"
 import * as AlertDialog from "@radix-ui/react-alert-dialog"
+import { useRouter } from "next/navigation"
 import { BotConfigModal } from "@/components/bots/BotConfigModal"
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -140,6 +141,7 @@ interface BotCardProps {
 }
 
 function BotCard({ bot, onDelete, onUpdated }: BotCardProps) {
+  const router = useRouter()
   const [configOpen, setConfigOpen] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [deleteOpen, setDeleteOpen] = useState(false)
@@ -198,6 +200,14 @@ function BotCard({ bot, onDelete, onUpdated }: BotCardProps) {
           >
             <Settings className="h-3.5 w-3.5" />
             Configurar
+          </button>
+
+          <button
+            onClick={() => router.push(`/dashboard/bots/${bot.id}/flow`)}
+            className="flex items-center gap-1.5 h-8 px-3 rounded-md border border-gray-300 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+          >
+            <GitBranch className="h-3.5 w-3.5" />
+            Fluxo
           </button>
 
           <AlertDialog.Root open={deleteOpen} onOpenChange={setDeleteOpen}>

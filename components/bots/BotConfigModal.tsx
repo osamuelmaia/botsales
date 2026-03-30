@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react"
 import { toast } from "sonner"
 import {
-  Eye, EyeOff, CheckCircle2, XCircle, Loader2, Check, GitBranch,
+  Eye, EyeOff, CheckCircle2, XCircle, Loader2, Check,
 } from "lucide-react"
 import * as Dialog from "@radix-ui/react-dialog"
 import * as Checkbox from "@radix-ui/react-checkbox"
@@ -140,8 +140,8 @@ export function BotConfigModal({ botId, open, onOpenChange, onSaved }: Props) {
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
-        <Dialog.Overlay className="fixed inset-0 bg-black/40 z-50" />
-        <Dialog.Content className="fixed z-50 right-0 top-0 h-full w-full max-w-md bg-white shadow-xl flex flex-col focus:outline-none">
+        <Dialog.Overlay className="fixed inset-0 bg-black/40 z-50 data-[state=open]:animate-fade-in data-[state=closed]:animate-fade-out" />
+        <Dialog.Content className="fixed z-50 right-0 top-0 h-full w-full max-w-md bg-white shadow-xl flex flex-col focus:outline-none data-[state=open]:animate-slide-in-right data-[state=closed]:animate-slide-out-right">
           {/* Header */}
           <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 shrink-0">
             <div>
@@ -311,18 +311,6 @@ export function BotConfigModal({ botId, open, onOpenChange, onSaved }: Props) {
                   </button>
                 </div>
 
-                {/* Flow builder link */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    onOpenChange(false)
-                    router.push(`/dashboard/bots/${botId}/flow`)
-                  }}
-                  className="w-full flex items-center justify-center gap-2 h-9 rounded-md border border-gray-300 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-                >
-                  <GitBranch className="h-4 w-4" />
-                  Abrir Editor de Fluxo
-                </button>
               </form>
             )}
           </div>
