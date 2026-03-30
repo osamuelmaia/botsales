@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { botUpdateSchema } from "@/lib/validations/bot"
 import { encryptToken, decryptToken } from "@/lib/utils"
+import { registerWebhook, deleteWebhook } from "@/lib/bot-runner"
 
 type Params = { params: { id: string } }
 
@@ -60,6 +61,25 @@ export async function PATCH(request: Request, { params }: Params) {
   if (name !== undefined) updateData.name = name
   if (token !== undefined) updateData.tokenEncrypted = encryptToken(token)
   if (isActive !== undefined) updateData.isActive = isActive
+
+  // Handle webhook registration before saving
+  if (isActive !== undefined) {
+    const currentToken = token
+      ? token
+      : decryptToken(existing.tokenEncrypted)
+
+    if (isActive) {
+      const result = await registerWebhook(currentToken, params.id)
+      if (!result.ok) {
+        return NextResponse.json(
+          { error: `Não foi possível iniciar o bot: ${result.description ?? "verifique o token"}` },
+          { status: 400 }
+        )
+      }
+    } else {
+      await deleteWebhook(currentToken)
+    }
+  }
 
   const bot = await prisma.bot.update({
     where: { id: params.id },
