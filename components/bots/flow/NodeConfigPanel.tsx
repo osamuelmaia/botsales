@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from "react"
 import { Node } from "@xyflow/react"
 import {
   X, Loader2, CheckCircle2, AlertCircle, Type, ImageIcon, Trash2, Plus, GripVertical,
-  UploadCloud, Link2, Check,
+  UploadCloud, Link2, Check, Film,
 } from "lucide-react"
 import {
   DndContext,
@@ -26,9 +26,9 @@ import { CSS } from "@dnd-kit/utilities"
 
 interface Block {
   id: string
-  type: "text" | "image"
+  type: "text" | "image" | "video"
   content: string
-  mediaId?: string // DB id for uploaded images (for deletion)
+  mediaId?: string // DB id for uploaded images/videos (for deletion)
 }
 
 interface Product {
@@ -46,8 +46,10 @@ interface NodeConfigPanelProps {
   onClose: () => void
 }
 
-const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"]
-const MAX_SIZE = 4 * 1024 * 1024 // 4 MB
+const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"]
+const ALLOWED_VIDEO_TYPES = ["video/mp4", "video/webm"]
+const IMAGE_MAX_SIZE = 4 * 1024 * 1024  // 4 MB
+const VIDEO_MAX_SIZE = 50 * 1024 * 1024 // 50 MB
 
 const inputCls =
   "w-full h-9 rounded-md border border-gray-300 px-3 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent"
@@ -73,11 +75,11 @@ function ImageUploadBlock({
   async function uploadFile(file: File) {
     setError("")
 
-    if (!ALLOWED_TYPES.includes(file.type)) {
+    if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
       setError("Formato inválido. Use JPEG, PNG, WebP ou GIF.")
       return
     }
-    if (file.size > MAX_SIZE) {
+    if (file.size > IMAGE_MAX_SIZE) {
       setError(`Arquivo muito grande. Máximo 4 MB.`)
       return
     }
@@ -158,7 +160,7 @@ function ImageUploadBlock({
       <input
         ref={inputRef}
         type="file"
-        accept={ALLOWED_TYPES.join(",")}
+        accept={ALLOWED_IMAGE_TYPES.join(",")}
         className="hidden"
         onChange={(e) => {
           const file = e.target.files?.[0]
@@ -167,6 +169,121 @@ function ImageUploadBlock({
         }}
       />
 
+      {error && (
+        <p className="text-xs text-red-500 mt-1.5 flex items-center gap-1">
+          <AlertCircle className="h-3 w-3 shrink-0" />
+          {error}
+        </p>
+      )}
+    </div>
+  )
+}
+
+// ─── VideoUploadBlock ─────────────────────────────────────────────────────────
+
+function VideoUploadBlock({
+  block,
+  onUploaded,
+  onRemove,
+}: {
+  block: Block
+  onUploaded: (content: string, mediaId: string) => void
+  onRemove: () => void
+}) {
+  const [uploading, setUploading] = useState(false)
+  const [error, setError] = useState("")
+  const [dragOver, setDragOver] = useState(false)
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  async function uploadFile(file: File) {
+    setError("")
+    if (!ALLOWED_VIDEO_TYPES.includes(file.type)) {
+      setError("Formato inválido. Use MP4 ou WebM.")
+      return
+    }
+    if (file.size > VIDEO_MAX_SIZE) {
+      setError("Arquivo muito grande. Máximo 50 MB.")
+      return
+    }
+    setUploading(true)
+    const form = new FormData()
+    form.append("file", file)
+    try {
+      const res = await fetch("/api/media/upload", { method: "POST", body: form })
+      const json = await res.json()
+      if (!res.ok) {
+        setError(json.error ?? "Erro ao enviar vídeo")
+        return
+      }
+      onUploaded(json.url, json.id)
+    } catch {
+      setError("Erro de conexão. Tente novamente.")
+    } finally {
+      setUploading(false)
+    }
+  }
+
+  function handleDrop(e: React.DragEvent) {
+    e.preventDefault()
+    setDragOver(false)
+    const file = e.dataTransfer.files?.[0]
+    if (file) uploadFile(file)
+  }
+
+  if (block.content) {
+    return (
+      <div className="relative rounded-md overflow-hidden border border-gray-200">
+        {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
+        <video
+          src={block.content}
+          controls
+          className="w-full max-h-40 bg-gray-900 object-contain"
+        />
+        <button
+          type="button"
+          onClick={onRemove}
+          className="absolute top-1.5 right-1.5 h-6 w-6 rounded-full bg-black/60 text-white flex items-center justify-center hover:bg-black/80 transition-colors"
+        >
+          <X className="h-3.5 w-3.5" />
+        </button>
+      </div>
+    )
+  }
+
+  return (
+    <div className="p-2">
+      <div
+        onDragOver={(e) => { e.preventDefault(); setDragOver(true) }}
+        onDragLeave={() => setDragOver(false)}
+        onDrop={handleDrop}
+        onClick={() => inputRef.current?.click()}
+        className={`flex flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed py-5 cursor-pointer transition-colors ${
+          dragOver
+            ? "border-purple-400 bg-purple-50"
+            : "border-gray-200 hover:border-purple-300 hover:bg-gray-50"
+        }`}
+      >
+        {uploading ? (
+          <Loader2 className="h-5 w-5 text-purple-500 animate-spin" />
+        ) : (
+          <Film className="h-5 w-5 text-gray-400" />
+        )}
+        <p className="text-xs text-gray-500 text-center">
+          {uploading ? "Enviando..." : "Arraste ou clique para enviar"}
+        </p>
+        <p className="text-[10px] text-gray-400">MP4, WebM · máx. 50 MB</p>
+      </div>
+      <input
+        ref={inputRef}
+        type="file"
+        accept={ALLOWED_VIDEO_TYPES.join(",")}
+        className="hidden"
+        onChange={(e) => {
+          const file = e.target.files?.[0]
+          if (file) uploadFile(file)
+          e.target.value = ""
+        }}
+      />
       {error && (
         <p className="text-xs text-red-500 mt-1.5 flex items-center gap-1">
           <AlertCircle className="h-3 w-3 shrink-0" />
@@ -223,11 +340,13 @@ function SortableBlock({
 
         {block.type === "image" ? (
           <ImageIcon className="h-3 w-3 text-blue-500 shrink-0" />
+        ) : block.type === "video" ? (
+          <Film className="h-3 w-3 text-purple-500 shrink-0" />
         ) : (
           <Type className="h-3 w-3 text-blue-500 shrink-0" />
         )}
         <span className="text-xs font-medium text-gray-600 flex-1">
-          {block.type === "image" ? "Imagem" : "Texto"}
+          {block.type === "image" ? "Imagem" : block.type === "video" ? "Vídeo" : "Texto"}
         </span>
 
         <button
@@ -251,6 +370,12 @@ function SortableBlock({
             placeholder="Digite o texto da mensagem..."
           />
         </div>
+      ) : block.type === "video" ? (
+        <VideoUploadBlock
+          block={block}
+          onUploaded={onUploaded}
+          onRemove={() => onUpdate("")}
+        />
       ) : (
         <ImageUploadBlock
           block={block}
@@ -411,7 +536,7 @@ export function NodeConfigPanel({
     }
   }
 
-  function addBlock(type: "text" | "image") {
+  function addBlock(type: "text" | "image" | "video") {
     setBlocks((prev) => [...prev, { id: crypto.randomUUID(), type, content: "" }])
   }
 
@@ -590,6 +715,15 @@ export function NodeConfigPanel({
                 <Plus className="h-3 w-3" />
                 <ImageIcon className="h-3 w-3" />
                 Imagem
+              </button>
+              <button
+                type="button"
+                onClick={() => addBlock("video")}
+                className="flex-1 flex items-center justify-center gap-1.5 h-8 rounded-md border border-dashed border-gray-300 text-xs text-gray-500 hover:border-purple-400 hover:text-purple-600 hover:bg-purple-50 transition-colors"
+              >
+                <Plus className="h-3 w-3" />
+                <Film className="h-3 w-3" />
+                Vídeo
               </button>
             </div>
 

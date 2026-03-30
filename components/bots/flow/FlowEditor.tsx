@@ -13,6 +13,7 @@ import {
   Edge,
   Node,
   NodeTypes,
+  EdgeTypes,
   BackgroundVariant,
 } from "@xyflow/react"
 import "@xyflow/react/dist/style.css"
@@ -20,10 +21,10 @@ import { toast } from "sonner"
 import { Save, Loader2, MessageSquare, Clock, CreditCard, ArrowLeft, AlertCircle } from "lucide-react"
 import { useRouter } from "next/navigation"
 
-import { StartNode, MessageNode, DelayNode, PaymentNode } from "./nodes"
+import { StartNode, MessageNode, DelayNode, PaymentNode, edgeTypes } from "./nodes"
 import { NodeConfigPanel } from "./NodeConfigPanel"
 
-// ─── nodeTypes MUST be defined outside component ──────────────────────────────
+// ─── nodeTypes / edgeTypes MUST be defined outside component ─────────────────
 
 const nodeTypes: NodeTypes = {
   start: StartNode,
@@ -31,6 +32,8 @@ const nodeTypes: NodeTypes = {
   delay: DelayNode,
   payment: PaymentNode,
 }
+
+const typedEdgeTypes: EdgeTypes = edgeTypes
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -156,7 +159,7 @@ export function FlowEditor({ botId, botName, botChannelId, products }: FlowEdito
 
   const onConnect = useCallback(
     (connection: Connection) =>
-      setEdges((eds) => addEdge({ ...connection, id: crypto.randomUUID() }, eds)),
+      setEdges((eds) => addEdge({ ...connection, id: crypto.randomUUID(), type: "deletable" }, eds)),
     [setEdges]
   )
 
@@ -225,6 +228,7 @@ export function FlowEditor({ botId, botName, botChannelId, products }: FlowEdito
           id: crypto.randomUUID(),
           source: sourceNode.id,
           target: newNode.id,
+          type: "deletable",
           sourceHandle: null,
           targetHandle: null,
         }
@@ -336,6 +340,8 @@ export function FlowEditor({ botId, botName, botChannelId, products }: FlowEdito
             onNodeClick={onNodeClick}
             onPaneClick={onPaneClick}
             nodeTypes={nodeTypes}
+            edgeTypes={typedEdgeTypes}
+            defaultEdgeOptions={{ type: "deletable" }}
             fitView
             deleteKeyCode={["Backspace", "Delete"]}
             className="bg-gray-50"

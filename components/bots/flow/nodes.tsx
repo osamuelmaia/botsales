@@ -1,14 +1,61 @@
 "use client"
 
-import { memo } from "react"
-import { Handle, Position, NodeProps, useReactFlow } from "@xyflow/react"
-import { Zap, MessageSquare, Clock, CreditCard, X, AlertCircle, CheckCircle2, Image, Type } from "lucide-react"
+import { memo, useState } from "react"
+import { Handle, Position, NodeProps, useReactFlow, BaseEdge, EdgeLabelRenderer, getBezierPath, EdgeProps } from "@xyflow/react"
+import { Zap, MessageSquare, Clock, CreditCard, X, AlertCircle, CheckCircle2, Image, Type, Film } from "lucide-react"
 
 interface Block {
   id: string
-  type: "text" | "image"
+  type: "text" | "image" | "video"
   content: string
 }
+
+// ─── DeletableEdge ────────────────────────────────────────────────────────────
+
+function DeletableEdge({ id, sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition, markerEnd, style }: EdgeProps) {
+  const { deleteElements } = useReactFlow()
+  const [hovered, setHovered] = useState(false)
+  const [edgePath, labelX, labelY] = getBezierPath({ sourceX, sourceY, sourcePosition, targetX, targetY, targetPosition })
+
+  return (
+    <>
+      <BaseEdge
+        path={edgePath}
+        markerEnd={markerEnd}
+        style={{ ...style, stroke: hovered ? "#94a3b8" : "#b1b1b7", strokeWidth: hovered ? 2 : 1.5, transition: "stroke 0.15s" }}
+      />
+      {/* Transparent thick path for wider hover detection */}
+      <path
+        d={edgePath}
+        strokeWidth={20}
+        stroke="transparent"
+        fill="none"
+        onMouseEnter={() => setHovered(true)}
+        onMouseLeave={() => setHovered(false)}
+      />
+      <EdgeLabelRenderer>
+        <div
+          style={{ transform: `translate(-50%, -50%) translate(${labelX}px,${labelY}px)`, pointerEvents: "all" }}
+          className={`absolute nodrag nopan transition-opacity duration-150 ${hovered ? "opacity-100" : "opacity-0"}`}
+          onMouseEnter={() => setHovered(true)}
+          onMouseLeave={() => setHovered(false)}
+        >
+          <button
+            className="h-5 w-5 rounded-full bg-white border border-gray-300 text-gray-400 hover:bg-red-500 hover:text-white hover:border-red-500 flex items-center justify-center shadow-sm transition-colors"
+            onClick={(e) => {
+              e.stopPropagation()
+              deleteElements({ edges: [{ id }] })
+            }}
+          >
+            <X className="h-3 w-3" />
+          </button>
+        </div>
+      </EdgeLabelRenderer>
+    </>
+  )
+}
+
+export const edgeTypes = { deletable: DeletableEdge }
 
 // ─── Shared handle style ──────────────────────────────────────────────────────
 
@@ -127,6 +174,8 @@ export const MessageNode = memo(function MessageNode({
             <div key={block.id} className="flex items-center gap-1.5">
               {block.type === "image" ? (
                 <Image className="h-3 w-3 text-blue-400 shrink-0" />
+              ) : block.type === "video" ? (
+                <Film className="h-3 w-3 text-purple-400 shrink-0" />
               ) : (
                 <Type className="h-3 w-3 text-blue-400 shrink-0" />
               )}
