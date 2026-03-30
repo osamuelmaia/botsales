@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from "react"
 import { Node } from "@xyflow/react"
 import {
   X, Loader2, CheckCircle2, AlertCircle, Type, ImageIcon, Trash2, Plus, GripVertical,
-  UploadCloud,
+  UploadCloud, Link2, Check,
 } from "lucide-react"
 import {
   DndContext,
@@ -258,6 +258,42 @@ function SortableBlock({
           onRemove={() => onUpdate("")}
         />
       )}
+    </div>
+  )
+}
+
+// ─── CheckoutLinkCopy ─────────────────────────────────────────────────────────
+
+function CheckoutLinkCopy({ productId }: { productId: string }) {
+  const [copied, setCopied] = useState(false)
+  const base = typeof window !== "undefined" ? window.location.origin : ""
+  const url = `${base}/checkout/${productId}`
+
+  function copy() {
+    navigator.clipboard.writeText(url)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
+
+  return (
+    <div className="rounded-lg border border-blue-100 bg-blue-50 p-3 space-y-2">
+      <div className="flex items-center gap-1.5">
+        <Link2 className="h-3.5 w-3.5 text-blue-500 shrink-0" />
+        <p className="text-xs font-medium text-blue-700">Link de checkout</p>
+      </div>
+      <p className="text-[11px] text-blue-600 font-mono break-all leading-relaxed">{url}</p>
+      <button
+        type="button"
+        onClick={copy}
+        className={`w-full h-7 rounded-md text-xs font-medium flex items-center justify-center gap-1.5 transition-colors ${
+          copied ? "bg-green-600 text-white" : "bg-blue-600 text-white hover:bg-blue-700"
+        }`}
+      >
+        {copied ? <><Check className="h-3 w-3" /> Copiado!</> : <><Link2 className="h-3 w-3" /> Copiar link</>}
+      </button>
+      <p className="text-[10px] text-blue-500">
+        O bot deve enviar este link ao cliente quando chegar neste nó.
+      </p>
     </div>
   )
 }
@@ -603,6 +639,11 @@ export function NodeConfigPanel({
                 Após aprovação, o cliente recebe acesso ao grupo configurado no nó de Início.
               </p>
             </div>
+
+            {/* Checkout link */}
+            {productId && (
+              <CheckoutLinkCopy productId={productId} />
+            )}
           </div>
         )}
       </div>

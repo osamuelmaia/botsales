@@ -49,7 +49,8 @@ interface AsaasSubscription {
 }
 
 interface AsaasQrCode {
-  payload: string   // PIX copia-e-cola
+  encodedImage: string // base64 PNG
+  payload: string      // PIX copia-e-cola
   expirationDate: string
 }
 
@@ -141,6 +142,41 @@ async function findOrCreateCustomer(params: CustomerParams): Promise<string> {
 
 export const GatewayService = {
   /**
+   * Tokeniza cartão de crédito no Asaas (server-side).
+   * Retorna um token seguro para uso em createSubscription.
+   */
+  async tokenizeCard(params: {
+    holderName: string
+    number: string
+    expiryMonth: string
+    expiryYear: string
+    ccv: string
+    customerName: string
+    customerEmail: string
+    customerCpfCnpj: string
+    postalCode: string
+    phone: string
+  }): Promise<string> {
+    const result = await asaasPost<{ creditCardToken: string }>("/creditCards/tokenize", {
+      creditCard: {
+        holderName: params.holderName,
+        number: params.number.replace(/\s/g, ""),
+        expiryMonth: params.expiryMonth,
+        expiryYear: params.expiryYear,
+        ccv: params.ccv,
+      },
+      creditCardHolderInfo: {
+        name: params.customerName,
+        email: params.customerEmail,
+        cpfCnpj: params.customerCpfCnpj.replace(/\D/g, ""),
+        postalCode: params.postalCode.replace(/\D/g, ""),
+        phone: params.phone.replace(/\D/g, ""),
+      },
+    })
+    return result.creditCardToken
+  },
+
+  /**
    * Cria cobrança PIX avulsa.
    * Retorna o código copia-e-cola e a data de expiração.
    */
@@ -151,7 +187,7 @@ export const GatewayService = {
     amountCents: number
     description: string
     externalReference: string
-  }): Promise<{ id: string; pixCode: string; expiresAt: Date }> {
+  }): Promise<{ id: string; pixCode: string; pixQrCodeBase64: string; expiresAt: Date }> {
     const customerId = await findOrCreateCustomer({
       name: params.customerName,
       email: params.customerEmail,
@@ -177,7 +213,12 @@ export const GatewayService = {
       ? new Date(qrCode.expirationDate)
       : new Date(`${dueDate}T23:59:59`)
 
-    return { id: payment.id, pixCode: qrCode.payload, expiresAt }
+    return {
+      id: payment.id,
+      pixCode: qrCode.payload,
+      pixQrCodeBase64: qrCode.encodedImage,
+      expiresAt,
+    }
   },
 
   /**

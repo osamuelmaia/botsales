@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
-import { Plus, Pencil, Trash2, X } from "lucide-react"
+import { Plus, Pencil, Trash2, X, Link2, Check } from "lucide-react"
 import * as Dialog from "@radix-ui/react-dialog"
 import * as AlertDialog from "@radix-ui/react-alert-dialog"
 import { toast } from "sonner"
@@ -19,6 +19,28 @@ function formatPrice(cents: number) {
 const methodLabel: Record<string, string> = {
   PIX: "PIX",
   CREDIT_CARD: "Cartão",
+}
+
+function CopyCheckoutLink({ productId }: { productId: string }) {
+  const [copied, setCopied] = useState(false)
+  const url = `${process.env.NEXT_PUBLIC_APP_URL ?? window.location.origin}/checkout/${productId}`
+
+  function copy() {
+    navigator.clipboard.writeText(url)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
+
+  return (
+    <button
+      onClick={copy}
+      title="Copiar link de checkout"
+      className="flex items-center gap-1.5 h-7 px-2.5 rounded-md border border-gray-200 text-xs text-gray-500 hover:border-gray-400 hover:text-gray-700 transition-colors"
+    >
+      {copied ? <Check className="h-3 w-3 text-green-600" /> : <Link2 className="h-3 w-3" />}
+      {copied ? "Copiado!" : "Link"}
+    </button>
+  )
 }
 
 // ─── Skeleton ─────────────────────────────────────────────────────────────────
@@ -169,6 +191,10 @@ export default function ProductsPage() {
               <p className="text-xl font-bold text-gray-900">
                 {formatPrice(product.priceInCents)}
               </p>
+
+              <div className="flex items-center gap-2 pt-1">
+                <CopyCheckoutLink productId={product.id!} />
+              </div>
 
               <div className="flex flex-wrap gap-1.5">
                 {product.paymentMethods.map((m) => (
