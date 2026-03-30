@@ -3,9 +3,10 @@
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
-import { Plus, Settings, GitBranch, Trash2, Bot, Loader2 } from "lucide-react"
+import { Plus, Settings, Trash2, Bot, Loader2 } from "lucide-react"
 import * as Dialog from "@radix-ui/react-dialog"
 import * as AlertDialog from "@radix-ui/react-alert-dialog"
+import { BotConfigModal } from "@/components/bots/BotConfigModal"
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -39,7 +40,7 @@ function BotCardSkeleton() {
 // ─── New Bot Form ─────────────────────────────────────────────────────────────
 
 interface NewBotFormProps {
-  onSuccess: (botId: string) => void
+  onSuccess: () => void
   onClose: () => void
 }
 
@@ -68,8 +69,8 @@ function NewBotForm({ onSuccess, onClose }: NewBotFormProps) {
       return
     }
 
-    toast.success("Bot criado! Configure os detalhes abaixo.")
-    onSuccess(json.id)
+    toast.success("Bot criado! Clique em Configurar para ajustar os detalhes.")
+    onSuccess()
   }
 
   return (
@@ -136,10 +137,11 @@ function NewBotForm({ onSuccess, onClose }: NewBotFormProps) {
 interface BotCardProps {
   bot: BotListItem
   onDelete: (id: string) => void
+  onUpdated: () => void
 }
 
-function BotCard({ bot, onDelete }: BotCardProps) {
-  const router = useRouter()
+function BotCard({ bot, onDelete, onUpdated }: BotCardProps) {
+  const [configOpen, setConfigOpen] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [deleteOpen, setDeleteOpen] = useState(false)
 
@@ -160,46 +162,46 @@ function BotCard({ bot, onDelete }: BotCardProps) {
   }
 
   return (
-    <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
-      <div className="flex items-start justify-between mb-1">
-        <h3 className="font-semibold text-gray-900 text-base leading-tight">
-          {bot.name}
-        </h3>
-        <span
-          className={`text-xs font-medium px-2 py-0.5 rounded-full ${
-            bot.isActive
-              ? "bg-green-100 text-green-700"
-              : "bg-gray-100 text-gray-500"
-          }`}
-        >
-          {bot.isActive ? "Ativo" : "Inativo"}
-        </span>
-      </div>
+    <>
+      <BotConfigModal
+        botId={bot.id}
+        open={configOpen}
+        onOpenChange={setConfigOpen}
+        onSaved={onUpdated}
+      />
 
-      <p className="text-sm text-gray-400 mb-4">
-        {bot._count.botProducts === 0
-          ? "Nenhum produto vinculado"
-          : `${bot._count.botProducts} produto${bot._count.botProducts > 1 ? "s" : ""} vinculado${bot._count.botProducts > 1 ? "s" : ""}`}
-      </p>
+      <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
+        <div className="flex items-start justify-between mb-1">
+          <h3 className="font-semibold text-gray-900 text-base leading-tight">
+            {bot.name}
+          </h3>
+          <span
+            className={`text-xs font-medium px-2 py-0.5 rounded-full ${
+              bot.isActive
+                ? "bg-green-100 text-green-700"
+                : "bg-gray-100 text-gray-500"
+            }`}
+          >
+            {bot.isActive ? "Ativo" : "Inativo"}
+          </span>
+        </div>
 
-      <div className="flex items-center gap-2">
-        <button
-          onClick={() => router.push(`/dashboard/bots/${bot.id}`)}
-          className="flex items-center gap-1.5 h-8 px-3 rounded-md border border-gray-300 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-        >
-          <Settings className="h-3.5 w-3.5" />
-          Configurar
-        </button>
+        <p className="text-sm text-gray-400 mb-4">
+          {bot._count.botProducts === 0
+            ? "Nenhum produto vinculado"
+            : `${bot._count.botProducts} produto${bot._count.botProducts > 1 ? "s" : ""} vinculado${bot._count.botProducts > 1 ? "s" : ""}`}
+        </p>
 
-        <button
-          onClick={() => router.push(`/dashboard/bots/${bot.id}/flow`)}
-          className="flex items-center gap-1.5 h-8 px-3 rounded-md border border-gray-300 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-        >
-          <GitBranch className="h-3.5 w-3.5" />
-          Editor de Fluxo
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setConfigOpen(true)}
+            className="flex items-center gap-1.5 h-8 px-3 rounded-md border border-gray-300 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+          >
+            <Settings className="h-3.5 w-3.5" />
+            Configurar
+          </button>
 
-        <AlertDialog.Root open={deleteOpen} onOpenChange={setDeleteOpen}>
+          <AlertDialog.Root open={deleteOpen} onOpenChange={setDeleteOpen}>
           <AlertDialog.Trigger asChild>
             <button className="ml-auto h-8 w-8 flex items-center justify-center rounded-md border border-gray-200 text-gray-400 hover:border-red-300 hover:text-red-500 transition-colors">
               <Trash2 className="h-3.5 w-3.5" />
@@ -234,32 +236,34 @@ function BotCard({ bot, onDelete }: BotCardProps) {
               </div>
             </AlertDialog.Content>
           </AlertDialog.Portal>
-        </AlertDialog.Root>
+          </AlertDialog.Root>
+        </div>
       </div>
-    </div>
+    </>
   )
 }
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function BotsPage() {
-  const router = useRouter()
   const [bots, setBots] = useState<BotListItem[]>([])
   const [loading, setLoading] = useState(true)
   const [open, setOpen] = useState(false)
 
-  useEffect(() => {
+  function loadBots() {
     fetch("/api/bots")
       .then((r) => r.json())
       .then((data) => {
         if (Array.isArray(data)) setBots(data)
       })
       .finally(() => setLoading(false))
-  }, [])
+  }
 
-  function handleNewBot(botId: string) {
+  useEffect(() => { loadBots() }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  function handleNewBot() {
     setOpen(false)
-    router.push(`/dashboard/bots/${botId}`)
+    loadBots()
   }
 
   function handleDelete(id: string) {
@@ -336,7 +340,7 @@ export default function BotsPage() {
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {bots.map((bot) => (
-            <BotCard key={bot.id} bot={bot} onDelete={handleDelete} />
+            <BotCard key={bot.id} bot={bot} onDelete={handleDelete} onUpdated={loadBots} />
           ))}
         </div>
       )}
