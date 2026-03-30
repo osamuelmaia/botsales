@@ -205,10 +205,15 @@ export const PaymentNode = memo(function PaymentNode({
   data,
   selected,
 }: NodeProps) {
-  const productName = (data as { productName?: string }).productName ?? ""
+  const d = data as { productName?: string; image?: string; text?: string; ctaText?: string }
+  const productName = d.productName ?? ""
+  const hasImage = !!d.image
+  const text = d.text ?? ""
+  const ctaText = d.ctaText || "Pagar agora"
+
   return (
     <div
-      className={`group relative bg-white rounded-xl border-2 shadow-md min-w-[200px] transition-colors ${
+      className={`group relative bg-white rounded-xl border-2 shadow-md min-w-[200px] max-w-[260px] transition-colors ${
         selected ? "border-violet-500" : "border-violet-200"
       }`}
     >
@@ -216,19 +221,34 @@ export const PaymentNode = memo(function PaymentNode({
       <div className="flex items-center gap-2 px-4 py-3 bg-violet-50 rounded-t-xl border-b border-violet-100">
         <CreditCard className="h-4 w-4 text-violet-600 shrink-0" />
         <span className="text-sm font-semibold text-violet-800">Pagamento</span>
+        {productName && (
+          <span className="ml-auto text-xs text-violet-500 bg-violet-100 px-1.5 py-0.5 rounded font-medium truncate max-w-[80px]">
+            {productName}
+          </span>
+        )}
       </div>
-      <div className="px-4 py-2">
-        <p className="text-xs text-gray-600">
-          {productName ? (
-            <>
-              Produto:{" "}
-              <span className="font-medium text-violet-700">{productName}</span>
-            </>
-          ) : (
-            <span className="italic text-gray-400">Nenhum produto selecionado</span>
-          )}
-        </p>
+
+      <div className="px-4 py-2 space-y-1.5">
+        {!productName ? (
+          <p className="text-xs italic text-gray-400">Nenhum produto selecionado</p>
+        ) : (
+          <>
+            {hasImage && (
+              <div className="flex items-center gap-1.5">
+                <Image className="h-3 w-3 text-violet-400 shrink-0" />
+                <p className="text-xs text-gray-500 truncate">Imagem configurada</p>
+              </div>
+            )}
+            {text && (
+              <p className="text-xs text-gray-600 line-clamp-2">{text}</p>
+            )}
+            <div className="mt-1 bg-violet-600 rounded-md px-2 py-1 text-center">
+              <span className="text-[10px] text-white font-medium">{ctaText}</span>
+            </div>
+          </>
+        )}
       </div>
+
       {/* Labels das saídas */}
       <div className="flex flex-col items-end px-4 pb-2 gap-1">
         <span className="text-[10px] text-green-600 font-medium">Aprovado ●</span>

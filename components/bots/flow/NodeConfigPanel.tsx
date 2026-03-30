@@ -334,6 +334,10 @@ export function NodeConfigPanel({
 
   // Payment node state
   const [productId, setProductId] = useState(String(data.productId ?? ""))
+  const [paymentImage, setPaymentImage] = useState(String(data.image ?? ""))
+  const [paymentImageMediaId, setPaymentImageMediaId] = useState(String(data.imageMediaId ?? ""))
+  const [paymentText, setPaymentText] = useState(String(data.text ?? ""))
+  const [paymentCtaText, setPaymentCtaText] = useState(String(data.ctaText ?? "Pagar agora"))
 
   // Sync when node changes
   useEffect(() => {
@@ -352,6 +356,10 @@ export function NodeConfigPanel({
     setAmount(Number(d.amount ?? 5))
     setUnit(String(d.unit ?? "seconds"))
     setProductId(String(d.productId ?? ""))
+    setPaymentImage(String(d.image ?? ""))
+    setPaymentImageMediaId(String(d.imageMediaId ?? ""))
+    setPaymentText(String(d.text ?? ""))
+    setPaymentCtaText(String(d.ctaText ?? "Pagar agora"))
   }, [node.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ─── Start node ───────────────────────────────────────────────────────────
@@ -435,7 +443,14 @@ export function NodeConfigPanel({
       onUpdate(node.id, { amount, unit })
     } else if (node.type === "payment") {
       const product = products.find((p) => p.id === productId)
-      onUpdate(node.id, { productId, productName: product?.name ?? "" })
+      onUpdate(node.id, {
+        productId,
+        productName: product?.name ?? "",
+        image: paymentImage,
+        imageMediaId: paymentImageMediaId,
+        text: paymentText,
+        ctaText: paymentCtaText || "Pagar agora",
+      })
     }
     onClose()
   }
@@ -621,6 +636,8 @@ export function NodeConfigPanel({
         {/* ── Payment node ───────────────────────────────────────────────── */}
         {node.type === "payment" && (
           <div className="space-y-4">
+
+            {/* Product selection */}
             <div>
               <label className={labelCls}>Produto</label>
               <select
@@ -635,15 +652,60 @@ export function NodeConfigPanel({
                   </option>
                 ))}
               </select>
-              <p className="text-xs text-gray-400 mt-1">
-                Após aprovação, o cliente recebe acesso ao grupo configurado no nó de Início.
-              </p>
             </div>
 
             {/* Checkout link */}
-            {productId && (
-              <CheckoutLinkCopy productId={productId} />
-            )}
+            {productId && <CheckoutLinkCopy productId={productId} />}
+
+            <hr className="border-gray-100" />
+
+            {/* Image */}
+            <div>
+              <label className={labelCls}>Imagem (opcional)</label>
+              <div className="rounded-lg border border-gray-200 bg-gray-50 overflow-hidden">
+                <ImageUploadBlock
+                  block={{ id: "payment-img", type: "image", content: paymentImage, mediaId: paymentImageMediaId }}
+                  onUploaded={(url, mediaId) => {
+                    setPaymentImage(url)
+                    setPaymentImageMediaId(mediaId)
+                  }}
+                  onRemove={() => {
+                    if (paymentImageMediaId) {
+                      fetch(`/api/media/${paymentImageMediaId}`, { method: "DELETE" }).catch(() => {})
+                    }
+                    setPaymentImage("")
+                    setPaymentImageMediaId("")
+                  }}
+                />
+              </div>
+            </div>
+
+            {/* Text */}
+            <div>
+              <label className={labelCls}>Mensagem</label>
+              <textarea
+                value={paymentText}
+                onChange={(e) => setPaymentText(e.target.value)}
+                rows={3}
+                className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent resize-none bg-white"
+                placeholder="Ex: Garanta seu acesso agora! Clique no botão abaixo para pagar."
+              />
+            </div>
+
+            {/* CTA button text */}
+            <div>
+              <label className={labelCls}>Texto do botão</label>
+              <input
+                value={paymentCtaText}
+                onChange={(e) => setPaymentCtaText(e.target.value)}
+                className={inputCls}
+                placeholder="Pagar agora"
+              />
+              <p className="text-xs text-gray-400 mt-1">
+                Botão inline no Telegram que abre o link de checkout.
+              </p>
+            </div>
+
           </div>
         )}
       </div>

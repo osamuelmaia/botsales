@@ -191,7 +191,7 @@ export function FlowEditor({ botId, botName, botChannelId, products }: FlowEdito
         ? { blocks: [{ id: crypto.randomUUID(), type: "text", content: "" }] }
         : type === "delay"
         ? { amount: 5, unit: "seconds" }
-        : { productId: "", productName: "" }
+        : { productId: "", productName: "", image: "", imageMediaId: "", text: "", ctaText: "Pagar agora" }
 
     // Find the source node to connect from:
     // 1. Currently selected node (if it has a source handle)
