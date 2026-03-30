@@ -20,7 +20,6 @@ interface BotDetail {
   id: string
   name: string
   token: string
-  channelId: string | null
   isActive: boolean
   productIds: string[]
 }
@@ -61,7 +60,6 @@ export default function BotConfigPage() {
   // Form state
   const [name, setName] = useState("")
   const [token, setToken] = useState("")
-  const [channelId, setChannelId] = useState("")
   const [productIds, setProductIds] = useState<string[]>([])
   const [isActive, setIsActive] = useState(false)
 
@@ -84,7 +82,6 @@ export default function BotConfigPage() {
         setBot(botData)
         setName(botData.name)
         setToken(botData.token)
-        setChannelId(botData.channelId ?? "")
         setProductIds(botData.productIds)
         setIsActive(botData.isActive)
 
@@ -136,7 +133,6 @@ export default function BotConfigPage() {
       body: JSON.stringify({
         name,
         token,
-        channelId: channelId || undefined,
         productIds,
         isActive,
       }),
@@ -260,23 +256,6 @@ export default function BotConfigPage() {
                 <p className="text-xs text-red-500">{validation.error}</p>
               </div>
             )}
-          </div>
-
-          {/* Channel ID */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              ID do canal{" "}
-              <span className="text-gray-400 font-normal">(opcional)</span>
-            </label>
-            <input
-              value={channelId}
-              onChange={(e) => setChannelId(e.target.value)}
-              className="w-full h-10 rounded-md border border-gray-300 px-3 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent"
-              placeholder="Ex: -1001234567890"
-            />
-            <p className="text-xs text-gray-400 mt-1">
-              Canal no Telegram onde leads serão redirecionados após a compra.
-            </p>
           </div>
 
           {/* Active toggle */}

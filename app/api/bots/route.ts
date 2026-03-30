@@ -37,14 +37,13 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: parsed.error.issues[0].message }, { status: 400 })
   }
 
-  const { name, token, channelId, productIds } = parsed.data
+  const { name, token, productIds } = parsed.data
 
   const bot = await prisma.bot.create({
     data: {
       userId: session.user.id,
       name,
       tokenEncrypted: encryptToken(token),
-      channelId: channelId || null,
     },
   })
 

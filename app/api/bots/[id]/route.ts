@@ -30,7 +30,6 @@ export async function GET(_req: Request, { params }: Params) {
     id: bot.id,
     name: bot.name,
     token: decryptToken(bot.tokenEncrypted),
-    channelId: bot.channelId,
     isActive: bot.isActive,
     productIds: bot.botProducts.map((bp) => bp.productId),
   })
@@ -55,12 +54,11 @@ export async function PATCH(request: Request, { params }: Params) {
     return NextResponse.json({ error: parsed.error.issues[0].message }, { status: 400 })
   }
 
-  const { name, token, channelId, productIds, isActive } = parsed.data
+  const { name, token, productIds, isActive } = parsed.data
 
   const updateData: Record<string, unknown> = {}
   if (name !== undefined) updateData.name = name
   if (token !== undefined) updateData.tokenEncrypted = encryptToken(token)
-  if (channelId !== undefined) updateData.channelId = channelId || null
   if (isActive !== undefined) updateData.isActive = isActive
 
   const bot = await prisma.bot.update({
