@@ -90,7 +90,6 @@ export function ProductForm({ product, onSuccess }: Props) {
     handleSubmit,
     control,
     watch,
-    setValue,
     formState: { errors, isSubmitting },
   } = form
 
