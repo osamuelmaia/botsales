@@ -93,6 +93,16 @@ NEXT_PUBLIC_APP_URL=
 - ⬜ **Fase 10** — Gateway de pagamento (webhook HMAC, PIX, cartão recorrente)
 - ⬜ **Fase 11** — Bot worker (grammy, BullMQ, fluxo de remarketing, kick por inadimplência)
 
+## Git / Deploy
+- **Token GitHub:** armazenado em `~/.git-credentials` ou configurado via `git remote set-url`
+- Sempre fazer push em **ambas** as branches:
+  ```
+  git push origin claude/setup-saas-base-files-TLr9M
+  git push origin HEAD:main
+  ```
+- Branch de desenvolvimento: `claude/setup-saas-base-files-TLr9M`
+- Branch de produção (Vercel): `main`
+
 ## Padrões de código
 - Validação Zod em **todo input**, client-side E server-side
 - Senhas com bcrypt mínimo **12 rounds**
