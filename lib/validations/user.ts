@@ -8,7 +8,7 @@ export const profileSchema = z.object({
     .string()
     .min(11, "Documento inválido")
     .max(18, "Documento inválido"),
-  phone: z.string().min(10, "Telefone inválido").max(15, "Telefone inválido"),
+  phone: z.string().min(8, "Telefone inválido").max(20, "Telefone inválido"),
   zipCode: z.string().min(8, "CEP inválido").max(9, "CEP inválido"),
   street: z.string().min(2, "Informe o logradouro"),
   number: z.string().min(1, "Informe o número"),

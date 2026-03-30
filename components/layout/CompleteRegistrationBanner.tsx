@@ -1,7 +1,7 @@
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { AlertCircle } from "lucide-react"
-import Link from "next/link"
+import { CompleteRegistrationModal } from "./CompleteRegistrationModal"
 
 export async function CompleteRegistrationBanner() {
   const session = await auth()
@@ -22,12 +22,7 @@ export async function CompleteRegistrationBanner() {
           Complete seu cadastro para começar a receber pagamentos.
         </p>
       </div>
-      <Link
-        href="/dashboard/settings"
-        className="text-sm font-semibold text-amber-900 underline underline-offset-2 hover:no-underline shrink-0"
-      >
-        Completar agora →
-      </Link>
+      <CompleteRegistrationModal />
     </div>
   )
 }
