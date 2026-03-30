@@ -193,16 +193,48 @@ export function FlowEditor({ botId, botName, botChannelId, products }: FlowEdito
         ? { amount: 5, unit: "seconds" }
         : { productId: "", productName: "" }
 
+    // Find the source node to connect from:
+    // 1. Currently selected node (if it has a source handle)
+    // 2. Otherwise, the last node in the chain (no outgoing edges)
+    const sourceNode: Node | undefined = (() => {
+      if (selectedNode && selectedNode.type !== "payment") return selectedNode
+      // Find node with no outgoing edge (tail of the chain)
+      const nodesWithEdge = new Set(edges.map((e) => e.source))
+      const tail = nodes.filter((n) => n.type !== "payment" && !nodesWithEdge.has(n.id))
+      // Prefer the rightmost tail node
+      return tail.sort((a, b) => b.position.x - a.position.x)[0]
+    })()
+
+    const NODE_WIDTH = 240
+    const H_GAP = 80
+
+    const position = sourceNode
+      ? { x: sourceNode.position.x + NODE_WIDTH + H_GAP, y: sourceNode.position.y }
+      : { x: 200 + Math.random() * 100, y: 200 + Math.random() * 100 }
+
     const newNode: Node = {
       id: crypto.randomUUID(),
       type,
-      position: {
-        x: 200 + Math.random() * 100,
-        y: 200 + Math.random() * 100,
-      },
+      position,
       data: defaultData,
     }
+
+    // Create edge from source → new node
+    const newEdge: Edge | null = sourceNode
+      ? {
+          id: crypto.randomUUID(),
+          source: sourceNode.id,
+          target: newNode.id,
+          sourceHandle: null,
+          targetHandle: null,
+        }
+      : null
+
     setNodes((nds) => [...nds, newNode])
+    if (newEdge) setEdges((eds) => [...eds, newEdge])
+
+    // Select the new node and open its config panel
+    setSelectedNode(newNode)
   }
 
   // ─── Derived state ────────────────────────────────────────────────────────────
