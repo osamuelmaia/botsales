@@ -1,7 +1,6 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 import { Plus, Settings, Trash2, Bot, Loader2 } from "lucide-react"
 import * as Dialog from "@radix-ui/react-dialog"
