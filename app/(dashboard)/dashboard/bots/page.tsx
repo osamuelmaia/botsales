@@ -193,9 +193,7 @@ function BotCard({ bot, onDelete }: BotCardProps) {
 
         <button
           onClick={() => router.push(`/dashboard/bots/${bot.id}/flow`)}
-          disabled
-          className="flex items-center gap-1.5 h-8 px-3 rounded-md border border-gray-200 text-sm text-gray-400 cursor-not-allowed"
-          title="Em breve"
+          className="flex items-center gap-1.5 h-8 px-3 rounded-md border border-gray-300 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
         >
           <GitBranch className="h-3.5 w-3.5" />
           Editor de Fluxo
