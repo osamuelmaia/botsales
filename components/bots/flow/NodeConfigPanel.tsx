@@ -1,13 +1,34 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { Node } from "@xyflow/react"
-import { X, Loader2, CheckCircle2, AlertCircle, Type, Image, Trash2, ChevronUp, ChevronDown, Plus } from "lucide-react"
+import {
+  X, Loader2, CheckCircle2, AlertCircle, Type, ImageIcon, Trash2, Plus, GripVertical,
+  UploadCloud,
+} from "lucide-react"
+import {
+  DndContext,
+  closestCenter,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from "@dnd-kit/core"
+import {
+  arrayMove,
+  SortableContext,
+  useSortable,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable"
+import { CSS } from "@dnd-kit/utilities"
+
+// ─── Types ────────────────────────────────────────────────────────────────────
 
 interface Block {
   id: string
   type: "text" | "image"
   content: string
+  mediaId?: string // DB id for uploaded images (for deletion)
 }
 
 interface Product {
@@ -25,10 +46,223 @@ interface NodeConfigPanelProps {
   onClose: () => void
 }
 
+const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"]
+const MAX_SIZE = 4 * 1024 * 1024 // 4 MB
+
 const inputCls =
   "w-full h-9 rounded-md border border-gray-300 px-3 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent"
 
 const labelCls = "block text-xs font-medium text-gray-600 mb-1"
+
+// ─── ImageUploadBlock ─────────────────────────────────────────────────────────
+
+function ImageUploadBlock({
+  block,
+  onUploaded,
+  onRemove,
+}: {
+  block: Block
+  onUploaded: (content: string, mediaId: string) => void
+  onRemove: () => void
+}) {
+  const [uploading, setUploading] = useState(false)
+  const [error, setError] = useState("")
+  const [dragOver, setDragOver] = useState(false)
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  async function uploadFile(file: File) {
+    setError("")
+
+    if (!ALLOWED_TYPES.includes(file.type)) {
+      setError("Formato inválido. Use JPEG, PNG, WebP ou GIF.")
+      return
+    }
+    if (file.size > MAX_SIZE) {
+      setError(`Arquivo muito grande. Máximo 4 MB.`)
+      return
+    }
+
+    setUploading(true)
+    const form = new FormData()
+    form.append("file", file)
+
+    try {
+      const res = await fetch("/api/media/upload", { method: "POST", body: form })
+      const json = await res.json()
+      if (!res.ok) {
+        setError(json.error ?? "Erro ao enviar imagem")
+        return
+      }
+      onUploaded(json.url, json.id)
+    } catch {
+      setError("Erro de conexão. Tente novamente.")
+    } finally {
+      setUploading(false)
+    }
+  }
+
+  function handleDrop(e: React.DragEvent) {
+    e.preventDefault()
+    setDragOver(false)
+    const file = e.dataTransfer.files?.[0]
+    if (file) uploadFile(file)
+  }
+
+  if (block.content) {
+    // Show preview
+    return (
+      <div className="relative rounded-md overflow-hidden border border-gray-200">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={block.content}
+          alt="Prévia"
+          className="w-full max-h-40 object-contain bg-gray-50"
+        />
+        <button
+          type="button"
+          onClick={onRemove}
+          className="absolute top-1.5 right-1.5 h-6 w-6 rounded-full bg-black/60 text-white flex items-center justify-center hover:bg-black/80 transition-colors"
+        >
+          <X className="h-3.5 w-3.5" />
+        </button>
+      </div>
+    )
+  }
+
+  return (
+    <div className="p-2">
+      <div
+        onDragOver={(e) => { e.preventDefault(); setDragOver(true) }}
+        onDragLeave={() => setDragOver(false)}
+        onDrop={handleDrop}
+        onClick={() => inputRef.current?.click()}
+        className={`flex flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed py-5 cursor-pointer transition-colors ${
+          dragOver
+            ? "border-blue-400 bg-blue-50"
+            : "border-gray-200 hover:border-blue-300 hover:bg-gray-50"
+        }`}
+      >
+        {uploading ? (
+          <Loader2 className="h-5 w-5 text-blue-500 animate-spin" />
+        ) : (
+          <UploadCloud className="h-5 w-5 text-gray-400" />
+        )}
+        <p className="text-xs text-gray-500 text-center">
+          {uploading
+            ? "Enviando..."
+            : "Arraste ou clique para enviar"}
+        </p>
+        <p className="text-[10px] text-gray-400">JPEG, PNG, WebP, GIF · máx. 4 MB</p>
+      </div>
+
+      <input
+        ref={inputRef}
+        type="file"
+        accept={ALLOWED_TYPES.join(",")}
+        className="hidden"
+        onChange={(e) => {
+          const file = e.target.files?.[0]
+          if (file) uploadFile(file)
+          e.target.value = ""
+        }}
+      />
+
+      {error && (
+        <p className="text-xs text-red-500 mt-1.5 flex items-center gap-1">
+          <AlertCircle className="h-3 w-3 shrink-0" />
+          {error}
+        </p>
+      )}
+    </div>
+  )
+}
+
+// ─── SortableBlock ────────────────────────────────────────────────────────────
+
+function SortableBlock({
+  block,
+  canRemove,
+  onUpdate,
+  onUploaded,
+  onRemove,
+}: {
+  block: Block
+  canRemove: boolean
+  onUpdate: (content: string) => void
+  onUploaded: (content: string, mediaId: string) => void
+  onRemove: () => void
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
+    useSortable({ id: block.id })
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+    zIndex: isDragging ? 10 : undefined,
+  }
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className="rounded-lg border border-gray-200 bg-gray-50 overflow-hidden"
+    >
+      {/* Block header */}
+      <div className="flex items-center gap-1.5 px-2 py-1.5 bg-white border-b border-gray-100">
+        {/* Drag handle */}
+        <button
+          type="button"
+          {...attributes}
+          {...listeners}
+          className="h-5 w-5 flex items-center justify-center text-gray-300 hover:text-gray-500 cursor-grab active:cursor-grabbing touch-none"
+          tabIndex={-1}
+        >
+          <GripVertical className="h-4 w-4" />
+        </button>
+
+        {block.type === "image" ? (
+          <ImageIcon className="h-3 w-3 text-blue-500 shrink-0" />
+        ) : (
+          <Type className="h-3 w-3 text-blue-500 shrink-0" />
+        )}
+        <span className="text-xs font-medium text-gray-600 flex-1">
+          {block.type === "image" ? "Imagem" : "Texto"}
+        </span>
+
+        <button
+          type="button"
+          onClick={onRemove}
+          disabled={!canRemove}
+          className="h-5 w-5 flex items-center justify-center text-gray-300 hover:text-red-500 disabled:opacity-0 transition-colors"
+        >
+          <Trash2 className="h-3.5 w-3.5" />
+        </button>
+      </div>
+
+      {/* Block content */}
+      {block.type === "text" ? (
+        <div className="p-2">
+          <textarea
+            value={block.content}
+            onChange={(e) => onUpdate(e.target.value)}
+            rows={3}
+            className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent resize-none bg-white"
+            placeholder="Digite o texto da mensagem..."
+          />
+        </div>
+      ) : (
+        <ImageUploadBlock
+          block={block}
+          onUploaded={onUploaded}
+          onRemove={() => onUpdate("")}
+        />
+      )}
+    </div>
+  )
+}
+
+// ─── NodeConfigPanel ──────────────────────────────────────────────────────────
 
 export function NodeConfigPanel({
   node,
@@ -65,7 +299,7 @@ export function NodeConfigPanel({
   // Payment node state
   const [productId, setProductId] = useState(String(data.productId ?? ""))
 
-  // Keep local state in sync when node changes
+  // Sync when node changes
   useEffect(() => {
     const d = node.data as Record<string, unknown>
     setChannelIdStart(String(d.channelId ?? ""))
@@ -83,6 +317,8 @@ export function NodeConfigPanel({
     setUnit(String(d.unit ?? "seconds"))
     setProductId(String(d.productId ?? ""))
   }, [node.id]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ─── Start node ───────────────────────────────────────────────────────────
 
   async function validateChannel() {
     if (!channelIdStart.trim()) return
@@ -116,31 +352,45 @@ export function NodeConfigPanel({
     }
   }
 
-  // ─── Block helpers ───────────────────────────────────────────────────────────
+  // ─── Block helpers ────────────────────────────────────────────────────────
+
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }))
+
+  function handleDragEnd(event: DragEndEvent) {
+    const { active, over } = event
+    if (over && active.id !== over.id) {
+      setBlocks((prev) => {
+        const from = prev.findIndex((b) => b.id === active.id)
+        const to = prev.findIndex((b) => b.id === over.id)
+        return arrayMove(prev, from, to)
+      })
+    }
+  }
 
   function addBlock(type: "text" | "image") {
     setBlocks((prev) => [...prev, { id: crypto.randomUUID(), type, content: "" }])
   }
 
-  function updateBlock(id: string, content: string) {
+  function updateBlockContent(id: string, content: string) {
     setBlocks((prev) => prev.map((b) => (b.id === id ? { ...b, content } : b)))
   }
 
-  function removeBlock(id: string) {
+  function handleImageUploaded(id: string, content: string, mediaId: string) {
+    setBlocks((prev) =>
+      prev.map((b) => (b.id === id ? { ...b, content, mediaId } : b))
+    )
+  }
+
+  async function removeBlock(id: string) {
+    const block = blocks.find((b) => b.id === id)
+    // Delete from storage if it has an uploaded image
+    if (block?.mediaId) {
+      fetch(`/api/media/${block.mediaId}`, { method: "DELETE" }).catch(() => {})
+    }
     setBlocks((prev) => prev.filter((b) => b.id !== id))
   }
 
-  function moveBlock(id: string, dir: -1 | 1) {
-    setBlocks((prev) => {
-      const idx = prev.findIndex((b) => b.id === id)
-      if (idx < 0) return prev
-      const next = idx + dir
-      if (next < 0 || next >= prev.length) return prev
-      const arr = [...prev]
-      ;[arr[idx], arr[next]] = [arr[next], arr[idx]]
-      return arr
-    })
-  }
+  // ─── Save ─────────────────────────────────────────────────────────────────
 
   function save() {
     if (node.type === "message") {
@@ -149,13 +399,12 @@ export function NodeConfigPanel({
       onUpdate(node.id, { amount, unit })
     } else if (node.type === "payment") {
       const product = products.find((p) => p.id === productId)
-      onUpdate(node.id, {
-        productId,
-        productName: product?.name ?? "",
-      })
+      onUpdate(node.id, { productId, productName: product?.name ?? "" })
     }
     onClose()
   }
+
+  // ─── Render ───────────────────────────────────────────────────────────────
 
   return (
     <div className="w-80 bg-white border-l border-gray-200 flex flex-col shrink-0 h-full">
@@ -177,20 +426,18 @@ export function NodeConfigPanel({
 
       {/* Body */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
-        {/* Start node */}
+
+        {/* ── Start node ─────────────────────────────────────────────────── */}
         {node.type === "start" && (
           <div className="space-y-4">
-            {/* Bot info */}
             <div className="bg-gray-50 rounded-lg px-3 py-2.5 border border-gray-200">
               <p className="text-xs text-gray-500 mb-0.5">Bot vinculado</p>
               <p className="text-sm font-semibold text-gray-900">{botName}</p>
             </div>
 
-            {/* Group ID */}
             <div>
               <label className={labelCls}>
-                ID do Grupo/Canal{" "}
-                <span className="text-red-500">*</span>
+                ID do Grupo/Canal <span className="text-red-500">*</span>
               </label>
               <div className="flex gap-2">
                 <input
@@ -209,15 +456,10 @@ export function NodeConfigPanel({
                   disabled={validatingChannel || !channelIdStart.trim()}
                   className="h-9 px-3 rounded-md border border-gray-300 text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-40 transition-colors shrink-0"
                 >
-                  {validatingChannel ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    "Validar"
-                  )}
+                  {validatingChannel ? <Loader2 className="h-4 w-4 animate-spin" /> : "Validar"}
                 </button>
               </div>
 
-              {/* Validation feedback */}
               {channelValid === true && (
                 <div className="flex items-center gap-1.5 mt-2">
                   <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
@@ -235,96 +477,58 @@ export function NodeConfigPanel({
 
               <p className="text-xs text-gray-400 mt-1.5">
                 O bot deve ser administrador com permissão para banir membros.
-                Copie o ID do grupo no Telegram (ex: <code className="bg-gray-100 px-0.5 rounded">-100...</code>).
+                Copie o ID do grupo no Telegram (ex:{" "}
+                <code className="bg-gray-100 px-0.5 rounded">-100...</code>).
               </p>
             </div>
           </div>
         )}
 
-        {/* Message node */}
+        {/* ── Message node ───────────────────────────────────────────────── */}
         {node.type === "message" && (
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <label className={labelCls + " mb-0"}>Blocos de conteúdo</label>
-              <span className="text-xs text-gray-400">{blocks.length} bloco{blocks.length !== 1 ? "s" : ""}</span>
+              <span className="text-xs text-gray-400">
+                {blocks.length} bloco{blocks.length !== 1 ? "s" : ""}
+              </span>
             </div>
 
-            {/* Block list */}
-            <div className="space-y-2">
-              {blocks.map((block, idx) => (
-                <div
-                  key={block.id}
-                  className="rounded-lg border border-gray-200 bg-gray-50 overflow-hidden"
-                >
-                  {/* Block header */}
-                  <div className="flex items-center gap-2 px-3 py-2 bg-white border-b border-gray-100">
-                    {block.type === "image" ? (
-                      <Image className="h-3.5 w-3.5 text-blue-500 shrink-0" />
-                    ) : (
-                      <Type className="h-3.5 w-3.5 text-blue-500 shrink-0" />
-                    )}
-                    <span className="text-xs font-medium text-gray-600 flex-1">
-                      {block.type === "image" ? "Imagem" : "Texto"}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => moveBlock(block.id, -1)}
-                      disabled={idx === 0}
-                      className="h-5 w-5 flex items-center justify-center text-gray-400 hover:text-gray-600 disabled:opacity-30 transition-colors"
-                    >
-                      <ChevronUp className="h-3.5 w-3.5" />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => moveBlock(block.id, 1)}
-                      disabled={idx === blocks.length - 1}
-                      className="h-5 w-5 flex items-center justify-center text-gray-400 hover:text-gray-600 disabled:opacity-30 transition-colors"
-                    >
-                      <ChevronDown className="h-3.5 w-3.5" />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => removeBlock(block.id)}
-                      disabled={blocks.length === 1}
-                      className="h-5 w-5 flex items-center justify-center text-gray-400 hover:text-red-500 disabled:opacity-30 transition-colors"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </button>
-                  </div>
-
-                  {/* Block content */}
-                  <div className="p-2">
-                    {block.type === "text" ? (
-                      <textarea
-                        value={block.content}
-                        onChange={(e) => updateBlock(block.id, e.target.value)}
-                        rows={3}
-                        className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent resize-none bg-white"
-                        placeholder="Digite o texto da mensagem..."
-                      />
-                    ) : (
-                      <input
-                        type="url"
-                        value={block.content}
-                        onChange={(e) => updateBlock(block.id, e.target.value)}
-                        className={inputCls + " bg-white"}
-                        placeholder="https://exemplo.com/imagem.jpg"
-                      />
-                    )}
-                  </div>
+            <DndContext
+              sensors={sensors}
+              collisionDetection={closestCenter}
+              onDragEnd={handleDragEnd}
+            >
+              <SortableContext
+                items={blocks.map((b) => b.id)}
+                strategy={verticalListSortingStrategy}
+              >
+                <div className="space-y-2">
+                  {blocks.map((block) => (
+                    <SortableBlock
+                      key={block.id}
+                      block={block}
+                      canRemove={blocks.length > 1}
+                      onUpdate={(content) => updateBlockContent(block.id, content)}
+                      onUploaded={(content, mediaId) =>
+                        handleImageUploaded(block.id, content, mediaId)
+                      }
+                      onRemove={() => removeBlock(block.id)}
+                    />
+                  ))}
                 </div>
-              ))}
-            </div>
+              </SortableContext>
+            </DndContext>
 
-            {/* Add block buttons */}
+            {/* Add block */}
             <div className="flex gap-2">
               <button
                 type="button"
                 onClick={() => addBlock("text")}
                 className="flex-1 flex items-center justify-center gap-1.5 h-8 rounded-md border border-dashed border-gray-300 text-xs text-gray-500 hover:border-blue-400 hover:text-blue-600 hover:bg-blue-50 transition-colors"
               >
-                <Plus className="h-3.5 w-3.5" />
-                <Type className="h-3.5 w-3.5" />
+                <Plus className="h-3 w-3" />
+                <Type className="h-3 w-3" />
                 Texto
               </button>
               <button
@@ -332,20 +536,21 @@ export function NodeConfigPanel({
                 onClick={() => addBlock("image")}
                 className="flex-1 flex items-center justify-center gap-1.5 h-8 rounded-md border border-dashed border-gray-300 text-xs text-gray-500 hover:border-blue-400 hover:text-blue-600 hover:bg-blue-50 transition-colors"
               >
-                <Plus className="h-3.5 w-3.5" />
-                <Image className="h-3.5 w-3.5" />
+                <Plus className="h-3 w-3" />
+                <ImageIcon className="h-3 w-3" />
                 Imagem
               </button>
             </div>
 
             <p className="text-xs text-gray-400">
-              Cada bloco é enviado como uma mensagem separada no Telegram, na ordem acima.
-              Texto suporta <span className="font-mono bg-gray-100 px-0.5 rounded">*negrito*</span>, <span className="font-mono bg-gray-100 px-0.5 rounded">_itálico_</span>.
+              Arraste{" "}
+              <span className="inline-flex items-center"><GripVertical className="h-3 w-3 inline" /></span>{" "}
+              para reordenar. Cada bloco é uma mensagem separada no Telegram.
             </p>
           </div>
         )}
 
-        {/* Delay node */}
+        {/* ── Delay node ─────────────────────────────────────────────────── */}
         {node.type === "delay" && (
           <div className="space-y-3">
             <div>
@@ -377,7 +582,7 @@ export function NodeConfigPanel({
           </div>
         )}
 
-        {/* Payment node */}
+        {/* ── Payment node ───────────────────────────────────────────────── */}
         {node.type === "payment" && (
           <div className="space-y-4">
             <div>
@@ -390,8 +595,7 @@ export function NodeConfigPanel({
                 <option value="">Selecione um produto</option>
                 {products.map((p) => (
                   <option key={p.id} value={p.id}>
-                    {p.name} — R${" "}
-                    {(p.priceInCents / 100).toFixed(2).replace(".", ",")}
+                    {p.name} — R$ {(p.priceInCents / 100).toFixed(2).replace(".", ",")}
                   </option>
                 ))}
               </select>

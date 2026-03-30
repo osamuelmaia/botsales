@@ -87,6 +87,7 @@ model User {
   sales        Sale[]
   withdrawals  Withdrawal[]
   bankAccounts BankAccount[]
+  media        BotMedia[]
 }
 
 model Bot {
@@ -228,6 +229,21 @@ model Withdrawal {
 
   @@index([userId])
   @@index([status])
+}
+
+model BotMedia {
+  id           String   @id @default(cuid())
+  userId       String
+  key          String   @unique
+  url          String
+  mimeType     String
+  sizeBytes    Int
+  originalName String
+  createdAt    DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }
 
 model BankAccount {
