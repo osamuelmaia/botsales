@@ -1,20 +1,37 @@
 "use client"
 
 import { memo } from "react"
-import { Handle, Position, NodeProps } from "@xyflow/react"
-import { Zap, MessageSquare, Clock, CreditCard } from "lucide-react"
+import { Handle, Position, NodeProps, useReactFlow } from "@xyflow/react"
+import { Zap, MessageSquare, Clock, CreditCard, X } from "lucide-react"
 
 // ─── Shared handle style ──────────────────────────────────────────────────────
 
 const handleStyle =
   "!w-3 !h-3 !border-2 !border-white !rounded-full"
 
+// ─── Delete button ────────────────────────────────────────────────────────────
+
+function DeleteButton({ nodeId }: { nodeId: string }) {
+  const { deleteElements } = useReactFlow()
+  return (
+    <button
+      onClick={(e) => {
+        e.stopPropagation()
+        deleteElements({ nodes: [{ id: nodeId }] })
+      }}
+      className="absolute -top-2.5 -right-2.5 h-5 w-5 rounded-full bg-red-500 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-sm hover:bg-red-600 z-10"
+    >
+      <X className="h-3 w-3" />
+    </button>
+  )
+}
+
 // ─── StartNode ────────────────────────────────────────────────────────────────
 
 export const StartNode = memo(function StartNode({ selected }: NodeProps) {
   return (
     <div
-      className={`bg-white rounded-xl border-2 shadow-md min-w-[180px] transition-colors ${
+      className={`relative bg-white rounded-xl border-2 shadow-md min-w-[180px] transition-colors ${
         selected ? "border-emerald-500" : "border-emerald-300"
       }`}
     >
@@ -40,16 +57,18 @@ export const StartNode = memo(function StartNode({ selected }: NodeProps) {
 // ─── MessageNode ──────────────────────────────────────────────────────────────
 
 export const MessageNode = memo(function MessageNode({
+  id,
   data,
   selected,
 }: NodeProps) {
   const text = (data as { text?: string }).text ?? ""
   return (
     <div
-      className={`bg-white rounded-xl border-2 shadow-md min-w-[200px] max-w-[260px] transition-colors ${
+      className={`group relative bg-white rounded-xl border-2 shadow-md min-w-[200px] max-w-[260px] transition-colors ${
         selected ? "border-blue-500" : "border-blue-200"
       }`}
     >
+      <DeleteButton nodeId={id} />
       <div className="flex items-center gap-2 px-4 py-3 bg-blue-50 rounded-t-xl border-b border-blue-100">
         <MessageSquare className="h-4 w-4 text-blue-600 shrink-0" />
         <span className="text-sm font-semibold text-blue-800">Mensagem</span>
@@ -76,6 +95,7 @@ export const MessageNode = memo(function MessageNode({
 // ─── DelayNode ────────────────────────────────────────────────────────────────
 
 export const DelayNode = memo(function DelayNode({
+  id,
   data,
   selected,
 }: NodeProps) {
@@ -84,10 +104,11 @@ export const DelayNode = memo(function DelayNode({
   const unitLabel = unit === "minutes" ? "min" : unit === "hours" ? "h" : "d"
   return (
     <div
-      className={`bg-white rounded-xl border-2 shadow-md min-w-[180px] transition-colors ${
+      className={`group relative bg-white rounded-xl border-2 shadow-md min-w-[180px] transition-colors ${
         selected ? "border-amber-500" : "border-amber-200"
       }`}
     >
+      <DeleteButton nodeId={id} />
       <div className="flex items-center gap-2 px-4 py-3 bg-amber-50 rounded-t-xl border-b border-amber-100">
         <Clock className="h-4 w-4 text-amber-600 shrink-0" />
         <span className="text-sm font-semibold text-amber-800">Aguardar</span>
@@ -118,16 +139,18 @@ export const DelayNode = memo(function DelayNode({
 // ─── PaymentNode ──────────────────────────────────────────────────────────────
 
 export const PaymentNode = memo(function PaymentNode({
+  id,
   data,
   selected,
 }: NodeProps) {
   const productName = (data as { productName?: string }).productName ?? ""
   return (
     <div
-      className={`bg-white rounded-xl border-2 shadow-md min-w-[200px] transition-colors ${
+      className={`group relative bg-white rounded-xl border-2 shadow-md min-w-[200px] transition-colors ${
         selected ? "border-violet-500" : "border-violet-200"
       }`}
     >
+      <DeleteButton nodeId={id} />
       <div className="flex items-center gap-2 px-4 py-3 bg-violet-50 rounded-t-xl border-b border-violet-100">
         <CreditCard className="h-4 w-4 text-violet-600 shrink-0" />
         <span className="text-sm font-semibold text-violet-800">Pagamento</span>
