@@ -476,7 +476,7 @@ export function NodeConfigPanel({
       </div>
 
       {/* Body */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+      <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-4">
 
         {/* ── Start node ─────────────────────────────────────────────────── */}
         {node.type === "start" && (
@@ -639,7 +639,7 @@ export function NodeConfigPanel({
 
             {/* Product selection */}
             <div>
-              <label className={labelCls}>Produto</label>
+              <label className={labelCls}>Produto <span className="text-red-500">*</span></label>
               <select
                 value={productId}
                 onChange={(e) => setProductId(e.target.value)}
@@ -654,57 +654,71 @@ export function NodeConfigPanel({
               </select>
             </div>
 
-            {/* Checkout link */}
-            {productId && <CheckoutLinkCopy productId={productId} />}
-
-            <hr className="border-gray-100" />
-
-            {/* Image */}
-            <div>
-              <label className={labelCls}>Imagem (opcional)</label>
-              <div className="rounded-lg border border-gray-200 bg-gray-50 overflow-hidden">
-                <ImageUploadBlock
-                  block={{ id: "payment-img", type: "image", content: paymentImage, mediaId: paymentImageMediaId }}
-                  onUploaded={(url, mediaId) => {
-                    setPaymentImage(url)
-                    setPaymentImageMediaId(mediaId)
-                  }}
-                  onRemove={() => {
-                    if (paymentImageMediaId) {
-                      fetch(`/api/media/${paymentImageMediaId}`, { method: "DELETE" }).catch(() => {})
-                    }
-                    setPaymentImage("")
-                    setPaymentImageMediaId("")
-                  }}
-                />
-              </div>
-            </div>
-
-            {/* Text */}
-            <div>
-              <label className={labelCls}>Mensagem</label>
-              <textarea
-                value={paymentText}
-                onChange={(e) => setPaymentText(e.target.value)}
-                rows={3}
-                className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent resize-none bg-white"
-                placeholder="Ex: Garanta seu acesso agora! Clique no botão abaixo para pagar."
-              />
-            </div>
-
-            {/* CTA button text */}
-            <div>
-              <label className={labelCls}>Texto do botão</label>
-              <input
-                value={paymentCtaText}
-                onChange={(e) => setPaymentCtaText(e.target.value)}
-                className={inputCls}
-                placeholder="Pagar agora"
-              />
-              <p className="text-xs text-gray-400 mt-1">
-                Botão inline no Telegram que abre o link de checkout.
+            {!productId && (
+              <p className="text-xs text-gray-400 bg-gray-50 rounded-lg px-3 py-2 border border-gray-100">
+                Selecione um produto para configurar a mensagem de venda.
               </p>
-            </div>
+            )}
+
+            {productId && (
+              <>
+                {/* Checkout link */}
+                <CheckoutLinkCopy productId={productId} />
+
+                <hr className="border-gray-100" />
+
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                  Mensagem de venda
+                </p>
+
+                {/* Image */}
+                <div>
+                  <label className={labelCls}>Imagem (opcional)</label>
+                  <div className="rounded-lg border border-gray-200 bg-gray-50 overflow-hidden">
+                    <ImageUploadBlock
+                      block={{ id: "payment-img", type: "image", content: paymentImage, mediaId: paymentImageMediaId }}
+                      onUploaded={(url, mediaId) => {
+                        setPaymentImage(url)
+                        setPaymentImageMediaId(mediaId)
+                      }}
+                      onRemove={() => {
+                        if (paymentImageMediaId) {
+                          fetch(`/api/media/${paymentImageMediaId}`, { method: "DELETE" }).catch(() => {})
+                        }
+                        setPaymentImage("")
+                        setPaymentImageMediaId("")
+                      }}
+                    />
+                  </div>
+                </div>
+
+                {/* Text */}
+                <div>
+                  <label className={labelCls}>Texto da mensagem</label>
+                  <textarea
+                    value={paymentText}
+                    onChange={(e) => setPaymentText(e.target.value)}
+                    rows={3}
+                    className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent resize-none bg-white"
+                    placeholder="Ex: Garanta seu acesso agora! Clique no botão abaixo para pagar."
+                  />
+                </div>
+
+                {/* CTA button text */}
+                <div>
+                  <label className={labelCls}>Texto do botão</label>
+                  <input
+                    value={paymentCtaText}
+                    onChange={(e) => setPaymentCtaText(e.target.value)}
+                    className={inputCls}
+                    placeholder="Pagar agora"
+                  />
+                  <p className="text-xs text-gray-400 mt-1">
+                    Botão inline no Telegram que abre o link de checkout.
+                  </p>
+                </div>
+              </>
+            )}
 
           </div>
         )}
