@@ -4,7 +4,7 @@ import Link from "next/link"
 
 export async function CompleteRegistrationBanner() {
   const session = await auth()
-  const step = (session?.user as any)?.registrationStep
+  const step = (session?.user as { registrationStep?: number } | undefined)?.registrationStep
 
   if (!step || step >= 2) return null
 
