@@ -1,0 +1,270 @@
+/**
+ * GatewayService — abstração sobre a API REST do Asaas
+ *
+ * Sandbox: https://sandbox.asaas.com/api/v3  (NODE_ENV !== 'production')
+ * Produção: https://api.asaas.com/api/v3
+ *
+ * Autenticação: header `access_token: $GATEWAY_API_KEY`
+ */
+
+// ─── Base URL ─────────────────────────────────────────────────────────────────
+
+const BASE_URL =
+  process.env.NODE_ENV === "production"
+    ? "https://api.asaas.com/api/v3"
+    : "https://sandbox.asaas.com/api/v3"
+
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+export type WebhookEventType =
+  | "PAYMENT_CONFIRMED"
+  | "PAYMENT_RECEIVED"
+  | "PAYMENT_REFUSED"
+  | "PAYMENT_REFUNDED"
+  | "UNKNOWN"
+
+export interface WebhookEvent {
+  type: WebhookEventType
+  saleId: string         // externalReference do Asaas = Sale.id
+  gatewayId: string      // ID do pagamento no Asaas
+  paymentMethod: "PIX" | "CREDIT_CARD" | null
+}
+
+interface AsaasCustomer {
+  id: string
+}
+
+interface AsaasPayment {
+  id: string
+  status: string
+  billingType: string
+  externalReference: string
+  dueDate: string
+  value: number
+}
+
+interface AsaasSubscription {
+  id: string
+  url: string
+}
+
+interface AsaasQrCode {
+  payload: string   // PIX copia-e-cola
+  expirationDate: string
+}
+
+interface AsaasWebhookPayload {
+  event: string
+  payment?: AsaasPayment
+}
+
+// ─── HTTP helpers ─────────────────────────────────────────────────────────────
+
+function apiKey(): string {
+  const key = process.env.GATEWAY_API_KEY
+  if (!key) throw new Error("GATEWAY_API_KEY não configurado")
+  return key
+}
+
+async function asaasRequest<T>(
+  method: "GET" | "POST" | "DELETE",
+  path: string,
+  body?: unknown
+): Promise<T> {
+  const res = await fetch(`${BASE_URL}${path}`, {
+    method,
+    headers: {
+      "Content-Type": "application/json",
+      access_token: apiKey(),
+    },
+    ...(body ? { body: JSON.stringify(body) } : {}),
+  })
+
+  if (!res.ok) {
+    const text = await res.text()
+    throw new Error(`Asaas ${method} ${path} → ${res.status}: ${text}`)
+  }
+
+  if (method === "DELETE") return {} as T
+  return res.json() as Promise<T>
+}
+
+const asaasGet = <T>(path: string) => asaasRequest<T>("GET", path)
+const asaasPost = <T>(path: string, body: unknown) => asaasRequest<T>("POST", path, body)
+const asaasDelete = (path: string) => asaasRequest<void>("DELETE", path)
+
+// ─── Business day helper ──────────────────────────────────────────────────────
+// Nota: não considera feriados nacionais — apenas fim de semana.
+// Para versão completa, integrar com API de feriados futuramente.
+
+function addBusinessDays(date: Date, days: number): Date {
+  const result = new Date(date)
+  let added = 0
+  while (added < days) {
+    result.setDate(result.getDate() + 1)
+    const dow = result.getDay()
+    if (dow !== 0 && dow !== 6) added++
+  }
+  return result
+}
+
+function todayDateString(): string {
+  return new Date().toISOString().slice(0, 10)
+}
+
+// ─── Customer lookup / creation ───────────────────────────────────────────────
+
+interface CustomerParams {
+  name: string
+  email: string
+  cpfCnpj: string
+}
+
+async function findOrCreateCustomer(params: CustomerParams): Promise<string> {
+  // Search by CPF/CNPJ first (avoid duplicates in Asaas)
+  const search = await asaasGet<{ data: AsaasCustomer[] }>(
+    `/customers?cpfCnpj=${encodeURIComponent(params.cpfCnpj)}&limit=1`
+  )
+
+  if (search.data?.length > 0) return search.data[0].id
+
+  const customer = await asaasPost<AsaasCustomer>("/customers", {
+    name: params.name,
+    email: params.email,
+    cpfCnpj: params.cpfCnpj,
+  })
+
+  return customer.id
+}
+
+// ─── GatewayService ───────────────────────────────────────────────────────────
+
+export const GatewayService = {
+  /**
+   * Cria cobrança PIX avulsa.
+   * Retorna o código copia-e-cola e a data de expiração.
+   */
+  async createPixCharge(params: {
+    customerName: string
+    customerEmail: string
+    customerCpfCnpj: string
+    amountCents: number
+    description: string
+    externalReference: string
+  }): Promise<{ id: string; pixCode: string; expiresAt: Date }> {
+    const customerId = await findOrCreateCustomer({
+      name: params.customerName,
+      email: params.customerEmail,
+      cpfCnpj: params.customerCpfCnpj,
+    })
+
+    // Vencimento: próximo dia útil
+    const dueDate = addBusinessDays(new Date(), 1).toISOString().slice(0, 10)
+
+    const payment = await asaasPost<AsaasPayment>("/payments", {
+      customer: customerId,
+      billingType: "PIX",
+      value: params.amountCents / 100,
+      dueDate,
+      description: params.description,
+      externalReference: params.externalReference,
+    })
+
+    // Busca o QR Code / copia-e-cola
+    const qrCode = await asaasGet<AsaasQrCode>(`/payments/${payment.id}/pixQrCode`)
+
+    const expiresAt = qrCode.expirationDate
+      ? new Date(qrCode.expirationDate)
+      : new Date(`${dueDate}T23:59:59`)
+
+    return { id: payment.id, pixCode: qrCode.payload, expiresAt }
+  },
+
+  /**
+   * Cria assinatura recorrente (cartão de crédito).
+   * Retorna o ID da assinatura e o link de pagamento para o cliente.
+   */
+  async createSubscription(params: {
+    customerName: string
+    customerEmail: string
+    customerCpfCnpj: string
+    amountCents: number
+    billingType: "MONTHLY" | "ANNUAL"
+    description: string
+    externalReference: string
+    cardToken?: string
+  }): Promise<{ id: string; paymentUrl: string }> {
+    const customerId = await findOrCreateCustomer({
+      name: params.customerName,
+      email: params.customerEmail,
+      cpfCnpj: params.customerCpfCnpj,
+    })
+
+    const subscription = await asaasPost<AsaasSubscription>("/subscriptions", {
+      customer: customerId,
+      billingType: "CREDIT_CARD",
+      value: params.amountCents / 100,
+      nextDueDate: todayDateString(),
+      cycle: params.billingType === "MONTHLY" ? "MONTHLY" : "YEARLY",
+      description: params.description,
+      externalReference: params.externalReference,
+      ...(params.cardToken ? { creditCardToken: params.cardToken } : {}),
+    })
+
+    return { id: subscription.id, paymentUrl: subscription.url ?? "" }
+  },
+
+  /**
+   * Cancela uma assinatura recorrente no Asaas.
+   */
+  async cancelSubscription(gatewayId: string): Promise<void> {
+    await asaasDelete(`/subscriptions/${gatewayId}`)
+  },
+
+  /**
+   * Valida e parseia um evento de webhook do Asaas.
+   *
+   * Asaas envia o token configurado no header `asaas-access-token`.
+   * Comparamos com GATEWAY_WEBHOOK_SECRET para autenticar a origem.
+   *
+   * @throws Error se a assinatura for inválida
+   */
+  parseWebhook(payload: unknown, signature: string): WebhookEvent {
+    const secret = process.env.GATEWAY_WEBHOOK_SECRET
+    if (!secret) throw new Error("GATEWAY_WEBHOOK_SECRET não configurado")
+
+    // Constant-time comparison para evitar timing attacks
+    const sigBuf = Buffer.from(signature)
+    const secretBuf = Buffer.from(secret)
+    const valid =
+      sigBuf.length === secretBuf.length &&
+      require("crypto").timingSafeEqual(sigBuf, secretBuf)
+
+    if (!valid) throw new Error("Assinatura de webhook inválida")
+
+    const body = payload as AsaasWebhookPayload
+
+    const payment = body.payment
+    if (!payment) return { type: "UNKNOWN", saleId: "", gatewayId: "", paymentMethod: null }
+
+    const methodMap: Record<string, "PIX" | "CREDIT_CARD"> = {
+      PIX: "PIX",
+      CREDIT_CARD: "CREDIT_CARD",
+    }
+    const paymentMethod = methodMap[payment.billingType] ?? null
+
+    const typeMap: Record<string, WebhookEventType> = {
+      PAYMENT_CONFIRMED: "PAYMENT_CONFIRMED",
+      PAYMENT_RECEIVED: "PAYMENT_CONFIRMED", // PIX usa RECEIVED
+      PAYMENT_REFUSED: "PAYMENT_REFUSED",
+      PAYMENT_REFUNDED: "PAYMENT_REFUNDED",
+    }
+
+    return {
+      type: typeMap[body.event] ?? "UNKNOWN",
+      saleId: payment.externalReference,
+      gatewayId: payment.id,
+      paymentMethod,
+    }
+  },
+}
