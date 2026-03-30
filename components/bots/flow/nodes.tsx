@@ -8,6 +8,7 @@ interface Block {
   id: string
   type: "text" | "image" | "video"
   content: string
+  button?: string
 }
 
 // ─── DeletableEdge ────────────────────────────────────────────────────────────
@@ -171,17 +172,26 @@ export const MessageNode = memo(function MessageNode({
           <p className="text-xs italic text-gray-400">Sem conteúdo configurado</p>
         ) : (
           blocks.slice(0, 3).map((block) => (
-            <div key={block.id} className="flex items-center gap-1.5">
-              {block.type === "image" ? (
-                <Image className="h-3 w-3 text-blue-400 shrink-0" />
-              ) : block.type === "video" ? (
-                <Film className="h-3 w-3 text-purple-400 shrink-0" />
-              ) : (
-                <Type className="h-3 w-3 text-blue-400 shrink-0" />
+            <div key={block.id} className="space-y-0.5">
+              <div className="flex items-center gap-1.5">
+                {block.type === "image" ? (
+                  <Image className="h-3 w-3 text-blue-400 shrink-0" />
+                ) : block.type === "video" ? (
+                  <Film className="h-3 w-3 text-purple-400 shrink-0" />
+                ) : (
+                  <Type className="h-3 w-3 text-blue-400 shrink-0" />
+                )}
+                <p className="text-xs text-gray-600 truncate">
+                  {block.content || <span className="italic text-gray-400">vazio</span>}
+                </p>
+              </div>
+              {block.button !== undefined && (
+                <div className="ml-4 bg-blue-500 rounded px-1.5 py-0.5 text-center">
+                  <span className="text-[9px] text-white font-medium truncate block max-w-[140px]">
+                    {block.button || "Botão"}
+                  </span>
+                </div>
               )}
-              <p className="text-xs text-gray-600 truncate">
-                {block.content || <span className="italic text-gray-400">vazio</span>}
-              </p>
             </div>
           ))
         )}

@@ -42,21 +42,25 @@ export async function POST(request: Request, { params }: Params) {
   try {
     const meRes = await fetch(`https://api.telegram.org/bot${token}/getMe`, {
       cache: "no-store",
+      signal: AbortSignal.timeout(8000),
     })
     const meJson = await meRes.json()
     if (!meJson.ok) {
       return NextResponse.json({ valid: false, error: "Token do bot inválido" })
     }
     botTelegramId = meJson.result.id
-  } catch {
-    return NextResponse.json({ valid: false, error: "Erro ao conectar com o Telegram" })
+  } catch (e) {
+    const msg = e instanceof Error && e.name === "TimeoutError"
+      ? "Tempo limite atingido ao conectar com o Telegram. Tente novamente."
+      : "Erro ao conectar com o Telegram"
+    return NextResponse.json({ valid: false, error: msg })
   }
 
   // Check if the bot is admin in the group with can_restrict_members
   try {
     const res = await fetch(
       `https://api.telegram.org/bot${token}/getChatMember?chat_id=${channelId}&user_id=${botTelegramId}`,
-      { cache: "no-store" }
+      { cache: "no-store", signal: AbortSignal.timeout(8000) }
     )
     const json = await res.json()
 
@@ -91,7 +95,7 @@ export async function POST(request: Request, { params }: Params) {
     try {
       const chatRes = await fetch(
         `https://api.telegram.org/bot${token}/getChat?chat_id=${channelId}`,
-        { cache: "no-store" }
+        { cache: "no-store", signal: AbortSignal.timeout(5000) }
       )
       const chatJson = await chatRes.json()
       if (chatJson.ok) chatTitle = chatJson.result.title ?? channelId

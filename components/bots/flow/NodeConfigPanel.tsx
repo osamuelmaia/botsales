@@ -29,6 +29,7 @@ interface Block {
   type: "text" | "image" | "video"
   content: string
   mediaId?: string // DB id for uploaded images/videos (for deletion)
+  button?: string  // Optional inline keyboard button label (text blocks only)
 }
 
 interface Product {
@@ -302,12 +303,18 @@ function SortableBlock({
   onUpdate,
   onUploaded,
   onRemove,
+  onAddButton,
+  onUpdateButton,
+  onRemoveButton,
 }: {
   block: Block
   canRemove: boolean
   onUpdate: (content: string) => void
   onUploaded: (content: string, mediaId: string) => void
   onRemove: () => void
+  onAddButton: () => void
+  onUpdateButton: (label: string) => void
+  onRemoveButton: () => void
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
     useSortable({ id: block.id })
@@ -361,7 +368,7 @@ function SortableBlock({
 
       {/* Block content */}
       {block.type === "text" ? (
-        <div className="p-2">
+        <div className="p-2 space-y-2">
           <textarea
             value={block.content}
             onChange={(e) => onUpdate(e.target.value)}
@@ -369,6 +376,36 @@ function SortableBlock({
             className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent resize-none bg-white"
             placeholder="Digite o texto da mensagem..."
           />
+          {/* Optional inline button */}
+          {block.button !== undefined ? (
+            <div className="flex items-center gap-1.5">
+              <div className="flex-1 flex items-center gap-1.5 rounded-md border border-blue-200 bg-blue-50 px-2 py-1">
+                <span className="text-[10px] text-blue-500 shrink-0 font-medium">BTN</span>
+                <input
+                  value={block.button}
+                  onChange={(e) => onUpdateButton(e.target.value)}
+                  className="flex-1 text-xs bg-transparent text-blue-800 placeholder:text-blue-300 focus:outline-none"
+                  placeholder="Texto do botão..."
+                />
+              </div>
+              <button
+                type="button"
+                onClick={onRemoveButton}
+                className="h-6 w-6 flex items-center justify-center rounded text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={onAddButton}
+              className="w-full flex items-center justify-center gap-1.5 h-7 rounded-md border border-dashed border-gray-200 text-[11px] text-gray-400 hover:border-blue-300 hover:text-blue-500 hover:bg-blue-50 transition-colors"
+            >
+              <Plus className="h-3 w-3" />
+              Adicionar botão (espera clique para continuar)
+            </button>
+          )}
         </div>
       ) : block.type === "video" ? (
         <VideoUploadBlock
@@ -550,6 +587,23 @@ export function NodeConfigPanel({
     )
   }
 
+  function addButton(id: string) {
+    setBlocks((prev) => prev.map((b) => (b.id === id ? { ...b, button: "" } : b)))
+  }
+
+  function updateButton(id: string, label: string) {
+    setBlocks((prev) => prev.map((b) => (b.id === id ? { ...b, button: label } : b)))
+  }
+
+  function removeButton(id: string) {
+    setBlocks((prev) => prev.map((b) => {
+      if (b.id !== id) return b
+      const { button: _b, ...rest } = b
+      void _b
+      return rest
+    }))
+  }
+
   async function removeBlock(id: string) {
     const block = blocks.find((b) => b.id === id)
     // Delete from storage if it has an uploaded image
@@ -690,6 +744,9 @@ export function NodeConfigPanel({
                         handleImageUploaded(block.id, content, mediaId)
                       }
                       onRemove={() => removeBlock(block.id)}
+                      onAddButton={() => addButton(block.id)}
+                      onUpdateButton={(label) => updateButton(block.id, label)}
+                      onRemoveButton={() => removeButton(block.id)}
                     />
                   ))}
                 </div>
