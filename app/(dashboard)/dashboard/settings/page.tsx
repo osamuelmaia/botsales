@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
-import { useSession } from "next-auth/react"
 import { toast } from "sonner"
 import { Loader2, CheckCircle2 } from "lucide-react"
 
@@ -70,7 +69,6 @@ const BR_STATES = [
 
 export default function SettingsPage() {
   const router = useRouter()
-  const { update: updateSession } = useSession()
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [done, setDone] = useState(false)
@@ -140,7 +138,6 @@ export default function SettingsPage() {
       return
     }
 
-    await updateSession({ registrationStep: 2 })
     toast.success("Cadastro concluído! Agora você pode receber pagamentos.")
     setDone(true)
     router.refresh()

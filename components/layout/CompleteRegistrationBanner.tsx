@@ -1,12 +1,18 @@
 import { auth } from "@/lib/auth"
+import { prisma } from "@/lib/prisma"
 import { AlertCircle } from "lucide-react"
 import Link from "next/link"
 
 export async function CompleteRegistrationBanner() {
   const session = await auth()
-  const step = (session?.user as { registrationStep?: number } | undefined)?.registrationStep
+  if (!session?.user?.id) return null
 
-  if (!step || step >= 2) return null
+  const user = await prisma.user.findUnique({
+    where: { id: session.user.id },
+    select: { registrationStep: true },
+  })
+
+  if (!user || user.registrationStep >= 2) return null
 
   return (
     <div className="bg-amber-50 border-b border-amber-200 px-6 py-3 flex items-center justify-between gap-4 flex-wrap">
