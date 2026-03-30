@@ -73,6 +73,25 @@ NEXT_PUBLIC_APP_URL=
 8. Taxa calculada como: `(valorBruto * percentual / 100) + taxaFixa`
 9. Usuário só acessa **seus próprios recursos** — sempre filtrar por `userId`
 10. Webhook de pagamento: validar **assinatura HMAC** antes de processar
+11. **Group ID** NÃO é campo de configuração do bot — pertence ao nó "Liberar acesso ao canal" no flow builder
+12. Ao salvar um nó com Group ID: validar via `getChatMember` que o bot é **administrador** do grupo com permissão de banir membros — bloquear salvamento se não for admin
+13. **Ciclo de vida do cliente recorrente:**
+    - Pagamento aprovado → bot envia link do grupo → cliente entra
+    - Renovação aprovada → permanece no grupo
+    - Renovação recusada → inicia fluxo de remarketing (N tentativas configuráveis)
+    - Remarketing esgotado sem pagamento → `bot-worker.ts` chama `kickChatMember` via Telegram API para remover o cliente do grupo
+14. O bot deve ser **admin do grupo** com permissão `can_restrict_members` para executar a remoção automática — verificar isso antes de qualquer operação de kick
+
+## Fases de implementação
+- ✅ **Fase 3** — Auth (login, register, NextAuth v5)
+- ✅ **Fase 4** — Dashboard layout (sidebar, topbar, banner)
+- ✅ **Fase 5** — Módulo de Produtos (CRUD + form)
+- ✅ **Fase 6** — Módulo de Bots — configuração inicial (token, produtos, ativo/inativo)
+- ⬜ **Fase 7** — Flow Builder (`/dashboard/bots/[id]/flow`, @xyflow/react, nó /start fixo)
+- ⬜ **Fase 8** — Módulo de Vendas (tabela, filtros, exportação)
+- ⬜ **Fase 9** — Carteira (saldo, saques, conta bancária)
+- ⬜ **Fase 10** — Gateway de pagamento (webhook HMAC, PIX, cartão recorrente)
+- ⬜ **Fase 11** — Bot worker (grammy, BullMQ, fluxo de remarketing, kick por inadimplência)
 
 ## Padrões de código
 - Validação Zod em **todo input**, client-side E server-side
