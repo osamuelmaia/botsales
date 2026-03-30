@@ -138,8 +138,21 @@ export async function POST(request: Request, { params }: Params) {
     )
   }
 
-  // Full replace inside a transaction
+  // Ensure start node has channelId configured
+  const startNodeChannelId = (startNodes[0].data as Record<string, unknown>).channelId as string | undefined
+  if (!startNodeChannelId?.trim()) {
+    return NextResponse.json(
+      { error: "Configure o ID do grupo/canal no nó de Início antes de salvar" },
+      { status: 422 }
+    )
+  }
+
+  // Full replace inside a transaction + sync channelId to bot
   await prisma.$transaction([
+    prisma.bot.update({
+      where: { id: params.id },
+      data: { channelId: startNodeChannelId.trim() },
+    }),
     prisma.flowEdge.deleteMany({ where: { botId: params.id } }),
     prisma.flowNode.deleteMany({ where: { botId: params.id } }),
     prisma.flowNode.createMany({

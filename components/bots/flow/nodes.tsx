@@ -2,7 +2,7 @@
 
 import { memo } from "react"
 import { Handle, Position, NodeProps, useReactFlow } from "@xyflow/react"
-import { Zap, MessageSquare, Clock, CreditCard, X } from "lucide-react"
+import { Zap, MessageSquare, Clock, CreditCard, X, AlertCircle, CheckCircle2 } from "lucide-react"
 
 // ─── Shared handle style ──────────────────────────────────────────────────────
 
@@ -28,11 +28,20 @@ function DeleteButton({ nodeId }: { nodeId: string }) {
 
 // ─── StartNode ────────────────────────────────────────────────────────────────
 
-export const StartNode = memo(function StartNode({ selected }: NodeProps) {
+export const StartNode = memo(function StartNode({ data, selected }: NodeProps) {
+  const channelId = (data as { channelId?: string; chatTitle?: string; botName?: string }).channelId ?? ""
+  const chatTitle = (data as { chatTitle?: string }).chatTitle ?? ""
+  const botName = (data as { botName?: string }).botName ?? ""
+  const configured = !!channelId.trim()
+
   return (
     <div
-      className={`relative bg-white rounded-xl border-2 shadow-md min-w-[180px] transition-colors ${
-        selected ? "border-emerald-500" : "border-emerald-300"
+      className={`relative bg-white rounded-xl border-2 shadow-md min-w-[200px] transition-colors ${
+        selected
+          ? "border-emerald-500"
+          : configured
+          ? "border-emerald-300"
+          : "border-amber-400"
       }`}
     >
       <div className="flex items-center gap-2 px-4 py-3 bg-emerald-50 rounded-t-xl border-b border-emerald-200">
@@ -42,9 +51,35 @@ export const StartNode = memo(function StartNode({ selected }: NodeProps) {
           /start
         </span>
       </div>
+
+      {/* Bot info */}
+      {botName && (
+        <div className="px-4 pt-2 pb-0">
+          <p className="text-xs text-gray-500">
+            Bot: <span className="font-medium text-gray-700">{botName}</span>
+          </p>
+        </div>
+      )}
+
+      {/* Group status */}
       <div className="px-4 py-2">
-        <p className="text-xs text-gray-500">Ponto de entrada do bot</p>
+        {configured ? (
+          <div className="flex items-center gap-1.5">
+            <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
+            <p className="text-xs text-emerald-700 font-medium truncate">
+              {chatTitle || channelId}
+            </p>
+          </div>
+        ) : (
+          <div className="flex items-center gap-1.5">
+            <AlertCircle className="h-3.5 w-3.5 text-amber-500 shrink-0" />
+            <p className="text-xs text-amber-700 font-medium">
+              Configure o grupo/canal
+            </p>
+          </div>
+        )}
       </div>
+
       <Handle
         type="source"
         position={Position.Right}

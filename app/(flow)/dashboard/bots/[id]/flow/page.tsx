@@ -33,6 +33,7 @@ export default async function BotFlowPage({ params }: Props) {
     <FlowEditor
       botId={bot.id}
       botName={bot.name}
+      botChannelId={bot.channelId}
       products={products}
     />
   )

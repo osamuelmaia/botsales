@@ -17,7 +17,7 @@ import {
 } from "@xyflow/react"
 import "@xyflow/react/dist/style.css"
 import { toast } from "sonner"
-import { Save, Loader2, MessageSquare, Clock, CreditCard, ArrowLeft } from "lucide-react"
+import { Save, Loader2, MessageSquare, Clock, CreditCard, ArrowLeft, AlertCircle } from "lucide-react"
 import { useRouter } from "next/navigation"
 
 import { StartNode, MessageNode, DelayNode, PaymentNode } from "./nodes"
@@ -43,19 +43,23 @@ interface Product {
 interface FlowEditorProps {
   botId: string
   botName: string
+  botChannelId?: string | null
   products: Product[]
 }
 
 // ─── Palette item ─────────────────────────────────────────────────────────────
 
-interface PaletteItemProps {
+function PaletteItem({
+  icon,
+  label,
+  color,
+  onAdd,
+}: {
   icon: React.ReactNode
   label: string
   color: string
   onAdd: () => void
-}
-
-function PaletteItem({ icon, label, color, onAdd }: PaletteItemProps) {
+}) {
   return (
     <button
       onClick={onAdd}
@@ -69,7 +73,7 @@ function PaletteItem({ icon, label, color, onAdd }: PaletteItemProps) {
 
 // ─── FlowEditor ───────────────────────────────────────────────────────────────
 
-export function FlowEditor({ botId, botName, products }: FlowEditorProps) {
+export function FlowEditor({ botId, botName, botChannelId, products }: FlowEditorProps) {
   const router = useRouter()
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([])
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([])
@@ -77,23 +81,57 @@ export function FlowEditor({ botId, botName, products }: FlowEditorProps) {
   const [saving, setSaving] = useState(false)
   const [selectedNode, setSelectedNode] = useState<Node | null>(null)
   const reactFlowWrapper = useRef<HTMLDivElement>(null)
+  const autoOpenedRef = useRef(false)
 
   // ─── Load flow ──────────────────────────────────────────────────────────────
 
   useEffect(() => {
     fetch(`/api/bots/${botId}/flow`)
       .then((r) => r.json())
-      .then(({ nodes: n, edges: e }) => {
-        setNodes(n)
+      .then(({ nodes: n, edges: e }: { nodes: Node[]; edges: Edge[] }) => {
+        // Pre-populate start node with bot info + existing channelId
+        const populated = n.map((node) => {
+          if (node.type === "start") {
+            return {
+              ...node,
+              data: {
+                botName,
+                channelId: (node.data as Record<string, unknown>).channelId ?? botChannelId ?? "",
+                chatTitle: (node.data as Record<string, unknown>).chatTitle ?? "",
+              },
+            }
+          }
+          return node
+        })
+        setNodes(populated)
         setEdges(e)
+
+        // Auto-open start node config if channelId not yet set
+        const startNode = populated.find((nd) => nd.type === "start")
+        if (startNode && !autoOpenedRef.current) {
+          const hasChannel = !!(startNode.data as Record<string, unknown>).channelId
+          if (!hasChannel) {
+            autoOpenedRef.current = true
+            setSelectedNode(startNode)
+          }
+        }
       })
       .catch(() => toast.error("Erro ao carregar fluxo"))
       .finally(() => setLoading(false))
-  }, [botId, setNodes, setEdges])
+  }, [botId, botName, botChannelId, setNodes, setEdges])
 
   // ─── Save flow ──────────────────────────────────────────────────────────────
 
   async function handleSave() {
+    // Block save if start node has no channelId
+    const startNode = nodes.find((n) => n.type === "start")
+    const channelId = (startNode?.data as Record<string, unknown>)?.channelId as string | undefined
+    if (!channelId?.trim()) {
+      toast.error("Configure e valide o grupo/canal no nó de Início antes de salvar")
+      setSelectedNode(startNode ?? null)
+      return
+    }
+
     setSaving(true)
     try {
       const res = await fetch(`/api/bots/${botId}/flow`, {
@@ -153,7 +191,7 @@ export function FlowEditor({ botId, botName, products }: FlowEditorProps) {
         ? { text: "" }
         : type === "delay"
         ? { amount: 1, unit: "hours" }
-        : { productId: "", productName: "", channelId: "" }
+        : { productId: "", productName: "" }
 
     const newNode: Node = {
       id: crypto.randomUUID(),
@@ -167,13 +205,15 @@ export function FlowEditor({ botId, botName, products }: FlowEditorProps) {
     setNodes((nds) => [...nds, newNode])
   }
 
-  // ─── Delete key handler ──────────────────────────────────────────────────────
+  // ─── Derived state ────────────────────────────────────────────────────────────
 
-  // ReactFlow's built-in delete (Backspace/Delete) skips nodes with deletable: false
+  const startNode = nodes.find((n) => n.type === "start")
+  const startChannelId = (startNode?.data as Record<string, unknown>)?.channelId as string | undefined
+  const startConfigured = !!startChannelId?.trim()
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-full">
+      <div className="flex items-center justify-center h-screen bg-gray-50">
         <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
       </div>
     )
@@ -193,9 +233,12 @@ export function FlowEditor({ botId, botName, products }: FlowEditorProps) {
           <h1 className="text-sm font-semibold text-gray-900 truncate">
             Editor de Fluxo — {botName}
           </h1>
-          <p className="text-xs text-gray-400">
-            Clique em um nó para configurar • Arraste para mover
-          </p>
+          {!startConfigured && (
+            <p className="text-xs text-amber-600 flex items-center gap-1">
+              <AlertCircle className="h-3 w-3" />
+              Configure o grupo/canal no nó de Início para começar
+            </p>
+          )}
         </div>
         <button
           onClick={handleSave}
@@ -283,6 +326,8 @@ export function FlowEditor({ botId, botName, products }: FlowEditorProps) {
         {selectedNode && (
           <NodeConfigPanel
             node={selectedNode}
+            botId={botId}
+            botName={botName}
             products={products}
             onUpdate={handleNodeUpdate}
             onClose={() => setSelectedNode(null)}

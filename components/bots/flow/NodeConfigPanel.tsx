@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { Node } from "@xyflow/react"
-import { X, Loader2 } from "lucide-react"
+import { X, Loader2, CheckCircle2, AlertCircle } from "lucide-react"
 
 interface Product {
   id: string
@@ -12,6 +12,8 @@ interface Product {
 
 interface NodeConfigPanelProps {
   node: Node
+  botId: string
+  botName: string
   products: Product[]
   onUpdate: (nodeId: string, data: Record<string, unknown>) => void
   onClose: () => void
@@ -24,11 +26,22 @@ const labelCls = "block text-xs font-medium text-gray-600 mb-1"
 
 export function NodeConfigPanel({
   node,
+  botId,
+  botName,
   products,
   onUpdate,
   onClose,
 }: NodeConfigPanelProps) {
   const data = node.data as Record<string, unknown>
+
+  // Start node state
+  const [channelIdStart, setChannelIdStart] = useState(String(data.channelId ?? ""))
+  const [validatingChannel, setValidatingChannel] = useState(false)
+  const [channelValid, setChannelValid] = useState<boolean | null>(
+    data.channelId ? true : null
+  )
+  const [channelError, setChannelError] = useState("")
+  const [chatTitle, setChatTitle] = useState(String(data.chatTitle ?? ""))
 
   // Message node state
   const [text, setText] = useState(String(data.text ?? ""))
@@ -39,18 +52,51 @@ export function NodeConfigPanel({
 
   // Payment node state
   const [productId, setProductId] = useState(String(data.productId ?? ""))
-  const [channelId, setChannelId] = useState(String(data.channelId ?? ""))
-  const [savingChannel, setSavingChannel] = useState(false)
 
   // Keep local state in sync when node changes
   useEffect(() => {
     const d = node.data as Record<string, unknown>
+    setChannelIdStart(String(d.channelId ?? ""))
+    setChannelValid(d.channelId ? true : null)
+    setChatTitle(String(d.chatTitle ?? ""))
+    setChannelError("")
     setText(String(d.text ?? ""))
     setAmount(Number(d.amount ?? 1))
     setUnit(String(d.unit ?? "hours"))
     setProductId(String(d.productId ?? ""))
-    setChannelId(String(d.channelId ?? ""))
   }, [node.id]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  async function validateChannel() {
+    if (!channelIdStart.trim()) return
+    setValidatingChannel(true)
+    setChannelError("")
+    setChannelValid(null)
+    try {
+      const res = await fetch(`/api/bots/${botId}/validate-channel`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ channelId: channelIdStart.trim() }),
+      })
+      const json = await res.json()
+      if (json.valid) {
+        setChannelValid(true)
+        setChatTitle(json.chatTitle ?? channelIdStart.trim())
+        onUpdate(node.id, {
+          channelId: channelIdStart.trim(),
+          chatTitle: json.chatTitle ?? channelIdStart.trim(),
+          botName,
+        })
+      } else {
+        setChannelValid(false)
+        setChannelError(json.error ?? "Grupo inválido")
+      }
+    } catch {
+      setChannelValid(false)
+      setChannelError("Erro ao validar grupo")
+    } finally {
+      setValidatingChannel(false)
+    }
+  }
 
   function save() {
     if (node.type === "message") {
@@ -62,26 +108,9 @@ export function NodeConfigPanel({
       onUpdate(node.id, {
         productId,
         productName: product?.name ?? "",
-        channelId: channelId || undefined,
       })
     }
     onClose()
-  }
-
-  async function validateAndSaveChannel() {
-    if (!channelId.trim()) return
-    setSavingChannel(true)
-    try {
-      // Simple validation — just save it
-      const product = products.find((p) => p.id === productId)
-      onUpdate(node.id, {
-        productId,
-        productName: product?.name ?? "",
-        channelId: channelId.trim(),
-      })
-    } finally {
-      setSavingChannel(false)
-    }
   }
 
   return (
@@ -104,17 +133,67 @@ export function NodeConfigPanel({
 
       {/* Body */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
-        {/* Start node — read only */}
+        {/* Start node */}
         {node.type === "start" && (
-          <div>
-            <p className="text-sm text-gray-500">
-              Este é o ponto de entrada do bot. Quando um usuário enviar{" "}
-              <code className="bg-gray-100 px-1 rounded text-xs">/start</code>,
-              o fluxo começa aqui.
-            </p>
-            <p className="text-xs text-gray-400 mt-2">
-              Este nó não pode ser removido ou editado.
-            </p>
+          <div className="space-y-4">
+            {/* Bot info */}
+            <div className="bg-gray-50 rounded-lg px-3 py-2.5 border border-gray-200">
+              <p className="text-xs text-gray-500 mb-0.5">Bot vinculado</p>
+              <p className="text-sm font-semibold text-gray-900">{botName}</p>
+            </div>
+
+            {/* Group ID */}
+            <div>
+              <label className={labelCls}>
+                ID do Grupo/Canal{" "}
+                <span className="text-red-500">*</span>
+              </label>
+              <div className="flex gap-2">
+                <input
+                  value={channelIdStart}
+                  onChange={(e) => {
+                    setChannelIdStart(e.target.value)
+                    setChannelValid(null)
+                    setChannelError("")
+                  }}
+                  className={inputCls}
+                  placeholder="-100123456789"
+                />
+                <button
+                  type="button"
+                  onClick={validateChannel}
+                  disabled={validatingChannel || !channelIdStart.trim()}
+                  className="h-9 px-3 rounded-md border border-gray-300 text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-40 transition-colors shrink-0"
+                >
+                  {validatingChannel ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    "Validar"
+                  )}
+                </button>
+              </div>
+
+              {/* Validation feedback */}
+              {channelValid === true && (
+                <div className="flex items-center gap-1.5 mt-2">
+                  <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
+                  <p className="text-xs text-emerald-700 font-medium">
+                    {chatTitle || channelIdStart} — bot é admin ✓
+                  </p>
+                </div>
+              )}
+              {channelValid === false && (
+                <div className="flex items-center gap-1.5 mt-2">
+                  <AlertCircle className="h-3.5 w-3.5 text-red-500 shrink-0" />
+                  <p className="text-xs text-red-600">{channelError}</p>
+                </div>
+              )}
+
+              <p className="text-xs text-gray-400 mt-1.5">
+                O bot deve ser administrador com permissão para banir membros.
+                Copie o ID do grupo no Telegram (ex: <code className="bg-gray-100 px-0.5 rounded">-100...</code>).
+              </p>
+            </div>
           </div>
         )}
 
@@ -184,36 +263,8 @@ export function NodeConfigPanel({
                   </option>
                 ))}
               </select>
-            </div>
-
-            <div>
-              <label className={labelCls}>
-                ID do Grupo/Canal{" "}
-                <span className="text-gray-400 font-normal">(opcional)</span>
-              </label>
-              <div className="flex gap-2">
-                <input
-                  value={channelId}
-                  onChange={(e) => setChannelId(e.target.value)}
-                  className={inputCls}
-                  placeholder="-100123456789"
-                />
-                <button
-                  type="button"
-                  onClick={validateAndSaveChannel}
-                  disabled={savingChannel || !channelId.trim()}
-                  className="h-9 px-3 rounded-md border border-gray-300 text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-40 transition-colors shrink-0"
-                >
-                  {savingChannel ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    "OK"
-                  )}
-                </button>
-              </div>
               <p className="text-xs text-gray-400 mt-1">
-                Após pagamento aprovado, o bot liberará acesso ao grupo/canal.
-                O bot deve ser administrador com permissão para banir membros.
+                Após aprovação, o cliente recebe acesso ao grupo configurado no nó de Início.
               </p>
             </div>
           </div>
@@ -228,6 +279,17 @@ export function NodeConfigPanel({
             className="w-full h-9 bg-gray-900 text-white rounded-md text-sm font-medium hover:bg-gray-800 transition-colors"
           >
             Aplicar
+          </button>
+        </div>
+      )}
+      {node.type === "start" && (
+        <div className="p-4 border-t border-gray-100">
+          <button
+            onClick={onClose}
+            disabled={!channelValid}
+            className="w-full h-9 bg-gray-900 text-white rounded-md text-sm font-medium hover:bg-gray-800 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+          >
+            {channelValid ? "Confirmar" : "Valide o grupo para continuar"}
           </button>
         </div>
       )}
