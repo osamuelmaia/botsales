@@ -190,7 +190,7 @@ export function FlowEditor({ botId, botName, botChannelId, products }: FlowEdito
       type === "message"
         ? { text: "" }
         : type === "delay"
-        ? { amount: 1, unit: "hours" }
+        ? { amount: 5, unit: "seconds" }
         : { productId: "", productName: "" }
 
     const newNode: Node = {

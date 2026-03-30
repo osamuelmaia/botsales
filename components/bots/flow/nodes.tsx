@@ -135,8 +135,8 @@ export const DelayNode = memo(function DelayNode({
   selected,
 }: NodeProps) {
   const amount = (data as { amount?: number }).amount ?? 1
-  const unit = (data as { unit?: string }).unit ?? "hours"
-  const unitLabel = unit === "minutes" ? "min" : unit === "hours" ? "h" : "d"
+  const unit = (data as { unit?: string }).unit ?? "seconds"
+  const unitLabel = unit === "seconds" ? "s" : unit === "minutes" ? "min" : unit === "hours" ? "h" : "d"
   return (
     <div
       className={`group relative bg-white rounded-xl border-2 shadow-md min-w-[180px] transition-colors ${

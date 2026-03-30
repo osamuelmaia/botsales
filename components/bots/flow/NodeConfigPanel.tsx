@@ -47,8 +47,8 @@ export function NodeConfigPanel({
   const [text, setText] = useState(String(data.text ?? ""))
 
   // Delay node state
-  const [amount, setAmount] = useState(Number(data.amount ?? 1))
-  const [unit, setUnit] = useState(String(data.unit ?? "hours"))
+  const [amount, setAmount] = useState(Number(data.amount ?? 5))
+  const [unit, setUnit] = useState(String(data.unit ?? "seconds"))
 
   // Payment node state
   const [productId, setProductId] = useState(String(data.productId ?? ""))
@@ -61,8 +61,8 @@ export function NodeConfigPanel({
     setChatTitle(String(d.chatTitle ?? ""))
     setChannelError("")
     setText(String(d.text ?? ""))
-    setAmount(Number(d.amount ?? 1))
-    setUnit(String(d.unit ?? "hours"))
+    setAmount(Number(d.amount ?? 5))
+    setUnit(String(d.unit ?? "seconds"))
     setProductId(String(d.productId ?? ""))
   }, [node.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -233,6 +233,7 @@ export function NodeConfigPanel({
                   onChange={(e) => setUnit(e.target.value)}
                   className="flex-1 h-9 rounded-md border border-gray-300 px-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-900 bg-white"
                 >
+                  <option value="seconds">Segundos</option>
                   <option value="minutes">Minutos</option>
                   <option value="hours">Horas</option>
                   <option value="days">Dias</option>
