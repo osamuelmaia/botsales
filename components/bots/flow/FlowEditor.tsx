@@ -188,7 +188,7 @@ export function FlowEditor({ botId, botName, botChannelId, products }: FlowEdito
   function addNode(type: "message" | "delay" | "payment") {
     const defaultData: Record<string, unknown> =
       type === "message"
-        ? { text: "" }
+        ? { blocks: [{ id: crypto.randomUUID(), type: "text", content: "" }] }
         : type === "delay"
         ? { amount: 5, unit: "seconds" }
         : { productId: "", productName: "" }

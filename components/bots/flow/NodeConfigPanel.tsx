@@ -2,7 +2,13 @@
 
 import { useState, useEffect } from "react"
 import { Node } from "@xyflow/react"
-import { X, Loader2, CheckCircle2, AlertCircle } from "lucide-react"
+import { X, Loader2, CheckCircle2, AlertCircle, Type, Image, Trash2, ChevronUp, ChevronDown, Plus } from "lucide-react"
+
+interface Block {
+  id: string
+  type: "text" | "image"
+  content: string
+}
 
 interface Product {
   id: string
@@ -44,7 +50,13 @@ export function NodeConfigPanel({
   const [chatTitle, setChatTitle] = useState(String(data.chatTitle ?? ""))
 
   // Message node state
-  const [text, setText] = useState(String(data.text ?? ""))
+  const [blocks, setBlocks] = useState<Block[]>(
+    Array.isArray(data.blocks)
+      ? (data.blocks as Block[])
+      : data.text
+      ? [{ id: crypto.randomUUID(), type: "text", content: String(data.text) }]
+      : [{ id: crypto.randomUUID(), type: "text", content: "" }]
+  )
 
   // Delay node state
   const [amount, setAmount] = useState(Number(data.amount ?? 5))
@@ -60,7 +72,13 @@ export function NodeConfigPanel({
     setChannelValid(d.channelId ? true : null)
     setChatTitle(String(d.chatTitle ?? ""))
     setChannelError("")
-    setText(String(d.text ?? ""))
+    setBlocks(
+      Array.isArray(d.blocks)
+        ? (d.blocks as Block[])
+        : d.text
+        ? [{ id: crypto.randomUUID(), type: "text", content: String(d.text) }]
+        : [{ id: crypto.randomUUID(), type: "text", content: "" }]
+    )
     setAmount(Number(d.amount ?? 5))
     setUnit(String(d.unit ?? "seconds"))
     setProductId(String(d.productId ?? ""))
@@ -98,9 +116,35 @@ export function NodeConfigPanel({
     }
   }
 
+  // ─── Block helpers ───────────────────────────────────────────────────────────
+
+  function addBlock(type: "text" | "image") {
+    setBlocks((prev) => [...prev, { id: crypto.randomUUID(), type, content: "" }])
+  }
+
+  function updateBlock(id: string, content: string) {
+    setBlocks((prev) => prev.map((b) => (b.id === id ? { ...b, content } : b)))
+  }
+
+  function removeBlock(id: string) {
+    setBlocks((prev) => prev.filter((b) => b.id !== id))
+  }
+
+  function moveBlock(id: string, dir: -1 | 1) {
+    setBlocks((prev) => {
+      const idx = prev.findIndex((b) => b.id === id)
+      if (idx < 0) return prev
+      const next = idx + dir
+      if (next < 0 || next >= prev.length) return prev
+      const arr = [...prev]
+      ;[arr[idx], arr[next]] = [arr[next], arr[idx]]
+      return arr
+    })
+  }
+
   function save() {
     if (node.type === "message") {
-      onUpdate(node.id, { text })
+      onUpdate(node.id, { blocks })
     } else if (node.type === "delay") {
       onUpdate(node.id, { amount, unit })
     } else if (node.type === "payment") {
@@ -199,17 +243,104 @@ export function NodeConfigPanel({
 
         {/* Message node */}
         {node.type === "message" && (
-          <div>
-            <label className={labelCls}>Texto da mensagem</label>
-            <textarea
-              value={text}
-              onChange={(e) => setText(e.target.value)}
-              rows={6}
-              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent resize-none"
-              placeholder="Digite a mensagem que o bot vai enviar..."
-            />
-            <p className="text-xs text-gray-400 mt-1">
-              Suporta Markdown do Telegram: *negrito*, _itálico_, `código`
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <label className={labelCls + " mb-0"}>Blocos de conteúdo</label>
+              <span className="text-xs text-gray-400">{blocks.length} bloco{blocks.length !== 1 ? "s" : ""}</span>
+            </div>
+
+            {/* Block list */}
+            <div className="space-y-2">
+              {blocks.map((block, idx) => (
+                <div
+                  key={block.id}
+                  className="rounded-lg border border-gray-200 bg-gray-50 overflow-hidden"
+                >
+                  {/* Block header */}
+                  <div className="flex items-center gap-2 px-3 py-2 bg-white border-b border-gray-100">
+                    {block.type === "image" ? (
+                      <Image className="h-3.5 w-3.5 text-blue-500 shrink-0" />
+                    ) : (
+                      <Type className="h-3.5 w-3.5 text-blue-500 shrink-0" />
+                    )}
+                    <span className="text-xs font-medium text-gray-600 flex-1">
+                      {block.type === "image" ? "Imagem" : "Texto"}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => moveBlock(block.id, -1)}
+                      disabled={idx === 0}
+                      className="h-5 w-5 flex items-center justify-center text-gray-400 hover:text-gray-600 disabled:opacity-30 transition-colors"
+                    >
+                      <ChevronUp className="h-3.5 w-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => moveBlock(block.id, 1)}
+                      disabled={idx === blocks.length - 1}
+                      className="h-5 w-5 flex items-center justify-center text-gray-400 hover:text-gray-600 disabled:opacity-30 transition-colors"
+                    >
+                      <ChevronDown className="h-3.5 w-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => removeBlock(block.id)}
+                      disabled={blocks.length === 1}
+                      className="h-5 w-5 flex items-center justify-center text-gray-400 hover:text-red-500 disabled:opacity-30 transition-colors"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+
+                  {/* Block content */}
+                  <div className="p-2">
+                    {block.type === "text" ? (
+                      <textarea
+                        value={block.content}
+                        onChange={(e) => updateBlock(block.id, e.target.value)}
+                        rows={3}
+                        className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent resize-none bg-white"
+                        placeholder="Digite o texto da mensagem..."
+                      />
+                    ) : (
+                      <input
+                        type="url"
+                        value={block.content}
+                        onChange={(e) => updateBlock(block.id, e.target.value)}
+                        className={inputCls + " bg-white"}
+                        placeholder="https://exemplo.com/imagem.jpg"
+                      />
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Add block buttons */}
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => addBlock("text")}
+                className="flex-1 flex items-center justify-center gap-1.5 h-8 rounded-md border border-dashed border-gray-300 text-xs text-gray-500 hover:border-blue-400 hover:text-blue-600 hover:bg-blue-50 transition-colors"
+              >
+                <Plus className="h-3.5 w-3.5" />
+                <Type className="h-3.5 w-3.5" />
+                Texto
+              </button>
+              <button
+                type="button"
+                onClick={() => addBlock("image")}
+                className="flex-1 flex items-center justify-center gap-1.5 h-8 rounded-md border border-dashed border-gray-300 text-xs text-gray-500 hover:border-blue-400 hover:text-blue-600 hover:bg-blue-50 transition-colors"
+              >
+                <Plus className="h-3.5 w-3.5" />
+                <Image className="h-3.5 w-3.5" />
+                Imagem
+              </button>
+            </div>
+
+            <p className="text-xs text-gray-400">
+              Cada bloco é enviado como uma mensagem separada no Telegram, na ordem acima.
+              Texto suporta <span className="font-mono bg-gray-100 px-0.5 rounded">*negrito*</span>, <span className="font-mono bg-gray-100 px-0.5 rounded">_itálico_</span>.
             </p>
           </div>
         )}

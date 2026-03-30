@@ -2,7 +2,13 @@
 
 import { memo } from "react"
 import { Handle, Position, NodeProps, useReactFlow } from "@xyflow/react"
-import { Zap, MessageSquare, Clock, CreditCard, X, AlertCircle, CheckCircle2 } from "lucide-react"
+import { Zap, MessageSquare, Clock, CreditCard, X, AlertCircle, CheckCircle2, Image, Type } from "lucide-react"
+
+interface Block {
+  id: string
+  type: "text" | "image"
+  content: string
+}
 
 // ─── Shared handle style ──────────────────────────────────────────────────────
 
@@ -96,7 +102,9 @@ export const MessageNode = memo(function MessageNode({
   data,
   selected,
 }: NodeProps) {
-  const text = (data as { text?: string }).text ?? ""
+  const blocks = (data as { blocks?: Block[] }).blocks ?? []
+  const configured = blocks.some((b) => b.content.trim() !== "")
+
   return (
     <div
       className={`group relative bg-white rounded-xl border-2 shadow-md min-w-[200px] max-w-[260px] transition-colors ${
@@ -107,11 +115,30 @@ export const MessageNode = memo(function MessageNode({
       <div className="flex items-center gap-2 px-4 py-3 bg-blue-50 rounded-t-xl border-b border-blue-100">
         <MessageSquare className="h-4 w-4 text-blue-600 shrink-0" />
         <span className="text-sm font-semibold text-blue-800">Mensagem</span>
+        <span className="ml-auto text-xs text-blue-500 bg-blue-100 px-1.5 py-0.5 rounded font-medium">
+          {blocks.length} bloco{blocks.length !== 1 ? "s" : ""}
+        </span>
       </div>
-      <div className="px-4 py-2">
-        <p className="text-xs text-gray-600 line-clamp-3 whitespace-pre-wrap break-words">
-          {text || <span className="italic text-gray-400">Sem texto configurado</span>}
-        </p>
+      <div className="px-4 py-2 space-y-1">
+        {!configured ? (
+          <p className="text-xs italic text-gray-400">Sem conteúdo configurado</p>
+        ) : (
+          blocks.slice(0, 3).map((block) => (
+            <div key={block.id} className="flex items-center gap-1.5">
+              {block.type === "image" ? (
+                <Image className="h-3 w-3 text-blue-400 shrink-0" />
+              ) : (
+                <Type className="h-3 w-3 text-blue-400 shrink-0" />
+              )}
+              <p className="text-xs text-gray-600 truncate">
+                {block.content || <span className="italic text-gray-400">vazio</span>}
+              </p>
+            </div>
+          ))
+        )}
+        {blocks.length > 3 && (
+          <p className="text-xs text-gray-400">+{blocks.length - 3} mais...</p>
+        )}
       </div>
       <Handle
         type="target"
