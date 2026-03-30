@@ -2,7 +2,7 @@
 
 import { memo, useState } from "react"
 import { Handle, Position, NodeProps, useReactFlow, BaseEdge, EdgeLabelRenderer, getBezierPath, EdgeProps } from "@xyflow/react"
-import { Zap, MessageSquare, Clock, CreditCard, X, AlertCircle, CheckCircle2, Image, Type, Film } from "lucide-react"
+import { Zap, MessageSquare, Clock, CreditCard, X, AlertCircle, CheckCircle2, Image as ImageIcon, Type, Film } from "lucide-react"
 
 interface Block {
   id: string
@@ -175,7 +175,7 @@ export const MessageNode = memo(function MessageNode({
             <div key={block.id} className="space-y-0.5">
               <div className="flex items-center gap-1.5">
                 {block.type === "image" ? (
-                  <Image className="h-3 w-3 text-blue-400 shrink-0" />
+                  <ImageIcon className="h-3 w-3 text-blue-400 shrink-0" />
                 ) : block.type === "video" ? (
                   <Film className="h-3 w-3 text-purple-400 shrink-0" />
                 ) : (
@@ -294,7 +294,7 @@ export const PaymentNode = memo(function PaymentNode({
           <>
             {hasImage && (
               <div className="flex items-center gap-1.5">
-                <Image className="h-3 w-3 text-violet-400 shrink-0" />
+                <ImageIcon className="h-3 w-3 text-violet-400 shrink-0" />
                 <p className="text-xs text-gray-500 truncate">Imagem configurada</p>
               </div>
             )}
