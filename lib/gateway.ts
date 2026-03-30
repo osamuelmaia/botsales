@@ -7,6 +7,8 @@
  * Autenticação: header `access_token: $GATEWAY_API_KEY`
  */
 
+import crypto from "crypto"
+
 // ─── Base URL ─────────────────────────────────────────────────────────────────
 
 const BASE_URL =
@@ -279,7 +281,7 @@ export const GatewayService = {
     const secretBuf = Buffer.from(secret)
     const valid =
       sigBuf.length === secretBuf.length &&
-      require("crypto").timingSafeEqual(sigBuf, secretBuf)
+      crypto.timingSafeEqual(sigBuf, secretBuf)
 
     if (!valid) throw new Error("Assinatura de webhook inválida")
 
