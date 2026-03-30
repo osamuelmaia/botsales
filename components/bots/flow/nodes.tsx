@@ -47,7 +47,7 @@ export const StartNode = memo(function StartNode({ selected }: NodeProps) {
       </div>
       <Handle
         type="source"
-        position={Position.Bottom}
+        position={Position.Right}
         className={`${handleStyle} !bg-emerald-500`}
       />
     </div>
@@ -80,12 +80,12 @@ export const MessageNode = memo(function MessageNode({
       </div>
       <Handle
         type="target"
-        position={Position.Top}
+        position={Position.Left}
         className={`${handleStyle} !bg-blue-400`}
       />
       <Handle
         type="source"
-        position={Position.Bottom}
+        position={Position.Right}
         className={`${handleStyle} !bg-blue-500`}
       />
     </div>
@@ -124,12 +124,12 @@ export const DelayNode = memo(function DelayNode({
       </div>
       <Handle
         type="target"
-        position={Position.Top}
+        position={Position.Left}
         className={`${handleStyle} !bg-amber-400`}
       />
       <Handle
         type="source"
-        position={Position.Bottom}
+        position={Position.Right}
         className={`${handleStyle} !bg-amber-500`}
       />
     </div>
@@ -167,33 +167,30 @@ export const PaymentNode = memo(function PaymentNode({
           )}
         </p>
       </div>
+      {/* Labels das saídas */}
+      <div className="flex flex-col items-end px-4 pb-2 gap-1">
+        <span className="text-[10px] text-green-600 font-medium">Aprovado ●</span>
+        <span className="text-[10px] text-red-500 font-medium">Recusado ●</span>
+      </div>
       <Handle
         type="target"
-        position={Position.Top}
+        position={Position.Left}
         className={`${handleStyle} !bg-violet-400`}
       />
       <Handle
         type="source"
-        position={Position.Bottom}
+        position={Position.Right}
         id="approved"
-        style={{ left: "35%" }}
+        style={{ top: "55%" }}
         className={`${handleStyle} !bg-green-500`}
       />
       <Handle
         type="source"
-        position={Position.Bottom}
+        position={Position.Right}
         id="refused"
-        style={{ left: "65%" }}
+        style={{ top: "75%" }}
         className={`${handleStyle} !bg-red-400`}
       />
-      <div className="flex justify-between px-4 pb-2 mt-1">
-        <span className="text-[10px] text-green-600 font-medium" style={{ marginLeft: "-4px" }}>
-          Aprovado
-        </span>
-        <span className="text-[10px] text-red-500 font-medium" style={{ marginRight: "-4px" }}>
-          Recusado
-        </span>
-      </div>
     </div>
   )
 })
