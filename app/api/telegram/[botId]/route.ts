@@ -49,7 +49,7 @@ export async function POST(request: Request, { params }: Params) {
       update: { name: firstName, username },
     })
 
-    await executeFlow(bot.id, chatId, firstName)
+    await executeFlow(bot.id, chatId)
   }
 
   // ── callback_query (inline button press) ──────────────────────────────────

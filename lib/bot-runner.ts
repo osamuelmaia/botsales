@@ -40,7 +40,7 @@ function toMs(amount: number, unit: string): number {
   return amount * (map[unit] ?? 1000)
 }
 
-export async function executeFlow(botId: string, chatId: number, _firstName: string) {
+export async function executeFlow(botId: string, chatId: number) {
   const bot = await prisma.bot.findUnique({
     where: { id: botId },
     include: { flowNodes: true, flowEdges: true },
