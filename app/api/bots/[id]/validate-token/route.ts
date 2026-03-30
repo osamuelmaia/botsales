@@ -22,7 +22,7 @@ export async function POST(request: Request, { params }: Params) {
   try {
     const body = await request.json()
     token = body.token ? String(body.token) : decryptToken(bot.tokenEncrypted)
-  } catch (_e) {
+  } catch {
     token = decryptToken(bot.tokenEncrypted)
   }
 
@@ -38,7 +38,7 @@ export async function POST(request: Request, { params }: Params) {
       valid: false,
       error: json.description ?? "Token inválido",
     })
-  } catch (_e) {
+  } catch {
     return NextResponse.json({ valid: false, error: "Erro ao conectar com o Telegram" })
   }
 }
