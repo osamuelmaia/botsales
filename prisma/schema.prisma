@@ -1,9 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -11,4 +5,246 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
+}
+
+// ─── Enums ──────────────────────────────────────────────────────────────────
+
+enum PersonType {
+  INDIVIDUAL
+  COMPANY
+}
+
+enum PaymentMethod {
+  PIX
+  CREDIT_CARD
+}
+
+enum BillingType {
+  MONTHLY
+  ANNUAL
+}
+
+enum UserRole {
+  USER
+  ADMIN
+}
+
+enum FlowNodeType {
+  TRIGGER_START
+  MESSAGE
+  SMART_DELAY
+  PAYMENT
+}
+
+enum SaleStatus {
+  PENDING
+  APPROVED
+  REFUSED
+  REFUNDED
+  CHARGEBACK
+}
+
+enum WithdrawalStatus {
+  REQUESTED
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+enum AccountType {
+  CHECKING
+  SAVINGS
+}
+
+// ─── Models ─────────────────────────────────────────────────────────────────
+
+model User {
+  id                 String      @id @default(cuid())
+  name               String
+  email              String      @unique
+  passwordHash       String
+  emailVerified      DateTime?
+  registrationStep   Int         @default(1)
+  personType         PersonType?
+  document           String?
+  phone              String?
+  zipCode            String?
+  street             String?
+  number             String?
+  complement         String?
+  neighborhood       String?
+  city               String?
+  state              String?
+  platformFeePercent Decimal     @default(5.99)
+  platformFeeCents   Int         @default(100)
+  withdrawalDays     Int         @default(30)
+  role               UserRole    @default(USER)
+  createdAt          DateTime    @default(now())
+  updatedAt          DateTime    @updatedAt
+
+  bots         Bot[]
+  products     Product[]
+  sales        Sale[]
+  withdrawals  Withdrawal[]
+  bankAccounts BankAccount[]
+}
+
+model Bot {
+  id             String   @id @default(cuid())
+  userId         String
+  name           String
+  tokenEncrypted String
+  channelId      String?
+  isActive       Boolean  @default(false)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  botProducts BotProduct[]
+  flowNodes   FlowNode[]
+  flowEdges   FlowEdge[]
+  leads       Lead[]
+
+  @@index([userId])
+}
+
+model Product {
+  id             String          @id @default(cuid())
+  userId         String
+  name           String
+  description    String?
+  priceInCents   Int
+  paymentMethods PaymentMethod[]
+  isRecurring    Boolean         @default(false)
+  billingType    BillingType?
+  billingCycles  Int?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  botProducts BotProduct[]
+  sales       Sale[]
+
+  @@index([userId])
+}
+
+model BotProduct {
+  botId     String
+  productId String
+  position  Int    @default(0)
+
+  bot     Bot     @relation(fields: [botId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@id([botId, productId])
+}
+
+model FlowNode {
+  id    String       @id @default(cuid())
+  botId String
+  type  FlowNodeType
+  posX  Float
+  posY  Float
+  data  Json
+
+  bot         Bot        @relation(fields: [botId], references: [id], onDelete: Cascade)
+  sourceEdges FlowEdge[] @relation("SourceNode")
+  targetEdges FlowEdge[] @relation("TargetNode")
+
+  @@index([botId])
+}
+
+model FlowEdge {
+  id           String  @id @default(cuid())
+  botId        String
+  sourceNodeId String
+  targetNodeId String
+  label        String?
+
+  bot        Bot      @relation(fields: [botId], references: [id], onDelete: Cascade)
+  sourceNode FlowNode @relation("SourceNode", fields: [sourceNodeId], references: [id], onDelete: Cascade)
+  targetNode FlowNode @relation("TargetNode", fields: [targetNodeId], references: [id], onDelete: Cascade)
+
+  @@index([botId])
+}
+
+model Lead {
+  id         String   @id @default(cuid())
+  botId      String
+  telegramId String
+  name       String?
+  username   String?
+  phone      String?
+  email      String?
+  createdAt  DateTime @default(now())
+
+  bot   Bot    @relation(fields: [botId], references: [id], onDelete: Cascade)
+  sales Sale[]
+
+  @@unique([botId, telegramId])
+  @@index([botId])
+}
+
+model Sale {
+  id               String        @id @default(cuid())
+  userId           String
+  productId        String
+  leadId           String?
+  paymentMethod    PaymentMethod
+  status           SaleStatus    @default(PENDING)
+  grossAmountCents Int
+  feeAmountCents   Int
+  netAmountCents   Int
+  gatewayId        String?
+  gatewayStatus    String?
+  paidAt           DateTime?
+  availableAt      DateTime?
+  refundedAt       DateTime?
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  user    User    @relation(fields: [userId], references: [id])
+  product Product @relation(fields: [productId], references: [id])
+  lead    Lead?   @relation(fields: [leadId], references: [id])
+
+  @@index([userId])
+  @@index([productId])
+  @@index([leadId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model Withdrawal {
+  id            String           @id @default(cuid())
+  userId        String
+  bankAccountId String
+  amountCents   Int
+  status        WithdrawalStatus @default(REQUESTED)
+  requestedAt   DateTime         @default(now())
+  processedAt   DateTime?
+
+  user        User        @relation(fields: [userId], references: [id])
+  bankAccount BankAccount @relation(fields: [bankAccountId], references: [id])
+
+  @@index([userId])
+  @@index([status])
+}
+
+model BankAccount {
+  id          String      @id @default(cuid())
+  userId      String
+  bankCode    String
+  agency      String
+  account     String
+  accountType AccountType
+  holderName  String
+  document    String
+  pixKey      String?
+  isDefault   Boolean     @default(false)
+  createdAt   DateTime    @default(now())
+
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  withdrawals Withdrawal[]
+
+  @@index([userId])
 }
