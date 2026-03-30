@@ -5,11 +5,17 @@ export const authConfig = {
   pages: { signIn: "/login" },
   session: { strategy: "jwt" },
   callbacks: {
-    async jwt({ token, user }) {
+    async jwt({ token, user, trigger, session }) {
       if (user) {
         token.id = user.id
         token.registrationStep = (user as any).registrationStep
         token.role = (user as any).role
+      }
+      if (trigger === "update" && session) {
+        const s = session as { registrationStep?: number }
+        if (s.registrationStep !== undefined) {
+          token.registrationStep = s.registrationStep
+        }
       }
       return token
     },
