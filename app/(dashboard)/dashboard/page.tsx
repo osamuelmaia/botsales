@@ -3,38 +3,6 @@ import { prisma } from "@/lib/prisma"
 import Link from "next/link"
 import { Check, Package, Bot, ShoppingCart } from "lucide-react"
 
-// ─── Gamification ─────────────────────────────────────────────────────────────
-
-const LEVELS = [
-  { name: "Iniciante",    min: 0 },
-  { name: "Vendedor",     min: 50000 },
-  { name: "Profissional", min: 200000 },
-  { name: "Especialista", min: 1000000 },
-  { name: "Sênior",       min: 5000000 },
-  { name: "Autoridade",   min: 10000000 },
-  { name: "Elite",        min: 100000000 },
-] // valores em centavos
-
-function getLevel(totalCents: number) {
-  let current = LEVELS[0]
-  let next = LEVELS[1]
-  for (let i = LEVELS.length - 1; i >= 0; i--) {
-    if (totalCents >= LEVELS[i].min) {
-      current = LEVELS[i]
-      next = LEVELS[i + 1] ?? null
-      break
-    }
-  }
-  const progress = next
-    ? Math.min(((totalCents - current.min) / (next.min - current.min)) * 100, 100)
-    : 100
-  return { current, next, progress }
-}
-
-function formatBRL(cents: number) {
-  return (cents / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })
-}
-
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default async function DashboardPage() {
@@ -42,23 +10,16 @@ export default async function DashboardPage() {
   const userId = session!.user!.id!
   const firstName = session?.user?.name?.split(" ")[0] ?? "usuário"
 
-  const [botsCount, productsCount, salesCount, revenueAgg] = await prisma.$transaction([
+  const [botsCount, productsCount, salesCount] = await prisma.$transaction([
     prisma.bot.count({ where: { userId } }),
     prisma.product.count({ where: { userId } }),
     prisma.sale.count({ where: { userId } }),
-    prisma.sale.aggregate({
-      where: { userId, status: "APPROVED" },
-      _sum: { netAmountCents: true },
-    }),
   ])
 
   const firstNonStartNode = await prisma.flowNode.findFirst({
     where: { type: { not: "TRIGGER_START" }, bot: { userId } },
     select: { id: true },
   })
-
-  const totalRevenueCents = revenueAgg._sum.netAmountCents ?? 0
-  const { current: currentLevel, next: nextLevel, progress } = getLevel(totalRevenueCents)
 
   const hasProducts = productsCount > 0
   const hasBots = botsCount > 0
