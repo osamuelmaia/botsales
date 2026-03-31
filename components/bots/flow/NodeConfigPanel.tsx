@@ -156,7 +156,7 @@ export function NodeConfigPanel({ node, botId, botName, products, onUpdate, onCl
   interface ButtonItem { id: string; label: string; mode: "url" | "flow"; url: string }
   const defaultButtons: ButtonItem[] = Array.isArray(data.buttons)
     ? (data.buttons as ButtonItem[])
-    : [{ id: "btn_0", label: "", mode: "flow", url: "" }]
+    : [{ id: crypto.randomUUID(), label: "", mode: "flow", url: "" }]
   const [buttons, setButtons] = useState<ButtonItem[]>(defaultButtons)
   const [btnImage, setBtnImage] = useState(String(data.image ?? ""))
   const [btnImageMediaId, setBtnImageMediaId] = useState(String(data.imageMediaId ?? ""))
@@ -190,7 +190,7 @@ export function NodeConfigPanel({ node, botId, botName, products, onUpdate, onCl
     setAudioUrl(String(d.url ?? "")); setAudioMediaId(String(d.mediaId ?? ""))
     setFileUrl(String(d.url ?? "")); setFileMediaId(String(d.mediaId ?? "")); setFileCaption(String(d.caption ?? ""))
     setTypingDuration(Number(d.duration ?? 3)); setTypingUnit(String(d.unit ?? "seconds"))
-    setButtons(Array.isArray(d.buttons) ? (d.buttons as ButtonItem[]) : [{ id: "btn_0", label: "", mode: "flow", url: "" }])
+    setButtons(Array.isArray(d.buttons) ? (d.buttons as ButtonItem[]) : [{ id: crypto.randomUUID(), label: "", mode: "flow", url: "" }])
     setBtnImage(String(d.image ?? "")); setBtnImageMediaId(String(d.imageMediaId ?? ""))
     setBtnText(String(d.text ?? ""))
     setDelayAmount(Number(d.amount ?? 5)); setDelayUnit(String(d.unit ?? "seconds"))
@@ -489,7 +489,7 @@ export function NodeConfigPanel({ node, botId, botName, products, onUpdate, onCl
 
             {buttons.length < 3 && (
               <button type="button" onClick={() => {
-                const next = [...buttons, { id: `btn_${buttons.length}`, label: "", mode: "flow" as const, url: "" }]
+                const next = [...buttons, { id: crypto.randomUUID(), label: "", mode: "flow" as const, url: "" }]
                 setButtons(next); emit({ buttons: next })
               }} className="w-full h-8 rounded-lg border border-dashed border-gray-300 text-xs text-gray-500 hover:border-indigo-400 hover:text-indigo-600 flex items-center justify-center gap-1.5 transition-colors">
                 <Plus className="h-3.5 w-3.5" /> Adicionar botão
