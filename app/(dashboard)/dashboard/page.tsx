@@ -41,7 +41,7 @@ export default async function DashboardPage() {
       href: "/dashboard/bots",
     },
     {
-      label: "Compartilhar o link do bot",
+      label: "Faça sua primeira venda.",
       done: hasSales,
       href: null,
     },
