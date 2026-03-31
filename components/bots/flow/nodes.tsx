@@ -7,7 +7,7 @@ import {
 } from "@xyflow/react"
 import {
   Zap, Type, Image as ImageIcon, Film, Music, FileText, MoreHorizontal,
-  MousePointerClick, Clock, Timer, CreditCard, X, AlertCircle, CheckCircle2,
+  MousePointerClick, Clock, Timer, CreditCard, X, AlertCircle, CheckCircle2, Link2, ArrowRight,
 } from "lucide-react"
 
 // ─── DeletableEdge ────────────────────────────────────────────────────────────
@@ -277,26 +277,69 @@ export const TypingNode = memo(function TypingNode({ id, data, selected }: NodeP
 
 // ─── ButtonNode ───────────────────────────────────────────────────────────────
 
+interface ButtonItem { id: string; label: string; mode: "url" | "flow"; url: string }
+
 export const ButtonNode = memo(function ButtonNode({ id, data, selected }: NodeProps) {
-  const d = data as { text?: string; buttonLabel?: string; buttonUrl?: string }
+  const d = data as { buttons?: ButtonItem[] }
+  const buttons: ButtonItem[] = d.buttons ?? []
+  const flowButtons = buttons.filter((b) => b.mode === "flow")
+  const hasFlowButtons = flowButtons.length > 0
+
   return (
-    <NodeShell id={id} selected={selected} borderColor={["border-indigo-500", "border-indigo-200"]}
-      headerBg="bg-indigo-50" headerBorder="border-indigo-100" headerTextColor="text-indigo-800"
-      icon={<MousePointerClick className="h-4 w-4 text-indigo-600 shrink-0" />} label="Botão"
-      sourceHandleColor="!bg-indigo-500" targetHandleColor="!bg-indigo-400">
-      {d.text ? (
-        <div className="space-y-1.5">
-          <p className="text-xs text-gray-600 line-clamp-2">{d.text}</p>
-          {d.buttonLabel && (
-            <div className="bg-indigo-600 rounded-md px-2 py-1 text-center">
-              <span className="text-[10px] text-white font-medium">{d.buttonLabel}</span>
+    <div className={`group relative bg-white rounded-xl border-2 shadow-md min-w-[200px] max-w-[260px] transition-colors ${selected ? "border-indigo-500" : "border-indigo-200"}`}>
+      <DeleteButton nodeId={id} />
+      <div className="flex items-center gap-2 px-4 py-3 bg-indigo-50 rounded-t-xl border-b border-indigo-100">
+        <MousePointerClick className="h-4 w-4 text-indigo-600 shrink-0" />
+        <span className="text-sm font-semibold text-indigo-800">Botão</span>
+        {buttons.length > 0 && (
+          <span className="ml-auto text-xs text-indigo-400 bg-indigo-100 px-1.5 py-0.5 rounded font-medium">{buttons.length}</span>
+        )}
+      </div>
+
+      <div className="px-3 py-2 space-y-1.5">
+        {buttons.length === 0 ? (
+          <p className="text-xs italic text-gray-400">Nenhum botão configurado</p>
+        ) : (
+          buttons.map((btn) => (
+            <div key={btn.id} className={`flex items-center gap-1.5 rounded-md px-2.5 py-1.5 border text-xs font-medium ${
+              btn.mode === "flow"
+                ? "bg-indigo-600 border-indigo-600 text-white"
+                : "bg-white border-indigo-300 text-indigo-700"
+            }`}>
+              {btn.mode === "url"
+                ? <Link2 className="h-3 w-3 shrink-0 opacity-70" />
+                : <ArrowRight className="h-3 w-3 shrink-0 opacity-80" />}
+              <span className="truncate">{btn.label || <span className="italic opacity-60">sem texto</span>}</span>
             </div>
-          )}
+          ))
+        )}
+      </div>
+
+      {/* Flow-button output handles */}
+      {hasFlowButtons && (
+        <div className="border-t border-indigo-100">
+          {flowButtons.map((btn) => (
+            <div key={btn.id} className="flex items-center gap-1.5 px-3 h-8">
+              <span className="w-2 h-2 rounded-full bg-indigo-500 shrink-0" />
+              <span className="text-[10px] font-normal text-gray-600 truncate">{btn.label || "sem texto"}</span>
+            </div>
+          ))}
         </div>
-      ) : (
-        <p className="text-xs italic text-gray-400">Sem conteúdo</p>
       )}
-    </NodeShell>
+
+      {/* Target handle */}
+      <Handle type="target" position={Position.Left} className={`${handleStyle} !bg-indigo-400`} />
+
+      {/* Source handles: one per flow button anchored to footer rows (32px each from bottom) */}
+      {hasFlowButtons
+        ? flowButtons.map((btn, i) => (
+            <Handle key={btn.id} type="source" position={Position.Right} id={btn.id}
+              className={`${handleStyle} !bg-indigo-500`}
+              style={{ bottom: `${(flowButtons.length - 1 - i) * 32 + 16}px`, top: "auto" }} />
+          ))
+        : <Handle type="source" position={Position.Right} className={`${handleStyle} !bg-indigo-500`} />
+      }
+    </div>
   )
 })
 
