@@ -1,6 +1,6 @@
 "use client"
 
-import { memo, useState } from "react"
+import { memo, useState, useRef, useLayoutEffect } from "react"
 import {
   Handle, Position, NodeProps, useReactFlow, BaseEdge, EdgeLabelRenderer,
   getBezierPath, EdgeProps,
@@ -49,6 +49,28 @@ export const edgeTypes = { deletable: DeletableEdge }
 // ─── Shared ──────────────────────────────────────────────────────────────────
 
 const handleStyle = "!w-4 !h-4 !border-2 !border-white !rounded-full"
+
+/** Measures center-Y of each rowRef relative to containerRef and returns top values in px. */
+function useRowHandleTops(count: number) {
+  const containerRef = useRef<HTMLDivElement>(null)
+  const rowRefs = [useRef<HTMLDivElement>(null), useRef<HTMLDivElement>(null), useRef<HTMLDivElement>(null)].slice(0, count)
+  const [tops, setTops] = useState<string[]>(Array(count).fill("50%"))
+
+  useLayoutEffect(() => {
+    const container = containerRef.current
+    if (!container) return
+    const containerRect = container.getBoundingClientRect()
+    if (containerRect.height === 0) return
+    const next = rowRefs.map((r) => {
+      if (!r.current) return "50%"
+      const rect = r.current.getBoundingClientRect()
+      return `${Math.round(rect.top + rect.height / 2 - containerRect.top)}px`
+    })
+    setTops((prev) => (prev.join() === next.join() ? prev : next))
+  })
+
+  return { containerRef, rowRefs, tops }
+}
 
 function DeleteButton({ nodeId }: { nodeId: string }) {
   const { deleteElements } = useReactFlow()
@@ -284,9 +306,10 @@ export const ButtonNode = memo(function ButtonNode({ id, data, selected }: NodeP
   const buttons: ButtonItem[] = d.buttons ?? []
   const flowButtons = buttons.filter((b) => b.mode === "flow")
   const hasFlowButtons = flowButtons.length > 0
+  const { containerRef, rowRefs, tops } = useRowHandleTops(flowButtons.length)
 
   return (
-    <div className={`group relative bg-white rounded-xl border-2 shadow-md min-w-[200px] max-w-[260px] transition-colors ${selected ? "border-indigo-500" : "border-indigo-200"}`}>
+    <div ref={containerRef} className={`group relative bg-white rounded-xl border-2 shadow-md min-w-[200px] max-w-[260px] transition-colors ${selected ? "border-indigo-500" : "border-indigo-200"}`}>
       <DeleteButton nodeId={id} />
       <div className="flex items-center gap-2 px-4 py-3 bg-indigo-50 rounded-t-xl border-b border-indigo-100">
         <MousePointerClick className="h-4 w-4 text-indigo-600 shrink-0" />
@@ -315,11 +338,11 @@ export const ButtonNode = memo(function ButtonNode({ id, data, selected }: NodeP
         )}
       </div>
 
-      {/* Flow-button output handles */}
+      {/* Flow-button output footer — measured by useRowHandleTops */}
       {hasFlowButtons && (
         <div className="border-t border-indigo-100">
-          {flowButtons.map((btn) => (
-            <div key={btn.id} className="flex items-center gap-1.5 px-3 h-8">
+          {flowButtons.map((btn, i) => (
+            <div key={btn.id} ref={rowRefs[i]} className="flex items-center gap-1.5 px-3 h-8">
               <span className="w-2 h-2 rounded-full bg-indigo-500 shrink-0" />
               <span className="text-[10px] font-normal text-gray-600 truncate">{btn.label || "sem texto"}</span>
             </div>
@@ -330,12 +353,12 @@ export const ButtonNode = memo(function ButtonNode({ id, data, selected }: NodeP
       {/* Target handle */}
       <Handle type="target" position={Position.Left} className={`${handleStyle} !bg-indigo-400`} />
 
-      {/* Source handles: one per flow button anchored to footer rows (32px each from bottom) */}
+      {/* Source handles aligned to footer rows via measured tops */}
       {hasFlowButtons
         ? flowButtons.map((btn, i) => (
             <Handle key={btn.id} type="source" position={Position.Right} id={btn.id}
               className={`${handleStyle} !bg-indigo-500`}
-              style={{ bottom: `${(flowButtons.length - 1 - i) * 32 + 16}px`, top: "auto" }} />
+              style={{ top: tops[i], bottom: "auto" }} />
           ))
         : <Handle type="source" position={Position.Right} className={`${handleStyle} !bg-indigo-500`} />
       }
@@ -392,9 +415,10 @@ export const PaymentNode = memo(function PaymentNode({ id, data, selected }: Nod
   const d = data as { productName?: string; image?: string; text?: string; ctaText?: string }
   const productName = d.productName ?? ""
   const ctaText = d.ctaText || "Pagar agora"
+  const { containerRef, rowRefs, tops } = useRowHandleTops(3)
 
   return (
-    <div className={`group relative bg-white rounded-xl border-2 shadow-md min-w-[200px] max-w-[260px] transition-colors ${selected ? "border-violet-500" : "border-violet-200"}`}>
+    <div ref={containerRef} className={`group relative bg-white rounded-xl border-2 shadow-md min-w-[200px] max-w-[260px] transition-colors ${selected ? "border-violet-500" : "border-violet-200"}`}>
       <DeleteButton nodeId={id} />
       <div className="flex items-center gap-2 px-4 py-3 bg-violet-50 rounded-t-xl border-b border-violet-100">
         <CreditCard className="h-4 w-4 text-violet-600 shrink-0" />
@@ -422,29 +446,28 @@ export const PaymentNode = memo(function PaymentNode({ id, data, selected }: Nod
         )}
       </div>
 
-      {/* Output paths footer — h-8 rows (32px each), handles bottom-anchored to match */}
+      {/* Output paths footer — rows measured by useRowHandleTops for pixel-perfect handle alignment */}
       <div className="border-t border-violet-100">
-        <div className="flex items-center gap-1.5 px-3 h-8">
+        <div ref={rowRefs[0]} className="flex items-center gap-1.5 px-3 h-8">
           <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
           <span className="text-[10px] font-normal text-gray-600">Aprovado</span>
         </div>
-        <div className="flex items-center gap-1.5 px-3 h-8 bg-gray-50/60">
+        <div ref={rowRefs[1]} className="flex items-center gap-1.5 px-3 h-8 bg-gray-50/60">
           <span className="w-2 h-2 rounded-full bg-amber-500 shrink-0" />
           <span className="text-[10px] font-normal text-gray-600">Pendente</span>
         </div>
-        <div className="flex items-center gap-1.5 px-3 h-8">
+        <div ref={rowRefs[2]} className="flex items-center gap-1.5 px-3 h-8">
           <span className="w-2 h-2 rounded-full bg-red-500 shrink-0" />
           <span className="text-[10px] font-normal text-gray-600">Recusado</span>
         </div>
       </div>
 
-      {/* Handles anchored from bottom, center of each 32px row */}
       <Handle type="source" position={Position.Right} id="approved"
-        className={`${handleStyle} !bg-emerald-500`} style={{ bottom: "80px", top: "auto" }} />
+        className={`${handleStyle} !bg-emerald-500`} style={{ top: tops[0], bottom: "auto" }} />
       <Handle type="source" position={Position.Right} id="pending"
-        className={`${handleStyle} !bg-amber-500`} style={{ bottom: "48px", top: "auto" }} />
+        className={`${handleStyle} !bg-amber-500`} style={{ top: tops[1], bottom: "auto" }} />
       <Handle type="source" position={Position.Right} id="refused"
-        className={`${handleStyle} !bg-red-500`} style={{ bottom: "16px", top: "auto" }} />
+        className={`${handleStyle} !bg-red-500`} style={{ top: tops[2], bottom: "auto" }} />
 
       <Handle type="target" position={Position.Left} className={`${handleStyle} !bg-violet-400`} />
     </div>
