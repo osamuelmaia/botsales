@@ -158,12 +158,20 @@ export default function ProductsPage() {
           {products.map((product) => (
             <div
               key={product.id}
-              className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm flex flex-col gap-3"
+              className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm flex flex-col gap-4"
             >
+              {/* Name + actions */}
               <div className="flex items-start justify-between gap-2">
-                <h3 className="font-semibold text-gray-900 text-sm leading-snug">
-                  {product.name}
-                </h3>
+                <div className="min-w-0">
+                  <h3 className="font-semibold text-gray-900 text-sm leading-snug truncate">
+                    {product.name}
+                  </h3>
+                  {product.description && (
+                    <p className="text-xs text-gray-400 mt-1 line-clamp-2">
+                      {product.description}
+                    </p>
+                  )}
+                </div>
                 <div className="flex gap-1 shrink-0">
                   <button
                     onClick={() => openEdit(product)}
@@ -182,35 +190,30 @@ export default function ProductsPage() {
                 </div>
               </div>
 
-              {product.description && (
-                <p className="text-xs text-gray-500 line-clamp-2">
-                  {product.description}
-                </p>
-              )}
-
-              <p className="text-xl font-bold text-gray-900">
+              {/* Price */}
+              <p className="text-2xl font-bold text-gray-900 leading-none">
                 {formatPrice(product.priceInCents)}
               </p>
 
-              <div className="flex items-center gap-2 pt-1">
+              {/* Badges + link */}
+              <div className="flex items-center justify-between gap-2 pt-1 border-t border-gray-100">
+                <div className="flex flex-wrap gap-1.5">
+                  {product.paymentMethods.map((m) => (
+                    <span
+                      key={m}
+                      className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600"
+                    >
+                      {methodLabel[m] ?? m}
+                    </span>
+                  ))}
+                  {product.isRecurring && (
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-600">
+                      {product.billingType === "MONTHLY" ? "Mensal" : "Anual"}
+                      {product.billingCycles ? ` · ${product.billingCycles}x` : ""}
+                    </span>
+                  )}
+                </div>
                 <CopyCheckoutLink productId={product.id!} />
-              </div>
-
-              <div className="flex flex-wrap gap-1.5">
-                {product.paymentMethods.map((m) => (
-                  <span
-                    key={m}
-                    className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-700"
-                  >
-                    {methodLabel[m] ?? m}
-                  </span>
-                ))}
-                {product.isRecurring && (
-                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-700">
-                    {product.billingType === "MONTHLY" ? "Mensal" : "Anual"}
-                    {product.billingCycles ? ` · ${product.billingCycles}x` : ""}
-                  </span>
-                )}
               </div>
             </div>
           ))}
