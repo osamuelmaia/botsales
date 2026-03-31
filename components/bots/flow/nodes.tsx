@@ -49,7 +49,6 @@ export const edgeTypes = { deletable: DeletableEdge }
 // ─── Shared ──────────────────────────────────────────────────────────────────
 
 const handleStyle = "!w-4 !h-4 !border-2 !border-white !rounded-full"
-const handleHitArea = { top: -8, bottom: -8, left: -8, right: -8 } // bigger grab area
 
 function DeleteButton({ nodeId }: { nodeId: string }) {
   const { deleteElements } = useReactFlow()
@@ -106,9 +105,9 @@ function NodeShell({
       </div>
       {children && <div className="px-4 py-2">{children}</div>}
       {!sourceOnly && (
-        <Handle type="target" position={Position.Left} className={`${handleStyle} ${targetHandleColor ?? sourceHandleColor}`} style={{ ...handleHitArea }} />
+        <Handle type="target" position={Position.Left} className={`${handleStyle} ${targetHandleColor ?? sourceHandleColor}`} />
       )}
-      <Handle type="source" position={Position.Right} className={`${handleStyle} ${sourceHandleColor}`} style={{ ...handleHitArea }} />
+      <Handle type="source" position={Position.Right} className={`${handleStyle} ${sourceHandleColor}`} />
       {extraHandles}
     </div>
   )
@@ -144,7 +143,7 @@ export const StartNode = memo(function StartNode({ data, selected }: NodeProps) 
           </div>
         )}
       </div>
-      <Handle type="source" position={Position.Right} className={`${handleStyle} !bg-emerald-500`} style={{ ...handleHitArea }} />
+      <Handle type="source" position={Position.Right} className={`${handleStyle} !bg-emerald-500`} />
     </div>
   )
 })
@@ -380,26 +379,28 @@ export const PaymentNode = memo(function PaymentNode({ id, data, selected }: Nod
         )}
       </div>
 
-      {/* 3 output handles: Aprovado, Recusado, Pendente */}
+      {/* Output paths footer — fixed h-8 rows so bottom-based handle positions are exact */}
+      <div className="border-t border-violet-100">
+        <div className="flex items-center px-3 h-8">
+          <span className="text-[10px] font-semibold text-emerald-700">✓ Aprovado</span>
+        </div>
+        <div className="flex items-center px-3 h-8 bg-gray-50/50">
+          <span className="text-[10px] font-semibold text-amber-600">⏳ Pendente</span>
+        </div>
+        <div className="flex items-center px-3 h-8">
+          <span className="text-[10px] font-semibold text-red-600">✗ Recusado</span>
+        </div>
+      </div>
+
+      {/* Handles positioned from bottom: each row is 32px, center = 16/48/80px from bottom */}
       <Handle type="source" position={Position.Right} id="approved"
-        className={`${handleStyle} !bg-emerald-500`} style={{ ...handleHitArea, top: "30%" }} />
+        className={`${handleStyle} !bg-emerald-500`} style={{ bottom: "80px", top: "auto" }} />
       <Handle type="source" position={Position.Right} id="pending"
-        className={`${handleStyle} !bg-amber-500`} style={{ ...handleHitArea, top: "55%" }} />
+        className={`${handleStyle} !bg-amber-500`} style={{ bottom: "48px", top: "auto" }} />
       <Handle type="source" position={Position.Right} id="refused"
-        className={`${handleStyle} !bg-red-500`} style={{ ...handleHitArea, top: "80%" }} />
+        className={`${handleStyle} !bg-red-500`} style={{ bottom: "16px", top: "auto" }} />
 
-      {/* Handle labels */}
-      <div className="absolute right-5 flex flex-col pointer-events-none" style={{ top: "30%", transform: "translateY(-50%)" }}>
-        <span className="text-[8px] font-semibold text-emerald-600 bg-emerald-50 px-1 py-0.5 rounded whitespace-nowrap">Aprovado</span>
-      </div>
-      <div className="absolute right-5 flex flex-col pointer-events-none" style={{ top: "55%", transform: "translateY(-50%)" }}>
-        <span className="text-[8px] font-semibold text-amber-600 bg-amber-50 px-1 py-0.5 rounded whitespace-nowrap">Pendente</span>
-      </div>
-      <div className="absolute right-5 flex flex-col pointer-events-none" style={{ top: "80%", transform: "translateY(-50%)" }}>
-        <span className="text-[8px] font-semibold text-red-600 bg-red-50 px-1 py-0.5 rounded whitespace-nowrap">Recusado</span>
-      </div>
-
-      <Handle type="target" position={Position.Left} className={`${handleStyle} !bg-violet-400`} style={{ ...handleHitArea }} />
+      <Handle type="target" position={Position.Left} className={`${handleStyle} !bg-violet-400`} />
     </div>
   )
 })
