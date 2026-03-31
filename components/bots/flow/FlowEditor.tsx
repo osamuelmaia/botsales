@@ -121,6 +121,7 @@ function FlowEditorInner({ botId, botName, botChannelId, products }: FlowEditorP
   // Handle drop node picker state
   const [nodePicker, setNodePicker] = useState<{ x: number; y: number; screenX: number; screenY: number; sourceNodeId: string; sourceHandle: string | null } | null>(null)
   const connectingRef = useRef<{ nodeId: string; handleId: string | null } | null>(null)
+  const pickerJustOpenedRef = useRef(0)
 
   // ─── Undo / Redo ────────────────────────────────────────────────────────────
 
@@ -327,10 +328,9 @@ function FlowEditorInner({ botId, botName, botChannelId, products }: FlowEditorP
     e.preventDefault()
     const type = e.dataTransfer.getData("application/reactflow-type") as NodeType | ""
     if (!type || !reactFlowWrapper.current) return
-    const bounds = reactFlowWrapper.current.getBoundingClientRect()
     const position = reactFlowInstance.screenToFlowPosition({
-      x: e.clientX - bounds.left,
-      y: e.clientY - bounds.top,
+      x: e.clientX,
+      y: e.clientY,
     })
     pushUndo()
     const newNode: Node = { id: crypto.randomUUID(), type, position, data: getDefaultData(type) }
@@ -363,7 +363,7 @@ function FlowEditorInner({ botId, botName, botChannelId, products }: FlowEditorP
       return
     }
 
-    const flowPos = reactFlowInstance.screenToFlowPosition({ x: clientX - bounds.left, y: clientY - bounds.top })
+    const flowPos = reactFlowInstance.screenToFlowPosition({ x: clientX, y: clientY })
     setNodePicker({
       x: flowPos.x,
       y: flowPos.y,
@@ -372,6 +372,7 @@ function FlowEditorInner({ botId, botName, botChannelId, products }: FlowEditorP
       sourceNodeId: connectingRef.current.nodeId,
       sourceHandle: connectingRef.current.handleId,
     })
+    pickerJustOpenedRef.current = Date.now()
     connectingRef.current = null
   }, [reactFlowInstance])
 
@@ -481,7 +482,7 @@ function FlowEditorInner({ botId, botName, botChannelId, products }: FlowEditorP
           <ReactFlow nodes={nodes} edges={edges}
             onNodesChange={wrappedOnNodesChange} onEdgesChange={wrappedOnEdgesChange}
             onConnect={onConnect} onNodeClick={onNodeClick}
-            onPaneClick={() => { onPaneClick(); setNodePicker(null) }}
+            onPaneClick={() => { onPaneClick(); if (Date.now() - pickerJustOpenedRef.current > 200) setNodePicker(null) }}
             onNodeDragStart={onNodeDragStart}
             onConnectStart={onConnectStart} onConnectEnd={onConnectEnd}
             nodeTypes={nodeTypes} edgeTypes={typedEdgeTypes}

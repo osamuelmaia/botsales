@@ -412,7 +412,7 @@ export function NodeConfigPanel({ node, botId, botName, products, onUpdate, onCl
           <div className="space-y-3">
             {/* Image */}
             <div>
-              <label className={labelCls}>Imagem (opcional)</label>
+              <label className={labelCls}>Imagem (recomendado)</label>
               <MediaUpload url={btnImage} accept={ALLOWED_IMAGE_TYPES.join(",")}
                 allowedTypes={ALLOWED_IMAGE_TYPES} maxSize={IMAGE_MAX_SIZE}
                 maxSizeLabel="4 MB" formatLabel="JPEG, PNG, WebP, GIF"
@@ -425,7 +425,7 @@ export function NodeConfigPanel({ node, botId, botName, products, onUpdate, onCl
 
             {/* Text */}
             <div>
-              <label className={labelCls}>Texto (opcional)</label>
+              <label className={labelCls}>Texto (recomendado)</label>
               <textarea value={btnText} rows={3}
                 onChange={(e) => { setBtnText(e.target.value); emit({ text: e.target.value }) }}
                 className={textareaCls} placeholder="Mensagem exibida acima dos botões..." />

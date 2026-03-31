@@ -4,7 +4,7 @@ import { decryptToken } from "./utils"
 const TG = "https://api.telegram.org/bot"
 
 type FlowNode = { id: string; type: string; data: unknown }
-type FlowEdge = { sourceNodeId: string; targetNodeId: string }
+type FlowEdge = { sourceNodeId: string; targetNodeId: string; sourceHandle?: string | null }
 type BotWithFlow = {
   id: string
   isActive: boolean
@@ -145,12 +145,24 @@ async function executeNode(
               : [{ text: b.label, callback_data: `flow:${node.id}:${b.id}` }]
           )
         if (keyboard.length > 0) {
-          await tg(token, "sendMessage", {
-            chat_id: chatId,
-            text: "Escolha uma opção:",
-            parse_mode: "Markdown",
-            reply_markup: { inline_keyboard: keyboard },
-          })
+          const msgText = (data.text as string) || "Escolha uma opção:"
+          const image = data.image as string | undefined
+          if (image) {
+            await tg(token, "sendPhoto", {
+              chat_id: chatId,
+              photo: image,
+              caption: msgText,
+              parse_mode: "Markdown",
+              reply_markup: { inline_keyboard: keyboard },
+            })
+          } else {
+            await tg(token, "sendMessage", {
+              chat_id: chatId,
+              text: msgText,
+              parse_mode: "Markdown",
+              reply_markup: { inline_keyboard: keyboard },
+            })
+          }
         }
       }
       // Flow stops here when there are flow-mode buttons; continues via callback_query handling
@@ -226,12 +238,12 @@ async function runFlow(
   const nodeMap = new Map(bot.flowNodes.map((n) => [n.id, n]))
 
   // adjacency: sourceNodeId -> [{targetNodeId, sourceHandle}]
-  const adj = new Map<string, { targetNodeId: string; sourceHandle?: string }[]>()
+  const adj = new Map<string, { targetNodeId: string; sourceHandle?: string | null }[]>()
   for (const e of bot.flowEdges) {
     if (!adj.has(e.sourceNodeId)) adj.set(e.sourceNodeId, [])
     adj.get(e.sourceNodeId)!.push({
       targetNodeId: e.targetNodeId,
-      sourceHandle: (e as unknown as Record<string, string>).sourceHandle ?? undefined,
+      sourceHandle: e.sourceHandle ?? null,
     })
   }
 
@@ -266,6 +278,26 @@ async function runFlow(
 }
 
 // ─── Public API ───────────────────────────────────────────────────────────────
+
+/**
+ * Called when a user clicks a flow-mode inline button.
+ * callback_data format: "flow:<buttonNodeId>:<buttonId>"
+ */
+export async function resumeFlowFromButton(botId: string, chatId: number, callbackData: string) {
+  const [, nodeId, btnId] = callbackData.split(":")
+  if (!nodeId || !btnId) return
+
+  const bot = await loadBot(botId)
+  if (!bot || !bot.isActive) return
+
+  // Find the edge from this button node with the matching sourceHandle (= btnId)
+  const edge = bot.flowEdges.find(
+    (e) => e.sourceNodeId === nodeId && e.sourceHandle === btnId
+  )
+  if (!edge) return
+
+  await runFlow(bot, chatId, edge.targetNodeId)
+}
 
 export async function executeFlow(botId: string, chatId: number) {
   const bot = await loadBot(botId)
