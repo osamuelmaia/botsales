@@ -454,7 +454,8 @@ function ProductSummary({ product }: { product: ProductData }) {
   return (
     <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5">
       <p className="text-xs text-gray-500 mb-1">Você está comprando</p>
-      <div className="mt-1 flex items-baseline gap-1">
+      <h1 className="text-xl font-bold text-gray-900 leading-tight">{product.name}</h1>
+      <div className="mt-3 flex items-baseline gap-1">
         <span className="text-3xl font-bold text-gray-900">
           {(product.priceInCents / 100).toLocaleString("pt-BR", {
             style: "currency",
