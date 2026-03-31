@@ -121,6 +121,7 @@ function FlowEditorInner({ botId, botName, botChannelId, products }: FlowEditorP
   // Handle drop node picker state
   const [nodePicker, setNodePicker] = useState<{ x: number; y: number; screenX: number; screenY: number; sourceNodeId: string; sourceHandle: string | null } | null>(null)
   const connectingRef = useRef<{ nodeId: string; handleId: string | null } | null>(null)
+  const connectionMadeRef = useRef(false)
 
   // ─── Undo / Redo ────────────────────────────────────────────────────────────
 
@@ -249,6 +250,7 @@ function FlowEditorInner({ botId, botName, botChannelId, products }: FlowEditorP
 
   const onConnect = useCallback(
     (connection: Connection) => {
+      connectionMadeRef.current = true // real connection → suppress node picker in onConnectEnd
       pushUndo()
       setEdges((eds) => addEdge({ ...connection, id: crypto.randomUUID(), type: "deletable" }, eds))
     },
@@ -345,10 +347,14 @@ function FlowEditorInner({ botId, botName, botChannelId, products }: FlowEditorP
   }, [])
 
   const onConnectEnd = useCallback((e: MouseEvent | TouchEvent) => {
+    // onConnect fired first → real connection was made, don't show picker
+    if (connectionMadeRef.current) {
+      connectionMadeRef.current = false
+      connectingRef.current = null
+      return
+    }
+
     if (!connectingRef.current || !reactFlowWrapper.current) return
-    const target = e.target as HTMLElement
-    // Only show picker if dropped on the canvas (not on a handle)
-    if (target.closest(".react-flow__handle")) return
 
     const bounds = reactFlowWrapper.current.getBoundingClientRect()
     const clientX = "clientX" in e ? e.clientX : e.touches[0].clientX
