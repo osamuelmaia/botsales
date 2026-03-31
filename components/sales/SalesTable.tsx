@@ -129,13 +129,19 @@ function SkeletonRows() {
 function EmptyState() {
   return (
     <tr>
-      <td colSpan={9} className="px-4 py-20 text-center">
-        <div className="flex flex-col items-center gap-3">
-          <div className="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center">
-            <span className="text-3xl">🛒</span>
+      <td colSpan={9} className="px-4 py-16 text-center">
+        <div className="flex flex-col items-center gap-3 max-w-xs mx-auto">
+          <div className="w-16 h-16 rounded-2xl bg-gray-50 border border-gray-100 flex items-center justify-center">
+            <svg className="h-8 w-8 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 3h1.386c.51 0 .955.343 1.087.835l.383 1.437M7.5 14.25a3 3 0 0 0-3 3h15.75m-12.75-3h11.218c1.121-2.3 2.1-4.684 2.924-7.138a60.114 60.114 0 0 0-16.536-1.84M7.5 14.25 5.106 5.272M6 20.25a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Zm12.75 0a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Z" />
+            </svg>
           </div>
-          <p className="text-gray-500 font-medium">Nenhuma venda encontrada</p>
-          <p className="text-gray-400 text-sm">Quando você receber pagamentos, eles aparecerão aqui.</p>
+          <div>
+            <p className="text-sm font-semibold text-gray-700">Nenhuma venda encontrada</p>
+            <p className="text-xs text-gray-400 mt-1 leading-relaxed">
+              As transações aparecerão aqui assim que os primeiros pagamentos forem processados pelo seu bot.
+            </p>
+          </div>
         </div>
       </td>
     </tr>
