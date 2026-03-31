@@ -15,6 +15,13 @@ const LEVELS = [
 
 const ROMAN = ["I", "II", "III", "IV", "V", "VI", "VII"]
 
+function formatK(cents: number): string {
+  const r = cents / 100
+  if (r >= 1_000_000) return `${(r / 1_000_000).toFixed(r % 1_000_000 === 0 ? 0 : 1)}M`
+  if (r >= 1_000)     return `${(r / 1_000).toFixed(0)}k`
+  return `${r}`
+}
+
 function getLevel(totalCents: number) {
   let idx = 0
   for (let i = LEVELS.length - 1; i >= 0; i--) {
@@ -24,7 +31,13 @@ function getLevel(totalCents: number) {
   const progress = level.max
     ? Math.min(((totalCents - level.min) / (level.max - level.min)) * 100, 100)
     : 100
-  return { idx, name: level.name, progress }
+  return {
+    idx,
+    name: level.name,
+    progress,
+    minLabel: formatK(level.min),
+    maxLabel: level.max ? formatK(level.max) : "∞",
+  }
 }
 
 export async function TopBar() {
@@ -52,7 +65,7 @@ export async function TopBar() {
         <div className="w-7 h-7 rounded-full bg-gray-900 flex items-center justify-center shrink-0">
           <span className="text-white text-[10px] font-bold leading-none">{ROMAN[lvl.idx]}</span>
         </div>
-        {/* Name + bar */}
+        {/* Name + bar + range */}
         <div className="flex flex-col gap-1.5 w-28">
           <p className="text-xs font-semibold text-gray-900 leading-none truncate">{lvl.name}</p>
           <div className="relative h-[3px] w-full bg-gray-200 rounded-full overflow-hidden">
@@ -60,6 +73,10 @@ export async function TopBar() {
               className="absolute inset-y-0 left-0 bg-gray-900 rounded-full transition-all duration-700"
               style={{ width: `${lvl.progress}%` }}
             />
+          </div>
+          <div className="flex justify-between">
+            <span className="text-[9px] text-gray-400 tabular-nums leading-none">{lvl.minLabel}</span>
+            <span className="text-[9px] text-gray-400 tabular-nums leading-none">{lvl.maxLabel}</span>
           </div>
         </div>
         {/* Progress % */}
