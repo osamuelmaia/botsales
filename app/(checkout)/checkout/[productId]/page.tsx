@@ -2,11 +2,18 @@
 
 import { useEffect, useState, useRef } from "react"
 import { useParams, useRouter } from "next/navigation"
+import Script from "next/script"
 import {
   Loader2, Copy, Check, CreditCard, QrCode, AlertCircle, ChevronRight,
 } from "lucide-react"
 
 // ─── Types ────────────────────────────────────────────────────────────────────
+
+declare global {
+  interface Window {
+    Telegram?: { WebApp: { close: () => void; ready: () => void } }
+  }
+}
 
 interface ProductData {
   id: string
@@ -51,6 +58,13 @@ function formatExpiry(v: string) {
 
 const inputCls =
   "w-full h-11 rounded-lg border border-gray-300 px-4 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent bg-white"
+
+// Close Telegram WebApp popup after successful payment
+function closeTgWebApp() {
+  if (typeof window !== "undefined" && window.Telegram?.WebApp) {
+    window.Telegram.WebApp.close()
+  }
+}
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
@@ -116,6 +130,7 @@ export default function CheckoutPage() {
       const json = await res.json()
       if (json.status === "APPROVED") {
         clearInterval(pollingRef.current!)
+        closeTgWebApp()
         router.push(`/checkout/${productId}/sucesso`)
       } else if (json.status === "REFUSED") {
         clearInterval(pollingRef.current!)
@@ -170,6 +185,7 @@ export default function CheckoutPage() {
       setSaleId(json.saleId)
       setStep("pix-waiting")
     } else {
+      closeTgWebApp()
       router.push(`/checkout/${productId}/sucesso`)
     }
   }
@@ -279,6 +295,10 @@ export default function CheckoutPage() {
 
   return (
     <div className="space-y-4">
+      {/* Telegram WebApp SDK — signals the mini app is ready and enables native close */}
+      <Script src="https://telegram.org/js/telegram-web-app.js" strategy="beforeInteractive"
+        onLoad={() => window.Telegram?.WebApp?.ready()} />
+
       {/* Product summary */}
       <ProductSummary product={product} />
 

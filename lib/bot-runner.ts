@@ -182,20 +182,24 @@ async function executeNode(
         const salesText = (data.text as string) || ""
         const image = data.image as string | undefined
 
+        // web_app opens the URL as an in-app WebView popup inside Telegram (Mini App)
+        // This is better for conversion than opening an external browser
+        const webAppButton = { text: ctaText, web_app: { url: paymentUrl } }
+
         if (image) {
           await tg(token, "sendPhoto", {
             chat_id: chatId,
             photo: image,
             caption: salesText,
             parse_mode: "Markdown",
-            reply_markup: { inline_keyboard: [[{ text: ctaText, url: paymentUrl }]] },
+            reply_markup: { inline_keyboard: [[webAppButton]] },
           })
         } else {
           await tg(token, "sendMessage", {
             chat_id: chatId,
             text: salesText || "Clique abaixo para adquirir o produto:",
             parse_mode: "Markdown",
-            reply_markup: { inline_keyboard: [[{ text: ctaText, url: paymentUrl }]] },
+            reply_markup: { inline_keyboard: [[webAppButton]] },
           })
         }
       }
