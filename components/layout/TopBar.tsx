@@ -13,12 +13,7 @@ const LEVELS = [
   { name: "Elite",        min: 500_000_000, max: null        }, // 5M+
 ]
 
-function formatK(cents: number): string {
-  const r = cents / 100
-  if (r >= 1_000_000) return `${(r / 1_000_000).toFixed(r % 1_000_000 === 0 ? 0 : 1)}M`
-  if (r >= 1_000)     return `${(r / 1_000).toFixed(r % 1_000 === 0 ? 0 : 0)}k`
-  return `${r}`
-}
+const ROMAN = ["I", "II", "III", "IV", "V", "VI", "VII"]
 
 function getLevel(totalCents: number) {
   let idx = 0
@@ -29,12 +24,7 @@ function getLevel(totalCents: number) {
   const progress = level.max
     ? Math.min(((totalCents - level.min) / (level.max - level.min)) * 100, 100)
     : 100
-  return {
-    name: level.name,
-    minLabel: formatK(level.min),
-    maxLabel: level.max ? formatK(level.max) : "∞",
-    progress,
-  }
+  return { idx, name: level.name, progress }
 }
 
 export async function TopBar() {
@@ -57,18 +47,25 @@ export async function TopBar() {
   return (
     <header className="h-14 border-b border-gray-200 bg-white flex items-center px-6 shrink-0 gap-4">
       {/* Gamification widget */}
-      <div className="hidden sm:flex flex-col justify-center w-44 shrink-0">
-        <p className="text-[11px] font-semibold text-gray-700 leading-none mb-1">{lvl.name}</p>
-        <div className="relative h-1.5 w-full bg-gray-100 rounded-full overflow-hidden">
-          <div
-            className="absolute inset-y-0 left-0 bg-gray-900 rounded-full transition-all duration-500"
-            style={{ width: `${lvl.progress}%` }}
-          />
+      <div className="hidden sm:flex items-center gap-2.5 shrink-0 rounded-xl border border-gray-200 bg-gray-50 px-3 py-2">
+        {/* Roman numeral badge */}
+        <div className="w-7 h-7 rounded-full bg-gray-900 flex items-center justify-center shrink-0">
+          <span className="text-white text-[10px] font-bold leading-none">{ROMAN[lvl.idx]}</span>
         </div>
-        <div className="flex justify-between mt-1">
-          <span className="text-[10px] text-gray-400">{lvl.minLabel}</span>
-          <span className="text-[10px] text-gray-400">{lvl.maxLabel}</span>
+        {/* Name + bar */}
+        <div className="flex flex-col gap-1.5 w-28">
+          <p className="text-xs font-semibold text-gray-900 leading-none truncate">{lvl.name}</p>
+          <div className="relative h-[3px] w-full bg-gray-200 rounded-full overflow-hidden">
+            <div
+              className="absolute inset-y-0 left-0 bg-gray-900 rounded-full transition-all duration-700"
+              style={{ width: `${lvl.progress}%` }}
+            />
+          </div>
         </div>
+        {/* Progress % */}
+        <span className="text-[10px] font-medium text-gray-400 leading-none shrink-0 tabular-nums">
+          {Math.round(lvl.progress)}%
+        </span>
       </div>
 
       {/* push right */}
