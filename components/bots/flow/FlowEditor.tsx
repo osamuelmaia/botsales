@@ -121,7 +121,6 @@ function FlowEditorInner({ botId, botName, botChannelId, products }: FlowEditorP
   // Handle drop node picker state
   const [nodePicker, setNodePicker] = useState<{ x: number; y: number; screenX: number; screenY: number; sourceNodeId: string; sourceHandle: string | null } | null>(null)
   const connectingRef = useRef<{ nodeId: string; handleId: string | null } | null>(null)
-  const connectionMadeRef = useRef(false)
 
   // ─── Undo / Redo ────────────────────────────────────────────────────────────
 
@@ -250,7 +249,6 @@ function FlowEditorInner({ botId, botName, botChannelId, products }: FlowEditorP
 
   const onConnect = useCallback(
     (connection: Connection) => {
-      connectionMadeRef.current = true // real connection → suppress node picker in onConnectEnd
       pushUndo()
       setEdges((eds) => addEdge({ ...connection, id: crypto.randomUUID(), type: "deletable" }, eds))
     },
@@ -346,10 +344,9 @@ function FlowEditorInner({ botId, botName, botChannelId, products }: FlowEditorP
     connectingRef.current = { nodeId: params.nodeId ?? "", handleId: params.handleId }
   }, [])
 
-  const onConnectEnd = useCallback((e: MouseEvent | TouchEvent) => {
-    // onConnect fired first → real connection was made, don't show picker
-    if (connectionMadeRef.current) {
-      connectionMadeRef.current = false
+  const onConnectEnd = useCallback((e: MouseEvent | TouchEvent, connectionState: { isValid: boolean | null }) => {
+    // isValid=true → dropped on a valid handle → real connection made, skip picker
+    if (connectionState?.isValid) {
       connectingRef.current = null
       return
     }
