@@ -22,12 +22,6 @@ export function FeeInfo({ feePercent, feeCents }: Props) {
           <p className="text-xs text-blue-500">Taxa fixa</p>
           <p className="text-sm font-semibold text-blue-800">{formatBRL(feeCents)} por venda</p>
         </div>
-        <div>
-          <p className="text-xs text-blue-500">Exemplo: venda de R$ 100,00</p>
-          <p className="text-sm font-semibold text-blue-800">
-            Líquido ≈ {formatBRL(Math.round(10000 - (10000 * feePercent) / 100 - feeCents))}
-          </p>
-        </div>
       </div>
     </div>
   )
