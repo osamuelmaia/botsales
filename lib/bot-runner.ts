@@ -3,13 +3,6 @@ import { decryptToken } from "./utils"
 
 const TG = "https://api.telegram.org/bot"
 
-interface Block {
-  id: string
-  type: "text" | "image" | "video"
-  content: string
-  button?: string
-}
-
 type FlowNode = { id: string; type: string; data: unknown }
 type FlowEdge = { sourceNodeId: string; targetNodeId: string }
 type BotWithFlow = {
@@ -55,94 +48,162 @@ function toMs(amount: number, unit: string): number {
   return amount * (map[unit] ?? 1000)
 }
 
-// Executes a single node starting from blockOffset.
-// Returns true if execution paused (button gate hit).
+// ─── Execute a single node ───────────────────────────────────────────────────
+
 async function executeNode(
   token: string,
   botId: string,
   chatId: number,
-  node: FlowNode,
-  blockOffset: number
-): Promise<boolean> {
+  node: FlowNode
+): Promise<void> {
   const data = node.data as Record<string, unknown>
 
-  if (node.type === "MESSAGE") {
-    const blocks = (data.blocks as Block[]) ?? []
-
-    for (let i = blockOffset; i < blocks.length; i++) {
-      const block = blocks[i]
-      if (!block.content?.trim()) continue
-
-      if (block.type === "text") {
-        const payload: Record<string, unknown> = {
-          chat_id: chatId,
-          text: block.content,
-          parse_mode: "HTML",
-        }
-
-        if (block.button?.trim()) {
-          // Encode resume position: node id + next block index after the button
-          // Format: "r:<nodeId>:<nextBlockIndex>" — fits within Telegram's 64-byte limit
-          payload.reply_markup = {
-            inline_keyboard: [[
-              { text: block.button, callback_data: `r:${node.id}:${i + 1}` },
-            ]],
-          }
-          await tg(token, "sendMessage", payload)
-          // STOP here — resume only when user clicks the button
-          return true
-        }
-
-        await tg(token, "sendMessage", payload)
-      } else if (block.type === "image") {
-        await tg(token, "sendPhoto", { chat_id: chatId, photo: block.content })
-      } else if (block.type === "video") {
-        await tg(token, "sendVideo", { chat_id: chatId, video: block.content })
-      }
-    }
-  } else if (node.type === "SMART_DELAY") {
-    const ms = Math.min(
-      toMs((data.amount as number) ?? 1, (data.unit as string) ?? "seconds"),
-      8_000 // cap at 8s in serverless
-    )
-    if (ms > 0) await sleep(ms)
-  } else if (node.type === "PAYMENT") {
-    const productId = data.productId as string | undefined
-    if (productId) {
-      const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? ""
-      const paymentUrl = `${baseUrl}/checkout/${productId}?chatId=${chatId}&botId=${botId}`
-      const ctaText = (data.ctaText as string) || "Pagar agora"
-      const salesText = (data.text as string) || ""
-      const image = data.image as string | undefined
-
-      if (image) {
-        await tg(token, "sendPhoto", {
-          chat_id: chatId,
-          photo: image,
-          caption: salesText,
-          parse_mode: "HTML",
-          reply_markup: { inline_keyboard: [[{ text: ctaText, url: paymentUrl }]] },
-        })
-      } else {
+  switch (node.type) {
+    case "TEXT": {
+      const content = (data.content as string) ?? ""
+      if (content.trim()) {
         await tg(token, "sendMessage", {
           chat_id: chatId,
-          text: salesText || "Clique abaixo para adquirir o produto:",
-          parse_mode: "HTML",
-          reply_markup: { inline_keyboard: [[{ text: ctaText, url: paymentUrl }]] },
+          text: content,
+          parse_mode: "Markdown",
         })
       }
+      break
+    }
+
+    case "IMAGE": {
+      const url = (data.url as string) ?? ""
+      if (url) {
+        const caption = (data.caption as string) ?? ""
+        await tg(token, "sendPhoto", {
+          chat_id: chatId,
+          photo: url,
+          ...(caption ? { caption, parse_mode: "Markdown" } : {}),
+        })
+      }
+      break
+    }
+
+    case "VIDEO": {
+      const url = (data.url as string) ?? ""
+      if (url) {
+        const caption = (data.caption as string) ?? ""
+        await tg(token, "sendVideo", {
+          chat_id: chatId,
+          video: url,
+          ...(caption ? { caption, parse_mode: "Markdown" } : {}),
+        })
+      }
+      break
+    }
+
+    case "AUDIO": {
+      const url = (data.url as string) ?? ""
+      if (url) {
+        await tg(token, "sendAudio", { chat_id: chatId, audio: url })
+      }
+      break
+    }
+
+    case "FILE": {
+      const url = (data.url as string) ?? ""
+      if (url) {
+        const caption = (data.caption as string) ?? ""
+        await tg(token, "sendDocument", {
+          chat_id: chatId,
+          document: url,
+          ...(caption ? { caption, parse_mode: "Markdown" } : {}),
+        })
+      }
+      break
+    }
+
+    case "TYPING": {
+      const duration = (data.duration as number) ?? 3
+      const unit = (data.unit as string) ?? "seconds"
+      const ms = Math.min(toMs(duration, unit), 8_000) // cap at 8s for serverless
+      await tg(token, "sendChatAction", { chat_id: chatId, action: "typing" })
+      if (ms > 0) await sleep(ms)
+      break
+    }
+
+    case "BUTTON": {
+      const text = (data.text as string) ?? ""
+      const buttonLabel = (data.buttonLabel as string) ?? ""
+      const buttonUrl = (data.buttonUrl as string) ?? ""
+      if (text.trim() && buttonLabel && buttonUrl) {
+        await tg(token, "sendMessage", {
+          chat_id: chatId,
+          text,
+          parse_mode: "Markdown",
+          reply_markup: {
+            inline_keyboard: [[{ text: buttonLabel, url: buttonUrl }]],
+          },
+        })
+      }
+      break
+    }
+
+    case "DELAY": {
+      const ms = Math.min(
+        toMs((data.amount as number) ?? 1, (data.unit as string) ?? "seconds"),
+        8_000
+      )
+      if (ms > 0) await sleep(ms)
+      break
+    }
+
+    case "SMART_DELAY": {
+      const minMs = toMs((data.minAmount as number) ?? 1, (data.unit as string) ?? "seconds")
+      const maxMs = toMs((data.maxAmount as number) ?? 5, (data.unit as string) ?? "seconds")
+      const randomMs = Math.min(
+        minMs + Math.random() * (maxMs - minMs),
+        8_000
+      )
+      if (data.showTyping) {
+        await tg(token, "sendChatAction", { chat_id: chatId, action: "typing" })
+      }
+      if (randomMs > 0) await sleep(randomMs)
+      break
+    }
+
+    case "PAYMENT": {
+      const productId = data.productId as string | undefined
+      if (productId) {
+        const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? ""
+        const paymentUrl = `${baseUrl}/checkout/${productId}?chatId=${chatId}&botId=${botId}`
+        const ctaText = (data.ctaText as string) || "Pagar agora"
+        const salesText = (data.text as string) || ""
+        const image = data.image as string | undefined
+
+        if (image) {
+          await tg(token, "sendPhoto", {
+            chat_id: chatId,
+            photo: image,
+            caption: salesText,
+            parse_mode: "Markdown",
+            reply_markup: { inline_keyboard: [[{ text: ctaText, url: paymentUrl }]] },
+          })
+        } else {
+          await tg(token, "sendMessage", {
+            chat_id: chatId,
+            text: salesText || "Clique abaixo para adquirir o produto:",
+            parse_mode: "Markdown",
+            reply_markup: { inline_keyboard: [[{ text: ctaText, url: paymentUrl }]] },
+          })
+        }
+      }
+      break
     }
   }
-
-  return false // not paused, continue to next node
 }
 
-// Core traversal: runs from startNodeId (inclusive), starting at blockOffset within that node.
+// ─── Flow traversal ──────────────────────────────────────────────────────────
+
 async function runFlow(
   bot: BotWithFlow,
   chatId: number,
-  startNodeId: string,
-  startBlockOffset = 0
+  startNodeId: string
 ) {
   const token = decryptToken(bot.tokenEncrypted)
   const nodeMap = new Map(bot.flowNodes.map((n) => [n.id, n]))
@@ -155,7 +216,6 @@ async function runFlow(
 
   const visited = new Set<string>()
   let currentId: string | null = startNodeId
-  let offset = startBlockOffset
 
   while (currentId) {
     if (visited.has(currentId)) break
@@ -164,11 +224,7 @@ async function runFlow(
     const node = nodeMap.get(currentId)
     if (!node) break
 
-    const paused = await executeNode(token, bot.id, chatId, node, offset)
-    offset = 0 // only first node uses the offset
-
-    if (paused) return // waiting for button click
-
+    await executeNode(token, bot.id, chatId, node)
     currentId = adj.get(currentId)?.[0] ?? null
   }
 }
@@ -182,24 +238,10 @@ export async function executeFlow(botId: string, chatId: number) {
   const startNode = bot.flowNodes.find((n) => n.type === "TRIGGER_START")
   if (!startNode) return
 
-  // Begin from the first node connected after /start
   const firstNodeId = bot.flowEdges.find((e) => e.sourceNodeId === startNode.id)?.targetNodeId
   if (!firstNodeId) return
 
-  await runFlow(bot, chatId, firstNodeId, 0)
-}
-
-// Called when user clicks an inline button (callback_data = "r:<nodeId>:<blockIndex>")
-export async function resumeFlow(
-  botId: string,
-  chatId: number,
-  nodeId: string,
-  fromBlockIndex: number
-) {
-  const bot = await loadBot(botId)
-  if (!bot || !bot.isActive) return
-
-  await runFlow(bot, chatId, nodeId, fromBlockIndex)
+  await runFlow(bot, chatId, firstNodeId)
 }
 
 export async function registerWebhook(
