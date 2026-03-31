@@ -48,7 +48,7 @@ export const edgeTypes = { deletable: DeletableEdge }
 
 // ─── Shared ──────────────────────────────────────────────────────────────────
 
-const handleStyle = "!w-3 !h-3 !border-2 !border-white !rounded-full"
+const handleStyle = "!w-4 !h-4 !border-2 !border-white !rounded-full"
 
 function DeleteButton({ nodeId }: { nodeId: string }) {
   const { deleteElements } = useReactFlow()
@@ -378,8 +378,29 @@ export const PaymentNode = memo(function PaymentNode({ id, data, selected }: Nod
           </>
         )}
       </div>
+
+      {/* Output paths footer — fixed h-8 rows so bottom-based handle positions are exact */}
+      <div className="border-t border-violet-100">
+        <div className="flex items-center px-3 h-8">
+          <span className="text-[10px] font-semibold text-emerald-700">✓ Aprovado</span>
+        </div>
+        <div className="flex items-center px-3 h-8 bg-gray-50/50">
+          <span className="text-[10px] font-semibold text-amber-600">⏳ Pendente</span>
+        </div>
+        <div className="flex items-center px-3 h-8">
+          <span className="text-[10px] font-semibold text-red-600">✗ Recusado</span>
+        </div>
+      </div>
+
+      {/* Handles positioned from bottom: each row is 32px, center = 16/48/80px from bottom */}
+      <Handle type="source" position={Position.Right} id="approved"
+        className={`${handleStyle} !bg-emerald-500`} style={{ bottom: "80px", top: "auto" }} />
+      <Handle type="source" position={Position.Right} id="pending"
+        className={`${handleStyle} !bg-amber-500`} style={{ bottom: "48px", top: "auto" }} />
+      <Handle type="source" position={Position.Right} id="refused"
+        className={`${handleStyle} !bg-red-500`} style={{ bottom: "16px", top: "auto" }} />
+
       <Handle type="target" position={Position.Left} className={`${handleStyle} !bg-violet-400`} />
-      <Handle type="source" position={Position.Right} className={`${handleStyle} !bg-violet-500`} />
     </div>
   )
 })

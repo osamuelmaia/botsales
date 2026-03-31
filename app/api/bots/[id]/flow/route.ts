@@ -19,6 +19,7 @@ const edgeSchema = z.object({
   id: z.string(),
   source: z.string(),
   target: z.string(),
+  sourceHandle: z.string().nullable().optional(),
   label: z.string().optional(),
 })
 
@@ -105,6 +106,7 @@ export async function GET(_req: Request, { params }: Params) {
     id: e.id,
     source: e.sourceNodeId,
     target: e.targetNodeId,
+    sourceHandle: e.sourceHandle ?? null,
     type: "deletable",
     ...(e.label ? { label: e.label } : {}),
   }))
@@ -190,6 +192,7 @@ export async function POST(request: Request, { params }: Params) {
         botId: params.id,
         sourceNodeId: e.source,
         targetNodeId: e.target,
+        sourceHandle: e.sourceHandle ?? null,
         label: e.label,
       })),
     })
