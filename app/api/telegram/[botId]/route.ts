@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { decryptToken } from "@/lib/utils"
-import { executeFlow } from "@/lib/bot-runner"
+import { executeFlow, resumeFlowFromButton } from "@/lib/bot-runner"
 
 type Params = { params: { botId: string } }
 
@@ -56,13 +56,21 @@ export async function POST(request: Request, { params }: Params) {
 
   // ── callback_query (inline button press) ──────────────────────────────────
   if (update.callback_query) {
+    const cq = update.callback_query
+    const chatId = cq.message?.chat?.id
+
     // Answer immediately to dismiss the loading spinner
     await fetch(`https://api.telegram.org/bot${token}/answerCallbackQuery`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ callback_query_id: update.callback_query.id }),
+      body: JSON.stringify({ callback_query_id: cq.id }),
       signal: AbortSignal.timeout(5000),
     }).catch(() => {})
+
+    // Resume flow if this is a flow-mode button: data = "flow:<nodeId>:<btnId>"
+    if (chatId && cq.data?.startsWith("flow:")) {
+      await resumeFlowFromButton(bot.id, chatId, cq.data)
+    }
   }
 
   return NextResponse.json({ ok: true })
