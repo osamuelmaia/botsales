@@ -308,6 +308,9 @@ export const ButtonNode = memo(function ButtonNode({ id, data, selected }: NodeP
   const hasFlowButtons = flowButtons.length > 0
   const { containerRef, rowRefs, tops } = useRowHandleTops(flowButtons.length)
 
+  // map each flow button id → its index among flow buttons (for ref assignment)
+  const flowIdxMap = new Map(flowButtons.map((b, i) => [b.id, i]))
+
   return (
     <div ref={containerRef} className={`group relative bg-white rounded-xl border-2 shadow-md min-w-[200px] max-w-[260px] transition-colors ${selected ? "border-indigo-500" : "border-indigo-200"}`}>
       <DeleteButton nodeId={id} />
@@ -319,41 +322,37 @@ export const ButtonNode = memo(function ButtonNode({ id, data, selected }: NodeP
         )}
       </div>
 
+      {/* Button chips — flow buttons get a rowRef so handles align with them */}
       <div className="px-3 py-2 space-y-1.5">
         {buttons.length === 0 ? (
           <p className="text-xs italic text-gray-400">Nenhum botão configurado</p>
         ) : (
-          buttons.map((btn) => (
-            <div key={btn.id} className={`flex items-center gap-1.5 rounded-md px-2.5 py-1.5 border text-xs font-medium ${
-              btn.mode === "flow"
-                ? "bg-indigo-600 border-indigo-600 text-white"
-                : "bg-white border-indigo-300 text-indigo-700"
-            }`}>
-              {btn.mode === "url"
-                ? <Link2 className="h-3 w-3 shrink-0 opacity-70" />
-                : <ArrowRight className="h-3 w-3 shrink-0 opacity-80" />}
-              <span className="truncate">{btn.label || <span className="italic opacity-60">sem texto</span>}</span>
-            </div>
-          ))
+          buttons.map((btn) => {
+            const fi = flowIdxMap.get(btn.id)
+            return (
+              <div
+                key={btn.id}
+                ref={fi !== undefined ? rowRefs[fi] : undefined}
+                className={`flex items-center gap-1.5 rounded-md px-2.5 py-1.5 border text-xs font-medium ${
+                  btn.mode === "flow"
+                    ? "bg-indigo-600 border-indigo-600 text-white"
+                    : "bg-white border-indigo-300 text-indigo-700"
+                }`}
+              >
+                {btn.mode === "url"
+                  ? <Link2 className="h-3 w-3 shrink-0 opacity-70" />
+                  : <ArrowRight className="h-3 w-3 shrink-0 opacity-80" />}
+                <span className="truncate">{btn.label || <span className="italic opacity-60">sem texto</span>}</span>
+              </div>
+            )
+          })
         )}
       </div>
-
-      {/* Flow-button output footer — measured by useRowHandleTops */}
-      {hasFlowButtons && (
-        <div className="border-t border-indigo-100">
-          {flowButtons.map((btn, i) => (
-            <div key={btn.id} ref={rowRefs[i]} className="flex items-center gap-1.5 px-3 h-8">
-              <span className="w-2 h-2 rounded-full bg-indigo-500 shrink-0" />
-              <span className="text-[10px] font-normal text-gray-600 truncate">{btn.label || "sem texto"}</span>
-            </div>
-          ))}
-        </div>
-      )}
 
       {/* Target handle */}
       <Handle type="target" position={Position.Left} className={`${handleStyle} !bg-indigo-400`} />
 
-      {/* Source handles aligned to footer rows via measured tops */}
+      {/* Source handles aligned to each flow-button chip row */}
       {hasFlowButtons
         ? flowButtons.map((btn, i) => (
             <Handle key={btn.id} type="source" position={Position.Right} id={btn.id}
