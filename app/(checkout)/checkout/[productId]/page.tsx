@@ -365,7 +365,7 @@ export default function CheckoutPage() {
                 onChange={(e) => setCardNumber(formatCard(e.target.value))}
                 placeholder="Número do cartão"
                 inputMode="numeric"
-                className={inputCls + " font-mono tracking-widest"}
+                className={inputCls + " tracking-widest"} style={{ fontFamily: "var(--font-geist-mono), monospace" }}
               />
               <input
                 required={selectedMethod === "CREDIT_CARD"}
