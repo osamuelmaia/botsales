@@ -379,20 +379,23 @@ export const PaymentNode = memo(function PaymentNode({ id, data, selected }: Nod
         )}
       </div>
 
-      {/* Output paths footer — fixed h-8 rows so bottom-based handle positions are exact */}
+      {/* Output paths footer — h-8 rows (32px each), handles bottom-anchored to match */}
       <div className="border-t border-violet-100">
-        <div className="flex items-center px-3 h-8">
-          <span className="text-[10px] font-semibold text-emerald-700">✓ Aprovado</span>
+        <div className="flex items-center gap-1.5 px-3 h-8">
+          <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
+          <span className="text-[10px] font-normal text-gray-600">Aprovado</span>
         </div>
-        <div className="flex items-center px-3 h-8 bg-gray-50/50">
-          <span className="text-[10px] font-semibold text-amber-600">⏳ Pendente</span>
+        <div className="flex items-center gap-1.5 px-3 h-8 bg-gray-50/60">
+          <span className="w-2 h-2 rounded-full bg-amber-500 shrink-0" />
+          <span className="text-[10px] font-normal text-gray-600">Pendente</span>
         </div>
-        <div className="flex items-center px-3 h-8">
-          <span className="text-[10px] font-semibold text-red-600">✗ Recusado</span>
+        <div className="flex items-center gap-1.5 px-3 h-8">
+          <span className="w-2 h-2 rounded-full bg-red-500 shrink-0" />
+          <span className="text-[10px] font-normal text-gray-600">Recusado</span>
         </div>
       </div>
 
-      {/* Handles positioned from bottom: each row is 32px, center = 16/48/80px from bottom */}
+      {/* Handles anchored from bottom, center of each 32px row */}
       <Handle type="source" position={Position.Right} id="approved"
         className={`${handleStyle} !bg-emerald-500`} style={{ bottom: "80px", top: "auto" }} />
       <Handle type="source" position={Position.Right} id="pending"
