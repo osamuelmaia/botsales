@@ -58,14 +58,14 @@ const handleStyle = "!w-4 !h-4 !border-2 !border-white !rounded-full"
 function useRowHandleTops(count: number) {
   const containerRef = useRef<HTMLDivElement>(null)
   const rowRefs = [useRef<HTMLDivElement>(null), useRef<HTMLDivElement>(null), useRef<HTMLDivElement>(null)].slice(0, count)
-  const [tops, setTops] = useState<string[]>(Array(count).fill("50%"))
+  const [tops, setTops] = useState<string[]>(() => Array(count).fill("50%"))
 
   useLayoutEffect(() => {
     const next = rowRefs.map((r) => {
       if (!r.current) return "50%"
       return `${Math.round(r.current.offsetTop + r.current.offsetHeight / 2)}px`
     })
-    setTops((prev) => (prev.join() === next.join() ? prev : next))
+    setTops((prev) => (prev.length === next.length && prev.join() === next.join() ? prev : next))
   })
 
   return { containerRef, rowRefs, tops }
@@ -367,7 +367,7 @@ export const ButtonNode = memo(function ButtonNode({ id, data, selected }: NodeP
         ? flowButtons.map((btn, i) => (
             <Handle key={btn.id} type="source" position={Position.Right} id={btn.id}
               className={`${handleStyle} !bg-indigo-500`}
-              style={{ top: tops[i], bottom: "auto" }} />
+              style={{ top: tops[i] ?? "50%", bottom: "auto" }} />
           ))
         : <Handle type="source" position={Position.Right} className={`${handleStyle} !bg-indigo-500`} />
       }
