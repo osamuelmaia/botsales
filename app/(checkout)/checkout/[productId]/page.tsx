@@ -466,6 +466,7 @@ function ProductSummary({ product }: { product: ProductData }) {
           <span className="text-sm text-gray-500">{billingLabel}</span>
         )}
       </div>
+      <p className="text-xs text-gray-400 mt-2">Após comprar, volte ao bot de vendas.</p>
     </div>
   )
 }

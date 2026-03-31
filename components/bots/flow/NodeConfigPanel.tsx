@@ -8,11 +8,7 @@ import {
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-interface Product {
-  id: string
-  name: string
-  priceInCents: number
-}
+interface Product { id: string; name: string; priceInCents: number }
 
 interface NodeConfigPanelProps {
   node: Node
@@ -37,30 +33,10 @@ const textareaCls = "w-full rounded-md border border-gray-300 px-3 py-2 text-sm 
 
 // ─── Generic Upload Component ────────────────────────────────────────────────
 
-function MediaUpload({
-  url,
-  accept,
-  allowedTypes,
-  maxSize,
-  maxSizeLabel,
-  formatLabel,
-  icon,
-  accentColor,
-  onUploaded,
-  onRemove,
-  preview,
-}: {
-  url: string
-  accept: string
-  allowedTypes: string[] | null
-  maxSize: number
-  maxSizeLabel: string
-  formatLabel: string
-  icon: React.ReactNode
-  accentColor: string
-  onUploaded: (url: string, mediaId: string) => void
-  onRemove: () => void
-  preview?: React.ReactNode
+function MediaUpload({ url, accept, allowedTypes, maxSize, maxSizeLabel, formatLabel, icon, onUploaded, onRemove, preview }: {
+  url: string; accept: string; allowedTypes: string[] | null; maxSize: number; maxSizeLabel: string
+  formatLabel: string; icon: React.ReactNode
+  onUploaded: (url: string, mediaId: string) => void; onRemove: () => void; preview?: React.ReactNode
 }) {
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState("")
@@ -69,17 +45,10 @@ function MediaUpload({
 
   async function uploadFile(file: File) {
     setError("")
-    if (allowedTypes && !allowedTypes.includes(file.type)) {
-      setError(`Formato inválido. Use ${formatLabel}.`)
-      return
-    }
-    if (file.size > maxSize) {
-      setError(`Arquivo muito grande. Máximo ${maxSizeLabel}.`)
-      return
-    }
+    if (allowedTypes && !allowedTypes.includes(file.type)) { setError(`Formato inválido. Use ${formatLabel}.`); return }
+    if (file.size > maxSize) { setError(`Arquivo muito grande. Máximo ${maxSizeLabel}.`); return }
     setUploading(true)
-    const form = new FormData()
-    form.append("file", file)
+    const form = new FormData(); form.append("file", file)
     try {
       const res = await fetch("/api/media/upload", { method: "POST", body: form })
       const json = await res.json()
@@ -87,12 +56,6 @@ function MediaUpload({
       onUploaded(json.url, json.id)
     } catch { setError("Erro de conexão. Tente novamente.") }
     finally { setUploading(false) }
-  }
-
-  function handleDrop(e: React.DragEvent) {
-    e.preventDefault(); setDragOver(false)
-    const file = e.dataTransfer.files?.[0]
-    if (file) uploadFile(file)
   }
 
   if (url) {
@@ -110,10 +73,11 @@ function MediaUpload({
   return (
     <div>
       <div onDragOver={(e) => { e.preventDefault(); setDragOver(true) }}
-        onDragLeave={() => setDragOver(false)} onDrop={handleDrop}
+        onDragLeave={() => setDragOver(false)}
+        onDrop={(e) => { e.preventDefault(); setDragOver(false); const f = e.dataTransfer.files?.[0]; if (f) uploadFile(f) }}
         onClick={() => inputRef.current?.click()}
         className={`flex flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed py-5 cursor-pointer transition-colors ${
-          dragOver ? `border-${accentColor}-400 bg-${accentColor}-50` : "border-gray-200 hover:border-gray-400 hover:bg-gray-50"
+          dragOver ? "border-blue-400 bg-blue-50" : "border-gray-200 hover:border-gray-400 hover:bg-gray-50"
         }`}>
         {uploading ? <Loader2 className="h-5 w-5 text-gray-400 animate-spin" /> : icon}
         <p className="text-xs text-gray-500">{uploading ? "Enviando..." : "Arraste ou clique para enviar"}</p>
@@ -121,11 +85,7 @@ function MediaUpload({
       </div>
       <input ref={inputRef} type="file" accept={accept} className="hidden"
         onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadFile(f); e.target.value = "" }} />
-      {error && (
-        <p className="text-xs text-red-500 mt-1.5 flex items-center gap-1">
-          <AlertCircle className="h-3 w-3 shrink-0" />{error}
-        </p>
-      )}
+      {error && <p className="text-xs text-red-500 mt-1.5 flex items-center gap-1"><AlertCircle className="h-3 w-3 shrink-0" />{error}</p>}
     </div>
   )
 }
@@ -234,6 +194,16 @@ export function NodeConfigPanel({ node, botId, botName, products, onUpdate, onCl
     setPaymentText(String(d.text ?? "")); setPaymentCtaText(String(d.ctaText ?? "Pagar agora"))
   }, [node.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // ─── Helper: update node immediately ────────────────────────────────────────
+
+  function emit(fields: Record<string, unknown>) {
+    onUpdate(node.id, fields)
+  }
+
+  function deleteMedia(mediaId: string) {
+    if (mediaId) fetch(`/api/media/${mediaId}`, { method: "DELETE" }).catch(() => {})
+  }
+
   // ─── Start validation ───────────────────────────────────────────────────────
 
   async function validateChannel() {
@@ -247,38 +217,12 @@ export function NodeConfigPanel({ node, botId, botName, products, onUpdate, onCl
       const json = await res.json()
       if (json.valid) {
         setChannelValid(true); setChatTitle(json.chatTitle ?? channelIdStart.trim())
-        onUpdate(node.id, { channelId: channelIdStart.trim(), chatTitle: json.chatTitle ?? channelIdStart.trim(), botName })
+        emit({ channelId: channelIdStart.trim(), chatTitle: json.chatTitle ?? channelIdStart.trim(), botName })
       } else {
         setChannelValid(false); setChannelError(json.error ?? "Grupo inválido")
       }
     } catch { setChannelValid(false); setChannelError("Erro ao validar grupo") }
     finally { setValidatingChannel(false) }
-  }
-
-  // ─── Helper to delete media ─────────────────────────────────────────────────
-
-  function deleteMedia(mediaId: string) {
-    if (mediaId) fetch(`/api/media/${mediaId}`, { method: "DELETE" }).catch(() => {})
-  }
-
-  // ─── Save ───────────────────────────────────────────────────────────────────
-
-  function save() {
-    const t = node.type
-    if (t === "text") onUpdate(node.id, { content: textContent })
-    else if (t === "image") onUpdate(node.id, { url: imageUrl, mediaId: imageMediaId, caption: imageCaption })
-    else if (t === "video") onUpdate(node.id, { url: videoUrl, mediaId: videoMediaId, caption: videoCaption })
-    else if (t === "audio") onUpdate(node.id, { url: audioUrl, mediaId: audioMediaId })
-    else if (t === "file") onUpdate(node.id, { url: fileUrl, mediaId: fileMediaId, caption: fileCaption })
-    else if (t === "typing") onUpdate(node.id, { duration: typingDuration, unit: typingUnit })
-    else if (t === "button") onUpdate(node.id, { text: btnText, buttonLabel: btnLabel, buttonUrl: btnUrl })
-    else if (t === "delay") onUpdate(node.id, { amount: delayAmount, unit: delayUnit })
-    else if (t === "smart_delay") onUpdate(node.id, { minAmount: sdMin, maxAmount: sdMax, unit: sdUnit, showTyping: sdTyping })
-    else if (t === "payment") {
-      const product = products.find((p) => p.id === productId)
-      onUpdate(node.id, { productId, productName: product?.name ?? "", image: paymentImage, imageMediaId: paymentImageMediaId, text: paymentText, ctaText: paymentCtaText || "Pagar agora" })
-    }
-    onClose()
   }
 
   // ─── Panel titles ───────────────────────────────────────────────────────────
@@ -345,12 +289,10 @@ export function NodeConfigPanel({ node, botId, botName, products, onUpdate, onCl
           <div className="space-y-3">
             <div>
               <label className={labelCls}>Mensagem de texto</label>
-              <textarea value={textContent} onChange={(e) => setTextContent(e.target.value)}
+              <textarea value={textContent} onChange={(e) => { setTextContent(e.target.value); emit({ content: e.target.value }) }}
                 rows={5} className={textareaCls} placeholder="Digite a mensagem... (suporta Markdown do Telegram)" />
             </div>
-            <p className="text-xs text-gray-400">
-              Suporta <strong>negrito</strong>, <em>itálico</em>, <code className="bg-gray-100 px-0.5 rounded">código</code> e links do Telegram Markdown.
-            </p>
+            <p className="text-xs text-gray-400">Suporta <strong>negrito</strong>, <em>itálico</em>, <code className="bg-gray-100 px-0.5 rounded">código</code> e links.</p>
           </div>
         )}
 
@@ -362,17 +304,15 @@ export function NodeConfigPanel({ node, botId, botName, products, onUpdate, onCl
               <MediaUpload url={imageUrl} accept={ALLOWED_IMAGE_TYPES.join(",")}
                 allowedTypes={ALLOWED_IMAGE_TYPES} maxSize={IMAGE_MAX_SIZE}
                 maxSizeLabel="4 MB" formatLabel="JPEG, PNG, WebP, GIF"
-                icon={<UploadCloud className="h-5 w-5 text-gray-400" />} accentColor="sky"
-                onUploaded={(u, id) => { setImageUrl(u); setImageMediaId(id) }}
-                onRemove={() => { deleteMedia(imageMediaId); setImageUrl(""); setImageMediaId("") }}
-                preview={
-                  /* eslint-disable-next-line @next/next/no-img-element */
-                  <img src={imageUrl} alt="Prévia" className="w-full max-h-40 object-contain bg-gray-50" />
-                } />
+                icon={<UploadCloud className="h-5 w-5 text-gray-400" />}
+                onUploaded={(u, id) => { setImageUrl(u); setImageMediaId(id); emit({ url: u, mediaId: id }) }}
+                onRemove={() => { deleteMedia(imageMediaId); setImageUrl(""); setImageMediaId(""); emit({ url: "", mediaId: "" }) }}
+                preview={/* eslint-disable-next-line @next/next/no-img-element */
+                  <img src={imageUrl} alt="Prévia" className="w-full max-h-40 object-contain bg-gray-50" />} />
             </div>
             <div>
               <label className={labelCls}>Legenda (opcional)</label>
-              <textarea value={imageCaption} onChange={(e) => setImageCaption(e.target.value)}
+              <textarea value={imageCaption} onChange={(e) => { setImageCaption(e.target.value); emit({ caption: e.target.value }) }}
                 rows={2} className={textareaCls} placeholder="Legenda da imagem..." />
             </div>
           </div>
@@ -386,17 +326,15 @@ export function NodeConfigPanel({ node, botId, botName, products, onUpdate, onCl
               <MediaUpload url={videoUrl} accept={ALLOWED_VIDEO_TYPES.join(",")}
                 allowedTypes={ALLOWED_VIDEO_TYPES} maxSize={VIDEO_MAX_SIZE}
                 maxSizeLabel="50 MB" formatLabel="MP4, WebM"
-                icon={<Film className="h-5 w-5 text-gray-400" />} accentColor="purple"
-                onUploaded={(u, id) => { setVideoUrl(u); setVideoMediaId(id) }}
-                onRemove={() => { deleteMedia(videoMediaId); setVideoUrl(""); setVideoMediaId("") }}
-                preview={
-                  /* eslint-disable-next-line jsx-a11y/media-has-caption */
-                  <video src={videoUrl} controls className="w-full max-h-40 bg-gray-900 object-contain" />
-                } />
+                icon={<Film className="h-5 w-5 text-gray-400" />}
+                onUploaded={(u, id) => { setVideoUrl(u); setVideoMediaId(id); emit({ url: u, mediaId: id }) }}
+                onRemove={() => { deleteMedia(videoMediaId); setVideoUrl(""); setVideoMediaId(""); emit({ url: "", mediaId: "" }) }}
+                preview={/* eslint-disable-next-line jsx-a11y/media-has-caption */
+                  <video src={videoUrl} controls className="w-full max-h-40 bg-gray-900 object-contain" />} />
             </div>
             <div>
               <label className={labelCls}>Legenda (opcional)</label>
-              <textarea value={videoCaption} onChange={(e) => setVideoCaption(e.target.value)}
+              <textarea value={videoCaption} onChange={(e) => { setVideoCaption(e.target.value); emit({ caption: e.target.value }) }}
                 rows={2} className={textareaCls} placeholder="Legenda do vídeo..." />
             </div>
           </div>
@@ -405,19 +343,15 @@ export function NodeConfigPanel({ node, botId, botName, products, onUpdate, onCl
         {/* ── Audio ─────────────────────────────────────────────────────── */}
         {node.type === "audio" && (
           <div className="space-y-3">
-            <div>
-              <label className={labelCls}>Arquivo de áudio</label>
-              <MediaUpload url={audioUrl} accept={ALLOWED_AUDIO_TYPES.join(",")}
-                allowedTypes={ALLOWED_AUDIO_TYPES} maxSize={AUDIO_MAX_SIZE}
-                maxSizeLabel="20 MB" formatLabel="MP3, OGG, WAV, M4A"
-                icon={<Music className="h-5 w-5 text-gray-400" />} accentColor="pink"
-                onUploaded={(u, id) => { setAudioUrl(u); setAudioMediaId(id) }}
-                onRemove={() => { deleteMedia(audioMediaId); setAudioUrl(""); setAudioMediaId("") }}
-                preview={
-                  /* eslint-disable-next-line jsx-a11y/media-has-caption */
-                  <audio src={audioUrl} controls className="w-full p-2" />
-                } />
-            </div>
+            <label className={labelCls}>Arquivo de áudio</label>
+            <MediaUpload url={audioUrl} accept={ALLOWED_AUDIO_TYPES.join(",")}
+              allowedTypes={ALLOWED_AUDIO_TYPES} maxSize={AUDIO_MAX_SIZE}
+              maxSizeLabel="20 MB" formatLabel="MP3, OGG, WAV, M4A"
+              icon={<Music className="h-5 w-5 text-gray-400" />}
+              onUploaded={(u, id) => { setAudioUrl(u); setAudioMediaId(id); emit({ url: u, mediaId: id }) }}
+              onRemove={() => { deleteMedia(audioMediaId); setAudioUrl(""); setAudioMediaId(""); emit({ url: "", mediaId: "" }) }}
+              preview={/* eslint-disable-next-line jsx-a11y/media-has-caption */
+                <audio src={audioUrl} controls className="w-full p-2" />} />
           </div>
         )}
 
@@ -429,19 +363,18 @@ export function NodeConfigPanel({ node, botId, botName, products, onUpdate, onCl
               <MediaUpload url={fileUrl} accept="*/*"
                 allowedTypes={null} maxSize={FILE_MAX_SIZE}
                 maxSizeLabel="50 MB" formatLabel="PDF, DOC, ZIP, etc."
-                icon={<FileText className="h-5 w-5 text-gray-400" />} accentColor="slate"
-                onUploaded={(u, id) => { setFileUrl(u); setFileMediaId(id) }}
-                onRemove={() => { deleteMedia(fileMediaId); setFileUrl(""); setFileMediaId("") }}
+                icon={<FileText className="h-5 w-5 text-gray-400" />}
+                onUploaded={(u, id) => { setFileUrl(u); setFileMediaId(id); emit({ url: u, mediaId: id }) }}
+                onRemove={() => { deleteMedia(fileMediaId); setFileUrl(""); setFileMediaId(""); emit({ url: "", mediaId: "" }) }}
                 preview={
                   <div className="flex items-center gap-2 p-3 bg-gray-50">
                     <FileText className="h-5 w-5 text-slate-500 shrink-0" />
                     <p className="text-xs text-gray-600 truncate">Arquivo enviado</p>
-                  </div>
-                } />
+                  </div>} />
             </div>
             <div>
               <label className={labelCls}>Legenda (opcional)</label>
-              <textarea value={fileCaption} onChange={(e) => setFileCaption(e.target.value)}
+              <textarea value={fileCaption} onChange={(e) => { setFileCaption(e.target.value); emit({ caption: e.target.value }) }}
                 rows={2} className={textareaCls} placeholder="Legenda do arquivo..." />
             </div>
           </div>
@@ -454,18 +387,16 @@ export function NodeConfigPanel({ node, botId, botName, products, onUpdate, onCl
               <label className={labelCls}>Duração do efeito</label>
               <div className="flex gap-2">
                 <input type="number" min={1} max={120} value={typingDuration}
-                  onChange={(e) => setTypingDuration(Math.max(1, Number(e.target.value)))}
+                  onChange={(e) => { const v = Math.max(1, Number(e.target.value)); setTypingDuration(v); emit({ duration: v }) }}
                   className={inputCls + " w-24"} />
-                <select value={typingUnit} onChange={(e) => setTypingUnit(e.target.value)}
+                <select value={typingUnit} onChange={(e) => { setTypingUnit(e.target.value); emit({ unit: e.target.value }) }}
                   className="flex-1 h-9 rounded-md border border-gray-300 px-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-900 bg-white">
                   <option value="seconds">Segundos</option>
                   <option value="minutes">Minutos</option>
                 </select>
               </div>
             </div>
-            <p className="text-xs text-gray-400">
-              Exibe &quot;digitando...&quot; no chat do Telegram por esse tempo antes da próxima mensagem. Efeito de humanização.
-            </p>
+            <p className="text-xs text-gray-400">Exibe &quot;digitando...&quot; no chat do Telegram por esse tempo.</p>
           </div>
         )}
 
@@ -474,22 +405,20 @@ export function NodeConfigPanel({ node, botId, botName, products, onUpdate, onCl
           <div className="space-y-3">
             <div>
               <label className={labelCls}>Texto da mensagem</label>
-              <textarea value={btnText} onChange={(e) => setBtnText(e.target.value)}
+              <textarea value={btnText} onChange={(e) => { setBtnText(e.target.value); emit({ text: e.target.value }) }}
                 rows={3} className={textareaCls} placeholder="Mensagem que acompanha o botão..." />
             </div>
             <div>
               <label className={labelCls}>Texto do botão <span className="text-red-500">*</span></label>
-              <input value={btnLabel} onChange={(e) => setBtnLabel(e.target.value)}
+              <input value={btnLabel} onChange={(e) => { setBtnLabel(e.target.value); emit({ buttonLabel: e.target.value }) }}
                 className={inputCls} placeholder="Ex: Acessar conteúdo" />
             </div>
             <div>
               <label className={labelCls}>URL do botão <span className="text-red-500">*</span></label>
-              <input value={btnUrl} onChange={(e) => setBtnUrl(e.target.value)}
+              <input value={btnUrl} onChange={(e) => { setBtnUrl(e.target.value); emit({ buttonUrl: e.target.value }) }}
                 className={inputCls} placeholder="https://..." />
             </div>
-            <p className="text-xs text-gray-400">
-              Envia uma mensagem com um botão inline que abre a URL ao clicar.
-            </p>
+            <p className="text-xs text-gray-400">Envia uma mensagem com um botão inline que abre a URL ao clicar.</p>
           </div>
         )}
 
@@ -500,9 +429,9 @@ export function NodeConfigPanel({ node, botId, botName, products, onUpdate, onCl
               <label className={labelCls}>Tempo de espera</label>
               <div className="flex gap-2">
                 <input type="number" min={1} max={999} value={delayAmount}
-                  onChange={(e) => setDelayAmount(Math.max(1, Number(e.target.value)))}
+                  onChange={(e) => { const v = Math.max(1, Number(e.target.value)); setDelayAmount(v); emit({ amount: v }) }}
                   className={inputCls + " w-24"} />
-                <select value={delayUnit} onChange={(e) => setDelayUnit(e.target.value)}
+                <select value={delayUnit} onChange={(e) => { setDelayUnit(e.target.value); emit({ unit: e.target.value }) }}
                   className="flex-1 h-9 rounded-md border border-gray-300 px-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-900 bg-white">
                   <option value="seconds">Segundos</option>
                   <option value="minutes">Minutos</option>
@@ -511,7 +440,7 @@ export function NodeConfigPanel({ node, botId, botName, products, onUpdate, onCl
                 </select>
               </div>
             </div>
-            <p className="text-xs text-gray-400">O bot aguardará esse tempo fixo antes de continuar para o próximo nó.</p>
+            <p className="text-xs text-gray-400">O bot aguardará esse tempo fixo antes de continuar.</p>
           </div>
         )}
 
@@ -522,13 +451,13 @@ export function NodeConfigPanel({ node, botId, botName, products, onUpdate, onCl
               <label className={labelCls}>Intervalo aleatório</label>
               <div className="flex items-center gap-2">
                 <input type="number" min={1} max={999} value={sdMin}
-                  onChange={(e) => setSdMin(Math.max(1, Number(e.target.value)))}
+                  onChange={(e) => { const v = Math.max(1, Number(e.target.value)); setSdMin(v); emit({ minAmount: v }) }}
                   className={inputCls + " w-20"} />
                 <span className="text-xs text-gray-500 shrink-0">a</span>
                 <input type="number" min={1} max={999} value={sdMax}
-                  onChange={(e) => setSdMax(Math.max(1, Number(e.target.value)))}
+                  onChange={(e) => { const v = Math.max(1, Number(e.target.value)); setSdMax(v); emit({ maxAmount: v }) }}
                   className={inputCls + " w-20"} />
-                <select value={sdUnit} onChange={(e) => setSdUnit(e.target.value)}
+                <select value={sdUnit} onChange={(e) => { setSdUnit(e.target.value); emit({ unit: e.target.value }) }}
                   className="flex-1 h-9 rounded-md border border-gray-300 px-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-900 bg-white">
                   <option value="seconds">Segundos</option>
                   <option value="minutes">Minutos</option>
@@ -536,13 +465,12 @@ export function NodeConfigPanel({ node, botId, botName, products, onUpdate, onCl
               </div>
             </div>
             <label className="flex items-center gap-2 cursor-pointer">
-              <input type="checkbox" checked={sdTyping} onChange={(e) => setSdTyping(e.target.checked)}
+              <input type="checkbox" checked={sdTyping}
+                onChange={(e) => { setSdTyping(e.target.checked); emit({ showTyping: e.target.checked }) }}
                 className="h-4 w-4 rounded border-gray-300 text-gray-900 focus:ring-gray-900" />
               <span className="text-xs text-gray-600">Exibir &quot;digitando...&quot; durante o delay</span>
             </label>
-            <p className="text-xs text-gray-400">
-              Delay aleatório entre os dois valores para humanizar o fluxo.
-            </p>
+            <p className="text-xs text-gray-400">Delay aleatório entre os dois valores para humanizar o fluxo.</p>
           </div>
         )}
 
@@ -551,20 +479,20 @@ export function NodeConfigPanel({ node, botId, botName, products, onUpdate, onCl
           <div className="space-y-4">
             <div>
               <label className={labelCls}>Produto <span className="text-red-500">*</span></label>
-              <select value={productId} onChange={(e) => setProductId(e.target.value)}
+              <select value={productId} onChange={(e) => {
+                const v = e.target.value; setProductId(v)
+                const p = products.find((pr) => pr.id === v)
+                emit({ productId: v, productName: p?.name ?? "" })
+              }}
                 className="w-full h-9 rounded-md border border-gray-300 px-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-900 bg-white">
                 <option value="">Selecione um produto</option>
                 {products.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name} — R$ {(p.priceInCents / 100).toFixed(2).replace(".", ",")}
-                  </option>
+                  <option key={p.id} value={p.id}>{p.name} — R$ {(p.priceInCents / 100).toFixed(2).replace(".", ",")}</option>
                 ))}
               </select>
             </div>
             {!productId && (
-              <p className="text-xs text-gray-400 bg-gray-50 rounded-lg px-3 py-2 border border-gray-100">
-                Selecione um produto para configurar a mensagem de venda.
-              </p>
+              <p className="text-xs text-gray-400 bg-gray-50 rounded-lg px-3 py-2 border border-gray-100">Selecione um produto para configurar.</p>
             )}
             {productId && (
               <>
@@ -577,23 +505,21 @@ export function NodeConfigPanel({ node, botId, botName, products, onUpdate, onCl
                     <MediaUpload url={paymentImage} accept={ALLOWED_IMAGE_TYPES.join(",")}
                       allowedTypes={ALLOWED_IMAGE_TYPES} maxSize={IMAGE_MAX_SIZE}
                       maxSizeLabel="4 MB" formatLabel="JPEG, PNG, WebP, GIF"
-                      icon={<UploadCloud className="h-5 w-5 text-gray-400" />} accentColor="violet"
-                      onUploaded={(u, id) => { setPaymentImage(u); setPaymentImageMediaId(id) }}
-                      onRemove={() => { deleteMedia(paymentImageMediaId); setPaymentImage(""); setPaymentImageMediaId("") }}
-                      preview={
-                        /* eslint-disable-next-line @next/next/no-img-element */
-                        <img src={paymentImage} alt="Prévia" className="w-full max-h-40 object-contain bg-gray-50" />
-                      } />
+                      icon={<UploadCloud className="h-5 w-5 text-gray-400" />}
+                      onUploaded={(u, id) => { setPaymentImage(u); setPaymentImageMediaId(id); emit({ image: u, imageMediaId: id }) }}
+                      onRemove={() => { deleteMedia(paymentImageMediaId); setPaymentImage(""); setPaymentImageMediaId(""); emit({ image: "", imageMediaId: "" }) }}
+                      preview={/* eslint-disable-next-line @next/next/no-img-element */
+                        <img src={paymentImage} alt="Prévia" className="w-full max-h-40 object-contain bg-gray-50" />} />
                   </div>
                 </div>
                 <div>
                   <label className={labelCls}>Texto da mensagem</label>
-                  <textarea value={paymentText} onChange={(e) => setPaymentText(e.target.value)}
+                  <textarea value={paymentText} onChange={(e) => { setPaymentText(e.target.value); emit({ text: e.target.value }) }}
                     rows={3} className={textareaCls} placeholder="Ex: Garanta seu acesso agora!" />
                 </div>
                 <div>
                   <label className={labelCls}>Texto do botão</label>
-                  <input value={paymentCtaText} onChange={(e) => setPaymentCtaText(e.target.value)}
+                  <input value={paymentCtaText} onChange={(e) => { setPaymentCtaText(e.target.value); emit({ ctaText: e.target.value }) }}
                     className={inputCls} placeholder="Pagar agora" />
                 </div>
               </>
@@ -602,19 +528,12 @@ export function NodeConfigPanel({ node, botId, botName, products, onUpdate, onCl
         )}
       </div>
 
-      {/* Footer */}
-      {node.type === "start" ? (
+      {/* Footer: only start node needs confirm button */}
+      {node.type === "start" && (
         <div className="p-4 border-t border-gray-100">
           <button onClick={onClose} disabled={!channelValid}
             className="w-full h-9 bg-gray-900 text-white rounded-md text-sm font-medium hover:bg-gray-800 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
             {channelValid ? "Confirmar" : "Valide o grupo para continuar"}
-          </button>
-        </div>
-      ) : (
-        <div className="p-4 border-t border-gray-100">
-          <button onClick={save}
-            className="w-full h-9 bg-gray-900 text-white rounded-md text-sm font-medium hover:bg-gray-800 transition-colors">
-            Aplicar
           </button>
         </div>
       )}

@@ -167,6 +167,7 @@ model FlowEdge {
   botId        String
   sourceNodeId String
   targetNodeId String
+  sourceHandle String?
   label        String?
 
   bot        Bot      @relation(fields: [botId], references: [id], onDelete: Cascade)

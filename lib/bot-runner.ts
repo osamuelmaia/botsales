@@ -122,8 +122,14 @@ async function executeNode(
       const duration = (data.duration as number) ?? 3
       const unit = (data.unit as string) ?? "seconds"
       const ms = Math.min(toMs(duration, unit), 8_000) // cap at 8s for serverless
-      await tg(token, "sendChatAction", { chat_id: chatId, action: "typing" })
-      if (ms > 0) await sleep(ms)
+      // Telegram clears typing after ~5s, so re-send every 4s
+      let remaining = ms
+      while (remaining > 0) {
+        await tg(token, "sendChatAction", { chat_id: chatId, action: "typing" })
+        const chunk = Math.min(remaining, 4000)
+        await sleep(chunk)
+        remaining -= chunk
+      }
       break
     }
 
@@ -208,10 +214,14 @@ async function runFlow(
   const token = decryptToken(bot.tokenEncrypted)
   const nodeMap = new Map(bot.flowNodes.map((n) => [n.id, n]))
 
-  const adj = new Map<string, string[]>()
+  // adjacency: sourceNodeId -> [{targetNodeId, sourceHandle}]
+  const adj = new Map<string, { targetNodeId: string; sourceHandle?: string }[]>()
   for (const e of bot.flowEdges) {
     if (!adj.has(e.sourceNodeId)) adj.set(e.sourceNodeId, [])
-    adj.get(e.sourceNodeId)!.push(e.targetNodeId)
+    adj.get(e.sourceNodeId)!.push({
+      targetNodeId: e.targetNodeId,
+      sourceHandle: (e as unknown as Record<string, string>).sourceHandle ?? undefined,
+    })
   }
 
   const visited = new Set<string>()
@@ -225,7 +235,13 @@ async function runFlow(
     if (!node) break
 
     await executeNode(token, bot.id, chatId, node)
-    currentId = adj.get(currentId)?.[0] ?? null
+
+    // Payment node: stop here — flow continues via webhook
+    if (node.type === "PAYMENT") break
+
+    // Follow first edge (non-payment nodes have a single output)
+    const edges = adj.get(currentId)
+    currentId = edges?.[0]?.targetNodeId ?? null
   }
 }
 
