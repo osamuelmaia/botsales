@@ -9,7 +9,7 @@ const createSchema = z.object({
   account: z.string().min(1).max(20),
   accountType: z.enum(["CHECKING", "SAVINGS"]),
   holderName: z.string().min(2).max(100),
-  document: z.string().min(11).max(18),
+  document: z.string().min(14).max(18), // masked CPF (14) or CNPJ (18)
   pixKey: z.string().min(1).max(100),
   isDefault: z.boolean().optional(),
 })
