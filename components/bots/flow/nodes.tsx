@@ -445,19 +445,16 @@ export const PaymentNode = memo(function PaymentNode({ id, data, selected }: Nod
         )}
       </div>
 
-      {/* Output paths footer */}
+      {/* Output paths footer — Handle is the visible dot, no duplicate inner dot */}
       <div className="border-t border-violet-100">
-        <div ref={rowRefs[0]} className="flex items-center justify-between px-3 pr-5 h-8">
+        <div ref={rowRefs[0]} className="flex items-center px-3 h-8">
           <span className="text-[10px] font-normal text-gray-600">Aprovado</span>
-          <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
         </div>
-        <div ref={rowRefs[1]} className="flex items-center justify-between px-3 pr-5 h-8 bg-gray-50/60">
+        <div ref={rowRefs[1]} className="flex items-center px-3 h-8 bg-gray-50/60">
           <span className="text-[10px] font-normal text-gray-600">Pendente</span>
-          <span className="w-2 h-2 rounded-full bg-amber-500 shrink-0" />
         </div>
-        <div ref={rowRefs[2]} className="flex items-center justify-between px-3 pr-5 h-8">
+        <div ref={rowRefs[2]} className="flex items-center px-3 h-8">
           <span className="text-[10px] font-normal text-gray-600">Recusado</span>
-          <span className="w-2 h-2 rounded-full bg-red-500 shrink-0" />
         </div>
       </div>
 
