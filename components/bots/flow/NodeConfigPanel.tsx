@@ -158,6 +158,9 @@ export function NodeConfigPanel({ node, botId, botName, products, onUpdate, onCl
     ? (data.buttons as ButtonItem[])
     : [{ id: "btn_0", label: "", mode: "flow", url: "" }]
   const [buttons, setButtons] = useState<ButtonItem[]>(defaultButtons)
+  const [btnImage, setBtnImage] = useState(String(data.image ?? ""))
+  const [btnImageMediaId, setBtnImageMediaId] = useState(String(data.imageMediaId ?? ""))
+  const [btnText, setBtnText] = useState(String(data.text ?? ""))
 
   // Delay
   const [delayAmount, setDelayAmount] = useState(Number(data.amount ?? 5))
@@ -188,6 +191,8 @@ export function NodeConfigPanel({ node, botId, botName, products, onUpdate, onCl
     setFileUrl(String(d.url ?? "")); setFileMediaId(String(d.mediaId ?? "")); setFileCaption(String(d.caption ?? ""))
     setTypingDuration(Number(d.duration ?? 3)); setTypingUnit(String(d.unit ?? "seconds"))
     setButtons(Array.isArray(d.buttons) ? (d.buttons as ButtonItem[]) : [{ id: "btn_0", label: "", mode: "flow", url: "" }])
+    setBtnImage(String(d.image ?? "")); setBtnImageMediaId(String(d.imageMediaId ?? ""))
+    setBtnText(String(d.text ?? ""))
     setDelayAmount(Number(d.amount ?? 5)); setDelayUnit(String(d.unit ?? "seconds"))
     setSdMin(Number(d.minAmount ?? 1)); setSdMax(Number(d.maxAmount ?? 5))
     setSdUnit(String(d.unit ?? "seconds")); setSdTyping(Boolean(d.showTyping ?? false))
@@ -405,6 +410,29 @@ export function NodeConfigPanel({ node, botId, botName, products, onUpdate, onCl
         {/* ── Button ────────────────────────────────────────────────────── */}
         {node.type === "button" && (
           <div className="space-y-3">
+            {/* Image */}
+            <div>
+              <label className={labelCls}>Imagem (opcional)</label>
+              <MediaUpload url={btnImage} accept={ALLOWED_IMAGE_TYPES.join(",")}
+                allowedTypes={ALLOWED_IMAGE_TYPES} maxSize={IMAGE_MAX_SIZE}
+                maxSizeLabel="4 MB" formatLabel="JPEG, PNG, WebP, GIF"
+                icon={<UploadCloud className="h-5 w-5 text-gray-400" />}
+                onUploaded={(u, id) => { setBtnImage(u); setBtnImageMediaId(id); emit({ image: u, imageMediaId: id }) }}
+                onRemove={() => { deleteMedia(btnImageMediaId); setBtnImage(""); setBtnImageMediaId(""); emit({ image: "", imageMediaId: "" }) }}
+                preview={/* eslint-disable-next-line @next/next/no-img-element */
+                  <img src={btnImage} alt="Prévia" className="w-full max-h-40 object-contain bg-gray-50" />} />
+            </div>
+
+            {/* Text */}
+            <div>
+              <label className={labelCls}>Texto (opcional)</label>
+              <textarea value={btnText} rows={3}
+                onChange={(e) => { setBtnText(e.target.value); emit({ text: e.target.value }) }}
+                className={textareaCls} placeholder="Mensagem exibida acima dos botões..." />
+            </div>
+
+            <div className="border-t border-gray-100 pt-3" />
+
             {buttons.map((btn, i) => {
               function updateBtn(patch: Partial<ButtonItem>) {
                 const next = buttons.map((b, j) => j === i ? { ...b, ...patch } : b)

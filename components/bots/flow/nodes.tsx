@@ -301,7 +301,7 @@ export const TypingNode = memo(function TypingNode({ id, data, selected }: NodeP
 interface ButtonItem { id: string; label: string; mode: "url" | "flow"; url: string }
 
 export const ButtonNode = memo(function ButtonNode({ id, data, selected }: NodeProps) {
-  const d = data as { buttons?: ButtonItem[] }
+  const d = data as { image?: string; text?: string; buttons?: ButtonItem[] }
   const buttons: ButtonItem[] = d.buttons ?? []
   const flowButtons = buttons.filter((b) => b.mode === "flow")
   const hasFlowButtons = flowButtons.length > 0
@@ -320,6 +320,17 @@ export const ButtonNode = memo(function ButtonNode({ id, data, selected }: NodeP
           <span className="ml-auto text-xs text-indigo-400 bg-indigo-100 px-1.5 py-0.5 rounded font-medium">{buttons.length}</span>
         )}
       </div>
+
+      {/* Image + text above buttons */}
+      {d.image && (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={d.image} alt="" className="w-full max-h-32 object-cover" />
+      )}
+      {d.text && (
+        <div className="px-3 pt-2 pb-0">
+          <p className="text-xs text-gray-600 line-clamp-3">{d.text}</p>
+        </div>
+      )}
 
       {/* Button chips — flow buttons get a rowRef so handles align with them */}
       <div className="px-3 py-2 space-y-1.5">

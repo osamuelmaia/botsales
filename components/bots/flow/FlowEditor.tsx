@@ -45,7 +45,7 @@ function getDefaultData(type: NodeType): Record<string, unknown> {
     case "audio": return { url: "", mediaId: "" }
     case "file": return { url: "", mediaId: "", caption: "" }
     case "typing": return { duration: 3, unit: "seconds" }
-    case "button": return { buttons: [{ id: "btn_0", label: "", mode: "flow", url: "" }] }
+    case "button": return { image: "", imageMediaId: "", text: "", buttons: [{ id: "btn_0", label: "", mode: "flow", url: "" }] }
     case "delay": return { amount: 5, unit: "seconds" }
     case "smart_delay": return { minAmount: 1, maxAmount: 5, unit: "seconds", showTyping: false }
     case "payment": return { productId: "", productName: "", image: "", imageMediaId: "", text: "", ctaText: "Pagar agora" }
