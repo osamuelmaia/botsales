@@ -110,7 +110,7 @@ async function executeNode(
     const productId = data.productId as string | undefined
     if (productId) {
       const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? ""
-      const paymentUrl = `${baseUrl}/${productId}?chatId=${chatId}&botId=${botId}`
+      const paymentUrl = `${baseUrl}/checkout/${productId}?chatId=${chatId}&botId=${botId}`
       const ctaText = (data.ctaText as string) || "Pagar agora"
       const salesText = (data.text as string) || ""
       const image = data.image as string | undefined
