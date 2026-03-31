@@ -59,6 +59,7 @@ function toMs(amount: number, unit: string): number {
 // Returns true if execution paused (button gate hit).
 async function executeNode(
   token: string,
+  botId: string,
   chatId: number,
   node: FlowNode,
   blockOffset: number
@@ -109,7 +110,7 @@ async function executeNode(
     const productId = data.productId as string | undefined
     if (productId) {
       const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? ""
-      const paymentUrl = `${baseUrl}/pay/${productId}?chatId=${chatId}&botId=${node.id}`
+      const paymentUrl = `${baseUrl}/${productId}?chatId=${chatId}&botId=${botId}`
       const ctaText = (data.ctaText as string) || "Pagar agora"
       const salesText = (data.text as string) || ""
       const image = data.image as string | undefined
@@ -163,7 +164,7 @@ async function runFlow(
     const node = nodeMap.get(currentId)
     if (!node) break
 
-    const paused = await executeNode(token, chatId, node, offset)
+    const paused = await executeNode(token, bot.id, chatId, node, offset)
     offset = 0 // only first node uses the offset
 
     if (paused) return // waiting for button click
