@@ -58,7 +58,7 @@ export async function TopBar() {
   }
 
   return (
-    <header className="h-14 border-b border-gray-200 bg-white flex items-center px-6 shrink-0 gap-4">
+    <header className="h-16 border-b border-gray-200 bg-white flex items-center px-6 shrink-0 gap-4">
       {/* Gamification widget */}
       <div className="hidden sm:flex items-center gap-2.5 shrink-0 rounded-xl border border-gray-200 bg-gray-50 px-3 py-2">
         {/* Roman numeral badge */}
