@@ -50,21 +50,20 @@ export const edgeTypes = { deletable: DeletableEdge }
 
 const handleStyle = "!w-4 !h-4 !border-2 !border-white !rounded-full"
 
-/** Measures center-Y of each rowRef relative to containerRef and returns top values in px. */
+/**
+ * Returns the center-Y of each rowRef relative to the positioned node container.
+ * Uses offsetTop (already relative to offsetParent = node root div) for pixel-perfect
+ * alignment regardless of borders or scroll position.
+ */
 function useRowHandleTops(count: number) {
   const containerRef = useRef<HTMLDivElement>(null)
   const rowRefs = [useRef<HTMLDivElement>(null), useRef<HTMLDivElement>(null), useRef<HTMLDivElement>(null)].slice(0, count)
   const [tops, setTops] = useState<string[]>(Array(count).fill("50%"))
 
   useLayoutEffect(() => {
-    const container = containerRef.current
-    if (!container) return
-    const containerRect = container.getBoundingClientRect()
-    if (containerRect.height === 0) return
     const next = rowRefs.map((r) => {
       if (!r.current) return "50%"
-      const rect = r.current.getBoundingClientRect()
-      return `${Math.round(rect.top + rect.height / 2 - containerRect.top)}px`
+      return `${Math.round(r.current.offsetTop + r.current.offsetHeight / 2)}px`
     })
     setTops((prev) => (prev.join() === next.join() ? prev : next))
   })
