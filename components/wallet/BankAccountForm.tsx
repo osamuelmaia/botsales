@@ -32,7 +32,7 @@ const schema = z.object({
   accountType: z.enum(["CHECKING", "SAVINGS"]),
   holderName: z.string().min(2, "Informe o nome do titular"),
   document: z.string().min(11, "Informe o CPF/CNPJ"),
-  pixKey: z.string().max(100).optional(),
+  pixKey: z.string().min(1, "Informe a chave PIX").max(100),
   isDefault: z.boolean(),
 })
 
@@ -128,8 +128,9 @@ export function BankAccountForm({ onSuccess, onCancel }: Props) {
 
           {/* PIX key */}
           <div>
-            <label className={labelCls}>Chave PIX (opcional)</label>
+            <label className={labelCls}>Chave PIX</label>
             <input {...register("pixKey")} placeholder="CPF, email, celular ou chave aleatória" className={inputCls} />
+            {errors.pixKey && <p className="text-xs text-red-500 mt-1">{errors.pixKey.message}</p>}
           </div>
 
           {/* Holder name */}

@@ -10,7 +10,7 @@ const createSchema = z.object({
   accountType: z.enum(["CHECKING", "SAVINGS"]),
   holderName: z.string().min(2).max(100),
   document: z.string().min(11).max(18),
-  pixKey: z.string().max(100).optional(),
+  pixKey: z.string().min(1).max(100),
   isDefault: z.boolean().optional(),
 })
 
