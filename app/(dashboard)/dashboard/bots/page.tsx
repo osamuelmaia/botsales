@@ -297,9 +297,9 @@ export default function BotsPage() {
           </Dialog.Trigger>
 
           <Dialog.Portal>
-            <Dialog.Overlay className="fixed inset-0 bg-black/40 z-50" />
-            <Dialog.Content className="fixed z-50 right-0 top-0 h-full w-full max-w-md bg-white shadow-xl flex flex-col">
-              <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+            <Dialog.Overlay className="fixed inset-0 bg-black/50 z-50" />
+            <Dialog.Content className="fixed z-50 left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-3xl bg-white rounded-xl shadow-xl flex flex-col max-h-[90vh] overflow-hidden">
+              <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 shrink-0">
                 <Dialog.Title className="text-base font-semibold text-gray-900">
                   Novo Bot
                 </Dialog.Title>
@@ -307,11 +307,89 @@ export default function BotsPage() {
                   ×
                 </Dialog.Close>
               </div>
-              <div className="flex-1 overflow-y-auto px-6 py-5">
-                <NewBotForm
-                  onSuccess={handleNewBot}
-                  onClose={() => setOpen(false)}
-                />
+
+              <div className="flex flex-col md:flex-row overflow-y-auto">
+                {/* Tutorial */}
+                <div className="md:w-1/2 bg-gray-50 border-b md:border-b-0 md:border-r border-gray-100 px-6 py-5 shrink-0">
+                  <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-4">
+                    Como obter o token
+                  </p>
+                  <ol className="space-y-4">
+                    {[
+                      {
+                        n: 1,
+                        title: "Abra o BotFather no Telegram",
+                        desc: "Procure por @BotFather no Telegram ou acesse diretamente:",
+                        extra: (
+                          <a
+                            href="https://t.me/BotFather"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 text-xs text-blue-600 hover:underline mt-1"
+                          >
+                            t.me/BotFather ↗
+                          </a>
+                        ),
+                      },
+                      {
+                        n: 2,
+                        title: "Envie o comando /newbot",
+                        desc: "No chat com o BotFather, envie o seguinte comando:",
+                        extra: (
+                          <span className="inline-block mt-1 px-2 py-0.5 rounded bg-gray-200 text-gray-700 text-xs font-mono">
+                            /newbot
+                          </span>
+                        ),
+                      },
+                      {
+                        n: 3,
+                        title: "Defina o nome do bot",
+                        desc: 'O BotFather perguntará o nome completo do bot. Ex: "Meu Bot de Vendas".',
+                      },
+                      {
+                        n: 4,
+                        title: "Defina o username do bot",
+                        desc: "Escolha um username único que termine com",
+                        extra: (
+                          <span className="text-xs text-gray-500">
+                            {" "}
+                            <span className="font-mono text-gray-700">bot</span>. Ex:{" "}
+                            <span className="font-mono text-gray-700">empresa123_bot</span>
+                          </span>
+                        ),
+                      },
+                      {
+                        n: 5,
+                        title: "Copie o token",
+                        desc: "O BotFather enviará o token. Copie e cole no campo ao lado.",
+                        extra: (
+                          <p className="text-xs text-green-600 mt-1 font-medium">
+                            ✓ O nome e username são preenchidos automaticamente!
+                          </p>
+                        ),
+                      },
+                    ].map((step) => (
+                      <li key={step.n} className="flex gap-3">
+                        <span className="flex items-center justify-center w-6 h-6 rounded-full bg-gray-900 text-white text-xs font-bold shrink-0 mt-0.5">
+                          {step.n}
+                        </span>
+                        <div>
+                          <p className="text-sm font-semibold text-gray-800">{step.title}</p>
+                          <p className="text-xs text-gray-500 mt-0.5">{step.desc}</p>
+                          {step.extra && <div>{step.extra}</div>}
+                        </div>
+                      </li>
+                    ))}
+                  </ol>
+                </div>
+
+                {/* Form */}
+                <div className="md:w-1/2 px-6 py-5">
+                  <NewBotForm
+                    onSuccess={handleNewBot}
+                    onClose={() => setOpen(false)}
+                  />
+                </div>
               </div>
             </Dialog.Content>
           </Dialog.Portal>
