@@ -433,7 +433,7 @@ export default function CheckoutPage() {
         </button>
 
         <p className="text-xs text-gray-400 text-center">
-          Pagamento processado com segurança via Asaas.
+          Pagamento processado com segurança pela BotSales.
           Seus dados são criptografados.
         </p>
       </form>
@@ -454,11 +454,7 @@ function ProductSummary({ product }: { product: ProductData }) {
   return (
     <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5">
       <p className="text-xs text-gray-500 mb-1">Você está comprando</p>
-      <h1 className="text-xl font-bold text-gray-900 leading-tight">{product.name}</h1>
-      {product.description && (
-        <p className="text-sm text-gray-500 mt-1 line-clamp-2">{product.description}</p>
-      )}
-      <div className="mt-3 flex items-baseline gap-1">
+      <div className="mt-1 flex items-baseline gap-1">
         <span className="text-3xl font-bold text-gray-900">
           {(product.priceInCents / 100).toLocaleString("pt-BR", {
             style: "currency",
@@ -469,7 +465,6 @@ function ProductSummary({ product }: { product: ProductData }) {
           <span className="text-sm text-gray-500">{billingLabel}</span>
         )}
       </div>
-      <p className="text-xs text-gray-400 mt-1">Vendido por {product.sellerName}</p>
     </div>
   )
 }
