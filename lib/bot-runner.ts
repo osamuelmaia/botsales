@@ -196,7 +196,7 @@ async function executeNode(
       const productId = data.productId as string | undefined
       if (productId) {
         const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? ""
-        const paymentUrl = `${baseUrl}/checkout/${productId}?chatId=${chatId}&botId=${botId}`
+        const paymentUrl = `${baseUrl}/checkout/${productId}?chatId=${chatId}&botId=${botId}&nodeId=${node.id}`
         const ctaText = (data.ctaText as string) || "Pagar agora"
         const salesText = (data.text as string) || ""
         const image = data.image as string | undefined
@@ -299,16 +299,20 @@ export async function resumeFlowFromButton(botId: string, chatId: number, callba
   await runFlow(bot, chatId, edge.targetNodeId)
 }
 
-export async function executeFlow(botId: string, chatId: number) {
+export async function executeFlow(botId: string, chatId: number, startNodeId?: string) {
   const bot = await loadBot(botId)
   if (!bot || !bot.isActive) return
 
-  const startNode = bot.flowNodes.find((n) => n.type === "TRIGGER_START")
-  if (!startNode) return
+  let firstNodeId: string | undefined = startNodeId
 
-  const firstNodeId = bot.flowEdges.find((e) => e.sourceNodeId === startNode.id)?.targetNodeId
+  if (!firstNodeId) {
+    // Default: start from the node after TRIGGER_START
+    const startNode = bot.flowNodes.find((n) => n.type === "TRIGGER_START")
+    if (!startNode) return
+    firstNodeId = bot.flowEdges.find((e) => e.sourceNodeId === startNode.id)?.targetNodeId
+  }
+
   if (!firstNodeId) return
-
   await runFlow(bot, chatId, firstNodeId)
 }
 

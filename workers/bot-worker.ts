@@ -1,0 +1,319 @@
+/**
+ * bot-worker.ts — BullMQ worker for processing bot flow jobs.
+ *
+ * Run locally:
+ *   npx ts-node -r tsconfig-paths/register workers/bot-worker.ts
+ *
+ * Job types:
+ *   PROCESS_FLOW    — triggered by /start or external event, runs the full flow
+ *   SEND_MESSAGE    — sends a single Telegram message (used internally)
+ *   PROCESS_DELAY   — delayed job that resumes the flow after DELAY/SMART_DELAY nodes
+ *   CREATE_PAYMENT  — creates Asaas charge and sends payment link to lead
+ */
+
+import "dotenv/config"
+import { Worker, Queue, Job } from "bullmq"
+import IORedis from "ioredis"
+import { PrismaClient } from "@prisma/client"
+import { TelegramService } from "../lib/telegram"
+import { GatewayService } from "../lib/gateway"
+import { executeFlow, registerWebhook } from "../lib/bot-runner"
+import { decryptToken } from "../lib/utils"
+
+// ─── Redis connection ─────────────────────────────────────────────────────────
+
+const REDIS_URL = process.env.REDIS_URL || "redis://localhost:6379"
+const redis = new IORedis(REDIS_URL, { maxRetriesPerRequest: null })
+
+// ─── Queue ────────────────────────────────────────────────────────────────────
+
+export const botQueue = new Queue("bot-jobs", { connection: redis })
+
+// ─── Prisma ───────────────────────────────────────────────────────────────────
+
+const prisma = new PrismaClient()
+
+// ─── Job type definitions ─────────────────────────────────────────────────────
+
+export type ProcessFlowJob = {
+  type: "PROCESS_FLOW"
+  botId: string
+  chatId: number
+  startNodeId?: string // undefined = start from TRIGGER_START
+}
+
+export type SendMessageJob = {
+  type: "SEND_MESSAGE"
+  token: string
+  chatId: number
+  text: string
+  imageUrl?: string
+  caption?: string
+}
+
+export type ProcessDelayJob = {
+  type: "PROCESS_DELAY"
+  botId: string
+  chatId: number
+  nextNodeId: string
+}
+
+export type CreatePaymentJob = {
+  type: "CREATE_PAYMENT"
+  botId: string
+  chatId: number
+  productId: string
+  paymentNodeId: string
+  leadName?: string
+  leadEmail?: string
+  leadCpf?: string
+  leadPhone?: string
+}
+
+export type BotJob =
+  | ProcessFlowJob
+  | SendMessageJob
+  | ProcessDelayJob
+  | CreatePaymentJob
+
+// ─── Job handlers ─────────────────────────────────────────────────────────────
+
+async function handleProcessFlow(data: ProcessFlowJob): Promise<void> {
+  console.log(`[PROCESS_FLOW] bot=${data.botId} chat=${data.chatId} node=${data.startNodeId ?? "start"}`)
+  await executeFlow(data.botId, data.chatId, data.startNodeId)
+}
+
+async function handleSendMessage(data: SendMessageJob): Promise<void> {
+  console.log(`[SEND_MESSAGE] chat=${data.chatId}`)
+  if (data.imageUrl) {
+    await TelegramService.sendPhoto(data.token, data.chatId, data.imageUrl, data.caption)
+  } else {
+    await TelegramService.sendMessage(data.token, data.chatId, data.text)
+  }
+}
+
+async function handleProcessDelay(data: ProcessDelayJob): Promise<void> {
+  // The BullMQ delay option already handles the wait — when this job runs,
+  // it's time to continue the flow from the next node.
+  console.log(`[PROCESS_DELAY] bot=${data.botId} chat=${data.chatId} next=${data.nextNodeId}`)
+  await executeFlow(data.botId, data.chatId, data.nextNodeId)
+}
+
+async function handleCreatePayment(data: CreatePaymentJob): Promise<void> {
+  console.log(`[CREATE_PAYMENT] bot=${data.botId} product=${data.productId} chat=${data.chatId}`)
+
+  // Load product + seller
+  const product = await prisma.product.findUnique({
+    where: { id: data.productId },
+    include: {
+      user: {
+        select: {
+          id: true,
+          platformFeePercent: true,
+          platformFeeCents: true,
+          registrationStep: true,
+        },
+      },
+    },
+  })
+
+  if (!product) {
+    console.warn(`[CREATE_PAYMENT] product ${data.productId} not found`)
+    return
+  }
+
+  if (product.user.registrationStep < 2) {
+    console.warn(`[CREATE_PAYMENT] seller not fully registered`)
+    return
+  }
+
+  // Find or create Lead
+  const lead = await prisma.lead.upsert({
+    where: { botId_telegramId: { botId: data.botId, telegramId: String(data.chatId) } },
+    create: {
+      botId: data.botId,
+      telegramId: String(data.chatId),
+      name: data.leadName ?? null,
+      email: data.leadEmail ?? null,
+      phone: data.leadPhone ?? null,
+    },
+    update: {
+      ...(data.leadName ? { name: data.leadName } : {}),
+      ...(data.leadEmail ? { email: data.leadEmail } : {}),
+      ...(data.leadPhone ? { phone: data.leadPhone } : {}),
+    },
+  })
+
+  // Calculate fees
+  const feePercent = Number(product.user.platformFeePercent)
+  const feeFixed = product.user.platformFeeCents
+  const feeAmountCents = Math.round((product.priceInCents * feePercent) / 100) + feeFixed
+  const netAmountCents = product.priceInCents - feeAmountCents
+
+  // Create Sale (PENDING)
+  const sale = await prisma.sale.create({
+    data: {
+      userId: product.userId,
+      productId: product.id,
+      leadId: lead.id,
+      botId: data.botId,
+      tgChatId: String(data.chatId),
+      paymentNodeId: data.paymentNodeId,
+      paymentMethod: "PIX", // default to PIX for bot-initiated payments
+      status: "PENDING",
+      grossAmountCents: product.priceInCents,
+      feeAmountCents,
+      netAmountCents,
+    },
+  })
+
+  // Load bot to get token
+  const bot = await prisma.bot.findUnique({ where: { id: data.botId } })
+  if (!bot) return
+
+  const token = decryptToken(bot.tokenEncrypted)
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? ""
+
+  // If we have GATEWAY_API_KEY, create a PIX charge directly
+  if (process.env.GATEWAY_API_KEY && data.leadEmail && data.leadCpf) {
+    try {
+      const charge = await GatewayService.createPixCharge({
+        customerName: data.leadName ?? "Lead",
+        customerEmail: data.leadEmail,
+        customerCpfCnpj: data.leadCpf.replace(/\D/g, ""),
+        amountCents: product.priceInCents,
+        description: product.name,
+        externalReference: sale.id,
+      })
+
+      await prisma.sale.update({
+        where: { id: sale.id },
+        data: { gatewayId: charge.id, gatewayStatus: "PENDING" },
+      })
+
+      // Send PIX code to lead
+      const text = [
+        `💳 *${product.name}*`,
+        `Valor: R$ ${(product.priceInCents / 100).toFixed(2).replace(".", ",")}`,
+        "",
+        "Pague com PIX — copie o código abaixo:",
+        `\`${charge.pixCode}\``,
+      ].join("\n")
+
+      await TelegramService.sendMessage(token, data.chatId, text)
+      return
+    } catch (err) {
+      console.error("[CREATE_PAYMENT] gateway error:", err)
+      // Fall back to checkout link
+    }
+  }
+
+  // Fallback: send checkout link (opens Mini App WebView)
+  const checkoutUrl = `${baseUrl}/checkout/${product.id}?chatId=${data.chatId}&botId=${data.botId}&nodeId=${data.paymentNodeId}`
+  const ctaText = "Pagar agora"
+
+  await TelegramService.sendInlineKeyboard(token, data.chatId, `Clique para pagar *${product.name}*:`, [
+    { text: ctaText, url: checkoutUrl },
+  ])
+}
+
+// ─── Worker ───────────────────────────────────────────────────────────────────
+
+const worker = new Worker<BotJob>(
+  "bot-jobs",
+  async (job: Job<BotJob>) => {
+    const data = job.data
+    switch (data.type) {
+      case "PROCESS_FLOW":
+        await handleProcessFlow(data)
+        break
+      case "SEND_MESSAGE":
+        await handleSendMessage(data)
+        break
+      case "PROCESS_DELAY":
+        await handleProcessDelay(data)
+        break
+      case "CREATE_PAYMENT":
+        await handleCreatePayment(data)
+        break
+      default:
+        console.warn("[worker] unknown job type:", (data as { type: string }).type)
+    }
+  },
+  {
+    connection: redis,
+    concurrency: 5,
+  }
+)
+
+worker.on("completed", (job) => {
+  console.log(`[worker] job ${job.id} (${job.data.type}) completed`)
+})
+
+worker.on("failed", (job, err) => {
+  console.error(`[worker] job ${job?.id} (${job?.data?.type}) failed:`, err.message)
+})
+
+// ─── Startup: load active bots and start polling ──────────────────────────────
+
+async function startActiveBots(): Promise<void> {
+  const bots = await prisma.bot.findMany({ where: { isActive: true } })
+  console.log(`[worker] found ${bots.length} active bot(s)`)
+
+  for (const bot of bots) {
+    try {
+      const token = decryptToken(bot.tokenEncrypted)
+      TelegramService.startPolling(token, bot.id, async (ctx) => {
+        const chatId = ctx.from?.id
+        if (!chatId) return
+
+        // Upsert Lead
+        await prisma.lead.upsert({
+          where: { botId_telegramId: { botId: bot.id, telegramId: String(chatId) } },
+          create: {
+            botId: bot.id,
+            telegramId: String(chatId),
+            name: [ctx.from?.first_name, ctx.from?.last_name].filter(Boolean).join(" ") || null,
+            username: ctx.from?.username ?? null,
+          },
+          update: {
+            name: [ctx.from?.first_name, ctx.from?.last_name].filter(Boolean).join(" ") || undefined,
+            username: ctx.from?.username ?? undefined,
+          },
+        })
+
+        // Enqueue PROCESS_FLOW job
+        await botQueue.add("process-flow", {
+          type: "PROCESS_FLOW" as const,
+          botId: bot.id,
+          chatId,
+        })
+      })
+    } catch (err) {
+      console.error(`[worker] failed to start polling for bot ${bot.id}:`, err)
+    }
+  }
+}
+
+// ─── Graceful shutdown ────────────────────────────────────────────────────────
+
+async function shutdown(): Promise<void> {
+  console.log("\n[worker] shutting down…")
+  await worker.close()
+  await TelegramService.stopAll()
+  await prisma.$disconnect()
+  await redis.quit()
+  process.exit(0)
+}
+
+process.on("SIGINT", shutdown)
+process.on("SIGTERM", shutdown)
+
+// ─── Boot ─────────────────────────────────────────────────────────────────────
+
+startActiveBots()
+  .then(() => console.log("[worker] ready — listening for jobs on queue: bot-jobs"))
+  .catch((err) => {
+    console.error("[worker] startup error:", err)
+    process.exit(1)
+  })

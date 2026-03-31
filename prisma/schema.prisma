@@ -199,6 +199,10 @@ model Sale {
   userId           String
   productId        String
   leadId           String?
+  // Telegram context — set when sale originates from a bot flow
+  botId            String?       // which bot generated this payment
+  tgChatId         String?       // Telegram chatId (as string) of the buyer
+  paymentNodeId    String?       // FlowNode.id of the PAYMENT node that triggered this sale
   paymentMethod    PaymentMethod
   status           SaleStatus    @default(PENDING)
   grossAmountCents Int

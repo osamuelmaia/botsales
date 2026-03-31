@@ -41,6 +41,10 @@ export async function POST(
     email: string
     cpf: string
     phone: string
+    // Telegram context — present when checkout is opened from a bot flow
+    tgChatId?: string
+    tgBotId?: string
+    tgNodeId?: string
     // Card-only fields
     cardHolderName?: string
     cardNumber?: string
@@ -56,7 +60,7 @@ export async function POST(
     return NextResponse.json({ error: "Requisição inválida" }, { status: 400 })
   }
 
-  const { method, name, email, cpf, phone } = body
+  const { method, name, email, cpf, phone, tgChatId, tgBotId, tgNodeId } = body
 
   if (!method || !name || !email || !cpf) {
     return NextResponse.json({ error: "Dados obrigatórios ausentes" }, { status: 400 })
@@ -67,25 +71,32 @@ export async function POST(
   }
 
   // ── 3. Find or create Lead ───────────────────────────────────────────────
-  let lead = await prisma.lead.findFirst({
-    where: { bot: { userId: product.userId }, email },
-  })
+  // When coming from the bot, tgBotId + tgChatId identify the lead precisely.
+  // When coming from a direct web checkout, fall back to email as placeholder.
+  let lead = null
 
-  if (!lead) {
-    // Find any bot from this seller to attach lead
-    const anyBot = await prisma.bot.findFirst({ where: { userId: product.userId } })
-    if (anyBot) {
-      lead = await prisma.lead.upsert({
-        where: { botId_telegramId: { botId: anyBot.id, telegramId: email } },
-        create: {
-          botId: anyBot.id,
-          telegramId: email, // use email as placeholder when coming from web checkout
-          name,
-          email,
-          phone: phone || null,
-        },
-        update: { name, phone: phone || null },
-      })
+  if (tgBotId && tgChatId) {
+    // Real Telegram lead: upsert by botId + telegramId (chatId)
+    lead = await prisma.lead.upsert({
+      where: { botId_telegramId: { botId: tgBotId, telegramId: tgChatId } },
+      create: { botId: tgBotId, telegramId: tgChatId, name, email, phone: phone || null },
+      update: { name, email: email || undefined, phone: phone || null },
+    })
+  } else {
+    // Web checkout: search by email across the seller's bots
+    lead = await prisma.lead.findFirst({
+      where: { bot: { userId: product.userId }, email },
+    })
+
+    if (!lead) {
+      const anyBot = await prisma.bot.findFirst({ where: { userId: product.userId } })
+      if (anyBot) {
+        lead = await prisma.lead.upsert({
+          where: { botId_telegramId: { botId: anyBot.id, telegramId: email } },
+          create: { botId: anyBot.id, telegramId: email, name, email, phone: phone || null },
+          update: { name, phone: phone || null },
+        })
+      }
     }
   }
 
@@ -101,6 +112,10 @@ export async function POST(
       userId: product.userId,
       productId: product.id,
       leadId: lead?.id ?? null,
+      // Telegram context (only when coming from bot)
+      botId: tgBotId ?? null,
+      tgChatId: tgChatId ?? null,
+      paymentNodeId: tgNodeId ?? null,
       paymentMethod: method,
       status: "PENDING",
       grossAmountCents: product.priceInCents,
@@ -176,7 +191,6 @@ export async function POST(
       return NextResponse.json({ saleId: sale.id, success: true })
     }
   } catch (err) {
-    // Clean up sale if gateway fails
     await prisma.sale.delete({ where: { id: sale.id } }).catch(() => {})
     const message = err instanceof Error ? err.message : "Erro ao processar pagamento"
     return NextResponse.json({ error: message }, { status: 502 })

@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState, useRef } from "react"
-import { useParams, useRouter } from "next/navigation"
+import { useParams, useRouter, useSearchParams } from "next/navigation"
 import Script from "next/script"
 import {
   Loader2, Copy, Check, CreditCard, QrCode, AlertCircle, ChevronRight,
@@ -71,6 +71,12 @@ function closeTgWebApp() {
 export default function CheckoutPage() {
   const { productId } = useParams<{ productId: string }>()
   const router = useRouter()
+  const searchParams = useSearchParams()
+
+  // Telegram context — set when checkout is opened from a bot flow
+  const tgChatId = searchParams.get("chatId") ?? undefined
+  const tgBotId = searchParams.get("botId") ?? undefined
+  const tgNodeId = searchParams.get("nodeId") ?? undefined
 
   const [product, setProduct] = useState<ProductData | null>(null)
   const [loadingProduct, setLoadingProduct] = useState(true)
@@ -156,6 +162,10 @@ export default function CheckoutPage() {
       email,
       cpf: cpf.replace(/\D/g, ""),
       phone: phone.replace(/\D/g, ""),
+      // Telegram context (present when checkout opened from bot)
+      ...(tgChatId && { tgChatId }),
+      ...(tgBotId && { tgBotId }),
+      ...(tgNodeId && { tgNodeId }),
       ...(selectedMethod === "CREDIT_CARD" && {
         cardHolderName: cardHolder,
         cardNumber: cardNumber.replace(/\s/g, ""),
