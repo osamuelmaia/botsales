@@ -10,7 +10,7 @@ type Params = { params: { id: string } }
 
 const nodeSchema = z.object({
   id: z.string(),
-  type: z.enum(["start", "message", "delay", "payment"]),
+  type: z.enum(["start", "text", "image", "video", "audio", "file", "typing", "button", "delay", "smart_delay", "payment"]),
   position: z.object({ x: z.number(), y: z.number() }),
   data: z.record(z.string(), z.unknown()),
 })
@@ -31,17 +31,31 @@ const saveFlowSchema = z.object({
 
 const TYPE_TO_ENUM = {
   start: "TRIGGER_START",
-  message: "MESSAGE",
-  delay: "SMART_DELAY",
+  text: "TEXT",
+  image: "IMAGE",
+  video: "VIDEO",
+  audio: "AUDIO",
+  file: "FILE",
+  typing: "TYPING",
+  button: "BUTTON",
+  delay: "DELAY",
+  smart_delay: "SMART_DELAY",
   payment: "PAYMENT",
 } as const
 
-const ENUM_TO_TYPE = {
+const ENUM_TO_TYPE: Record<string, string> = {
   TRIGGER_START: "start",
-  MESSAGE: "message",
-  SMART_DELAY: "delay",
+  TEXT: "text",
+  IMAGE: "image",
+  VIDEO: "video",
+  AUDIO: "audio",
+  FILE: "file",
+  TYPING: "typing",
+  BUTTON: "button",
+  DELAY: "delay",
+  SMART_DELAY: "smart_delay",
   PAYMENT: "payment",
-} as const
+}
 
 // ─── GET /api/bots/[id]/flow ──────────────────────────────────────────────────
 

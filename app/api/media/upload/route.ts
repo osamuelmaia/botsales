@@ -7,10 +7,12 @@ import { prisma } from "@/lib/prisma"
 
 const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"] as const
 const ALLOWED_VIDEO_TYPES = ["video/mp4", "video/webm"] as const
-const ALLOWED_MIME_TYPES = [...ALLOWED_IMAGE_TYPES, ...ALLOWED_VIDEO_TYPES] as const
+const ALLOWED_AUDIO_TYPES = ["audio/mpeg", "audio/ogg", "audio/wav", "audio/mp4", "audio/aac"] as const
+const ALLOWED_MIME_TYPES = [...ALLOWED_IMAGE_TYPES, ...ALLOWED_VIDEO_TYPES, ...ALLOWED_AUDIO_TYPES] as const
 
 const IMAGE_MAX_SIZE = 4 * 1024 * 1024   // 4 MB
 const VIDEO_MAX_SIZE = 50 * 1024 * 1024  // 50 MB
+const AUDIO_MAX_SIZE = 20 * 1024 * 1024  // 20 MB
 
 const MAX_FILES_PER_USER = 100
 const MAX_TOTAL_BYTES_PER_USER = 200 * 1024 * 1024 // 200 MB
@@ -22,6 +24,11 @@ const MIME_TO_EXT: Record<string, string> = {
   "image/gif": "gif",
   "video/mp4": "mp4",
   "video/webm": "webm",
+  "audio/mpeg": "mp3",
+  "audio/ogg": "ogg",
+  "audio/wav": "wav",
+  "audio/mp4": "m4a",
+  "audio/aac": "aac",
 }
 
 // ─── Magic bytes validation ────────────────────────────────────────────────────
@@ -72,19 +79,23 @@ export async function POST(req: NextRequest) {
 
   // ── Declared MIME type check ──────────────────────────────────────────────
   const declaredMime = file.type.toLowerCase()
-  if (!ALLOWED_MIME_TYPES.includes(declaredMime as typeof ALLOWED_MIME_TYPES[number])) {
+  // Allow known types + any file for the "file" node (handled by size limit)
+  const isKnownType = ALLOWED_MIME_TYPES.includes(declaredMime as typeof ALLOWED_MIME_TYPES[number])
+  const isGenericFile = !isKnownType
+  if (isGenericFile && file.size > VIDEO_MAX_SIZE) {
     return NextResponse.json(
-      { error: "Tipo de arquivo não permitido. Aceitos: JPEG, PNG, WebP, GIF, MP4, WebM" },
-      { status: 422 }
+      { error: "Arquivo muito grande. Máximo: 50 MB" },
+      { status: 413 }
     )
   }
 
   // ── File size check (per type) ────────────────────────────────────────────
   const isVideo = ALLOWED_VIDEO_TYPES.includes(declaredMime as typeof ALLOWED_VIDEO_TYPES[number])
-  const maxSize = isVideo ? VIDEO_MAX_SIZE : IMAGE_MAX_SIZE
-  if (file.size > maxSize) {
+  const isAudio = ALLOWED_AUDIO_TYPES.includes(declaredMime as typeof ALLOWED_AUDIO_TYPES[number])
+  const maxSize = isVideo ? VIDEO_MAX_SIZE : isAudio ? AUDIO_MAX_SIZE : IMAGE_MAX_SIZE
+  if (isKnownType && file.size > maxSize) {
     return NextResponse.json(
-      { error: `Arquivo muito grande. Máximo: ${maxSize / 1024 / 1024} MB para ${isVideo ? "vídeos" : "imagens"}` },
+      { error: `Arquivo muito grande. Máximo: ${maxSize / 1024 / 1024} MB` },
       { status: 413 }
     )
   }
@@ -94,20 +105,25 @@ export async function POST(req: NextRequest) {
   const bytes = new Uint8Array(arrayBuffer)
   const buffer = Buffer.from(arrayBuffer)
 
-  // ── Magic bytes validation ────────────────────────────────────────────────
+  // ── Magic bytes validation (skip for audio/generic files) ──────────────────
   const detectedMime = detectMimeFromBytes(bytes)
-  if (!detectedMime) {
-    return NextResponse.json(
-      { error: "Formato inválido. Aceitos: JPEG, PNG, WebP, GIF, MP4, WebM" },
-      { status: 422 }
-    )
+  // For image/video: strict magic bytes check
+  // For audio/generic: trust declared MIME (magic bytes too varied)
+  if (!isAudio && !isGenericFile) {
+    if (!detectedMime) {
+      return NextResponse.json(
+        { error: "Formato inválido" },
+        { status: 422 }
+      )
+    }
+    if (detectedMime !== declaredMime) {
+      return NextResponse.json(
+        { error: "Conteúdo do arquivo não corresponde ao tipo declarado" },
+        { status: 422 }
+      )
+    }
   }
-  if (detectedMime !== declaredMime) {
-    return NextResponse.json(
-      { error: "Conteúdo do arquivo não corresponde ao tipo declarado" },
-      { status: 422 }
-    )
-  }
+  const effectiveMime = detectedMime ?? declaredMime
 
   // ── Per-user quota check ──────────────────────────────────────────────────
   const [fileCount, storageUsed] = await Promise.all([
@@ -131,15 +147,15 @@ export async function POST(req: NextRequest) {
   }
 
   // ── Upload to Vercel Blob ─────────────────────────────────────────────────
-  const folder = isVideo ? "bot-video" : "bot-media"
-  const ext = MIME_TO_EXT[detectedMime]
+  const folder = isVideo ? "bot-video" : isAudio ? "bot-audio" : isGenericFile ? "bot-files" : "bot-media"
+  const ext = MIME_TO_EXT[effectiveMime] ?? file.name.split(".").pop()?.toLowerCase() ?? "bin"
   const blobKey = `${folder}/${userId}/${crypto.randomUUID()}.${ext}`
 
   let blobUrl: string
   try {
     const blob = await put(blobKey, buffer, {
       access: "public",
-      contentType: detectedMime,
+      contentType: effectiveMime,
       addRandomSuffix: false,
     })
     blobUrl = blob.url
@@ -156,7 +172,7 @@ export async function POST(req: NextRequest) {
       userId,
       key: blobKey,
       url: blobUrl,
-      mimeType: detectedMime,
+      mimeType: effectiveMime,
       sizeBytes: file.size,
       originalName: file.name.slice(0, 200),
     },
