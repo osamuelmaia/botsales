@@ -45,7 +45,7 @@ function getDefaultData(type: NodeType): Record<string, unknown> {
     case "audio": return { url: "", mediaId: "" }
     case "file": return { url: "", mediaId: "", caption: "" }
     case "typing": return { duration: 3, unit: "seconds" }
-    case "button": return { buttons: [{ id: "btn_0", label: "", mode: "flow", url: "" }] }
+    case "button": return { image: "", imageMediaId: "", text: "", buttons: [{ id: "btn_0", label: "", mode: "flow", url: "" }] }
     case "delay": return { amount: 5, unit: "seconds" }
     case "smart_delay": return { minAmount: 1, maxAmount: 5, unit: "seconds", showTyping: false }
     case "payment": return { productId: "", productName: "", image: "", imageMediaId: "", text: "", ctaText: "Pagar agora" }
@@ -344,11 +344,14 @@ function FlowEditorInner({ botId, botName, botChannelId, products }: FlowEditorP
     connectingRef.current = { nodeId: params.nodeId ?? "", handleId: params.handleId }
   }, [])
 
-  const onConnectEnd = useCallback((e: MouseEvent | TouchEvent) => {
+  const onConnectEnd = useCallback((e: MouseEvent | TouchEvent, connectionState: { isValid: boolean | null }) => {
+    // isValid=true → dropped on a valid handle → real connection made, skip picker
+    if (connectionState?.isValid) {
+      connectingRef.current = null
+      return
+    }
+
     if (!connectingRef.current || !reactFlowWrapper.current) return
-    const target = e.target as HTMLElement
-    // Only show picker if dropped on the canvas (not on a handle)
-    if (target.closest(".react-flow__handle")) return
 
     const bounds = reactFlowWrapper.current.getBoundingClientRect()
     const clientX = "clientX" in e ? e.clientX : e.touches[0].clientX

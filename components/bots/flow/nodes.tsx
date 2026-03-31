@@ -50,21 +50,20 @@ export const edgeTypes = { deletable: DeletableEdge }
 
 const handleStyle = "!w-4 !h-4 !border-2 !border-white !rounded-full"
 
-/** Measures center-Y of each rowRef relative to containerRef and returns top values in px. */
+/**
+ * Returns the center-Y of each rowRef relative to the positioned node container.
+ * Uses offsetTop (already relative to offsetParent = node root div) for pixel-perfect
+ * alignment regardless of borders or scroll position.
+ */
 function useRowHandleTops(count: number) {
   const containerRef = useRef<HTMLDivElement>(null)
   const rowRefs = [useRef<HTMLDivElement>(null), useRef<HTMLDivElement>(null), useRef<HTMLDivElement>(null)].slice(0, count)
   const [tops, setTops] = useState<string[]>(Array(count).fill("50%"))
 
   useLayoutEffect(() => {
-    const container = containerRef.current
-    if (!container) return
-    const containerRect = container.getBoundingClientRect()
-    if (containerRect.height === 0) return
     const next = rowRefs.map((r) => {
       if (!r.current) return "50%"
-      const rect = r.current.getBoundingClientRect()
-      return `${Math.round(rect.top + rect.height / 2 - containerRect.top)}px`
+      return `${Math.round(r.current.offsetTop + r.current.offsetHeight / 2)}px`
     })
     setTops((prev) => (prev.join() === next.join() ? prev : next))
   })
@@ -302,7 +301,7 @@ export const TypingNode = memo(function TypingNode({ id, data, selected }: NodeP
 interface ButtonItem { id: string; label: string; mode: "url" | "flow"; url: string }
 
 export const ButtonNode = memo(function ButtonNode({ id, data, selected }: NodeProps) {
-  const d = data as { buttons?: ButtonItem[] }
+  const d = data as { image?: string; text?: string; buttons?: ButtonItem[] }
   const buttons: ButtonItem[] = d.buttons ?? []
   const flowButtons = buttons.filter((b) => b.mode === "flow")
   const hasFlowButtons = flowButtons.length > 0
@@ -321,6 +320,17 @@ export const ButtonNode = memo(function ButtonNode({ id, data, selected }: NodeP
           <span className="ml-auto text-xs text-indigo-400 bg-indigo-100 px-1.5 py-0.5 rounded font-medium">{buttons.length}</span>
         )}
       </div>
+
+      {/* Image + text above buttons */}
+      {d.image && (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={d.image} alt="" className="w-full max-h-32 object-cover" />
+      )}
+      {d.text && (
+        <div className="px-3 pt-2 pb-0">
+          <p className="text-xs text-gray-600 line-clamp-3">{d.text}</p>
+        </div>
+      )}
 
       {/* Button chips — flow buttons get a rowRef so handles align with them */}
       <div className="px-3 py-2 space-y-1.5">
