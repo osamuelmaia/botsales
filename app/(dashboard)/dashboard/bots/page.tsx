@@ -362,11 +362,6 @@ export default function BotsPage() {
                         n: 5,
                         title: "Copie o token",
                         desc: "O BotFather enviará o token. Copie e cole no campo ao lado.",
-                        extra: (
-                          <p className="text-xs text-green-600 mt-1 font-medium">
-                            ✓ O nome e username são preenchidos automaticamente!
-                          </p>
-                        ),
                       },
                     ].map((step) => (
                       <li key={step.n} className="flex gap-3">
