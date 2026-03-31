@@ -100,68 +100,6 @@ export default async function DashboardPage() {
         ))}
       </div>
 
-      {/* Level card */}
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
-        <div className="flex items-start justify-between gap-4 mb-4">
-          <div>
-            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1">
-              Seu nível
-            </p>
-            <p className="text-2xl font-bold text-gray-900">{currentLevel.name}</p>
-            <p className="text-sm text-gray-500 mt-0.5">
-              {formatBRL(totalRevenueCents)} faturados
-            </p>
-          </div>
-          {nextLevel && (
-            <div className="text-right shrink-0">
-              <p className="text-xs text-gray-400 mb-0.5">Próximo nível</p>
-              <p className="text-sm font-semibold text-gray-700">{nextLevel.name}</p>
-              <p className="text-xs text-gray-400 mt-0.5">{formatBRL(nextLevel.min)}</p>
-            </div>
-          )}
-        </div>
-
-        {/* Progress bar */}
-        <div className="w-full bg-gray-100 rounded-full h-2">
-          <div
-            className="bg-gray-900 h-2 rounded-full transition-all duration-500"
-            style={{ width: `${progress}%` }}
-          />
-        </div>
-
-        {nextLevel && (
-          <p className="text-xs text-gray-400 mt-2">
-            Falta {formatBRL(nextLevel.min - totalRevenueCents)} para {nextLevel.name}
-          </p>
-        )}
-
-        {/* All levels */}
-        <div className="flex items-center gap-2 mt-5 flex-wrap">
-          {LEVELS.map((level, i) => {
-            const reached = totalRevenueCents >= level.min
-            const isCurrent = level.name === currentLevel.name
-            return (
-              <div key={level.name} className="flex items-center gap-2">
-                <span
-                  className={`text-xs px-2.5 py-1 rounded-full font-medium border transition-colors ${
-                    isCurrent
-                      ? "bg-gray-900 text-white border-gray-900"
-                      : reached
-                      ? "bg-gray-100 text-gray-600 border-gray-200"
-                      : "bg-white text-gray-300 border-gray-200"
-                  }`}
-                >
-                  {level.name}
-                </span>
-                {i < LEVELS.length - 1 && (
-                  <span className="text-gray-200 text-xs">›</span>
-                )}
-              </div>
-            )
-          })}
-        </div>
-      </div>
-
       {/* Getting started */}
       {!hasSales && (
         <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
