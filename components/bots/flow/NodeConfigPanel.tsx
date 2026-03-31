@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react"
 import { Node } from "@xyflow/react"
 import {
-  X, Loader2, CheckCircle2, AlertCircle, UploadCloud, Link2, Check, Film, Music, FileText,
+  X, Loader2, CheckCircle2, AlertCircle, UploadCloud, Link2, Check, Film, Music, FileText, Plus, ArrowRight, Trash2,
 } from "lucide-react"
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -152,10 +152,12 @@ export function NodeConfigPanel({ node, botId, botName, products, onUpdate, onCl
   const [typingDuration, setTypingDuration] = useState(Number(data.duration ?? 3))
   const [typingUnit, setTypingUnit] = useState(String(data.unit ?? "seconds"))
 
-  // Button
-  const [btnText, setBtnText] = useState(String(data.text ?? ""))
-  const [btnLabel, setBtnLabel] = useState(String(data.buttonLabel ?? ""))
-  const [btnUrl, setBtnUrl] = useState(String(data.buttonUrl ?? ""))
+  // Button (multi-button)
+  interface ButtonItem { id: string; label: string; mode: "url" | "flow"; url: string }
+  const defaultButtons: ButtonItem[] = Array.isArray(data.buttons)
+    ? (data.buttons as ButtonItem[])
+    : [{ id: "btn_0", label: "", mode: "flow", url: "" }]
+  const [buttons, setButtons] = useState<ButtonItem[]>(defaultButtons)
 
   // Delay
   const [delayAmount, setDelayAmount] = useState(Number(data.amount ?? 5))
@@ -185,7 +187,7 @@ export function NodeConfigPanel({ node, botId, botName, products, onUpdate, onCl
     setAudioUrl(String(d.url ?? "")); setAudioMediaId(String(d.mediaId ?? ""))
     setFileUrl(String(d.url ?? "")); setFileMediaId(String(d.mediaId ?? "")); setFileCaption(String(d.caption ?? ""))
     setTypingDuration(Number(d.duration ?? 3)); setTypingUnit(String(d.unit ?? "seconds"))
-    setBtnText(String(d.text ?? "")); setBtnLabel(String(d.buttonLabel ?? "")); setBtnUrl(String(d.buttonUrl ?? ""))
+    setButtons(Array.isArray(d.buttons) ? (d.buttons as ButtonItem[]) : [{ id: "btn_0", label: "", mode: "flow", url: "" }])
     setDelayAmount(Number(d.amount ?? 5)); setDelayUnit(String(d.unit ?? "seconds"))
     setSdMin(Number(d.minAmount ?? 1)); setSdMax(Number(d.maxAmount ?? 5))
     setSdUnit(String(d.unit ?? "seconds")); setSdTyping(Boolean(d.showTyping ?? false))
@@ -403,22 +405,68 @@ export function NodeConfigPanel({ node, botId, botName, products, onUpdate, onCl
         {/* ── Button ────────────────────────────────────────────────────── */}
         {node.type === "button" && (
           <div className="space-y-3">
-            <div>
-              <label className={labelCls}>Texto da mensagem</label>
-              <textarea value={btnText} onChange={(e) => { setBtnText(e.target.value); emit({ text: e.target.value }) }}
-                rows={3} className={textareaCls} placeholder="Mensagem que acompanha o botão..." />
-            </div>
-            <div>
-              <label className={labelCls}>Texto do botão <span className="text-red-500">*</span></label>
-              <input value={btnLabel} onChange={(e) => { setBtnLabel(e.target.value); emit({ buttonLabel: e.target.value }) }}
-                className={inputCls} placeholder="Ex: Acessar conteúdo" />
-            </div>
-            <div>
-              <label className={labelCls}>URL do botão <span className="text-red-500">*</span></label>
-              <input value={btnUrl} onChange={(e) => { setBtnUrl(e.target.value); emit({ buttonUrl: e.target.value }) }}
-                className={inputCls} placeholder="https://..." />
-            </div>
-            <p className="text-xs text-gray-400">Envia uma mensagem com um botão inline que abre a URL ao clicar.</p>
+            {buttons.map((btn, i) => {
+              function updateBtn(patch: Partial<ButtonItem>) {
+                const next = buttons.map((b, j) => j === i ? { ...b, ...patch } : b)
+                setButtons(next)
+                emit({ buttons: next })
+              }
+              return (
+                <div key={btn.id} className="rounded-lg border border-gray-200 p-3 space-y-2 bg-gray-50/50">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-semibold text-gray-500">Botão {i + 1}</span>
+                    {buttons.length > 1 && (
+                      <button type="button" onClick={() => {
+                        const next = buttons.filter((_, j) => j !== i)
+                        setButtons(next); emit({ buttons: next })
+                      }} className="h-5 w-5 flex items-center justify-center rounded text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors">
+                        <Trash2 className="h-3 w-3" />
+                      </button>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className={labelCls}>Texto do botão <span className="text-red-500">*</span></label>
+                    <input value={btn.label} onChange={(e) => updateBtn({ label: e.target.value })}
+                      className={inputCls} placeholder="Ex: Plano Mensal" />
+                  </div>
+
+                  {/* Mode toggle */}
+                  <div className="flex gap-1.5">
+                    <button type="button" onClick={() => updateBtn({ mode: "flow" })}
+                      className={`flex-1 h-8 rounded-md text-xs font-medium flex items-center justify-center gap-1.5 transition-colors ${btn.mode === "flow" ? "bg-indigo-600 text-white" : "border border-gray-300 text-gray-500 hover:bg-gray-100"}`}>
+                      <ArrowRight className="h-3 w-3" /> Seguir fluxo
+                    </button>
+                    <button type="button" onClick={() => updateBtn({ mode: "url" })}
+                      className={`flex-1 h-8 rounded-md text-xs font-medium flex items-center justify-center gap-1.5 transition-colors ${btn.mode === "url" ? "bg-indigo-600 text-white" : "border border-gray-300 text-gray-500 hover:bg-gray-100"}`}>
+                      <Link2 className="h-3 w-3" /> Abrir URL
+                    </button>
+                  </div>
+
+                  {btn.mode === "url" && (
+                    <div>
+                      <label className={labelCls}>URL</label>
+                      <input value={btn.url} onChange={(e) => updateBtn({ url: e.target.value })}
+                        className={inputCls} placeholder="https://..." />
+                    </div>
+                  )}
+                  {btn.mode === "flow" && (
+                    <p className="text-[10px] text-indigo-600 bg-indigo-50 rounded px-2 py-1">
+                      Conecte a saída deste botão ao próximo nó no canvas.
+                    </p>
+                  )}
+                </div>
+              )
+            })}
+
+            {buttons.length < 3 && (
+              <button type="button" onClick={() => {
+                const next = [...buttons, { id: `btn_${buttons.length}`, label: "", mode: "flow" as const, url: "" }]
+                setButtons(next); emit({ buttons: next })
+              }} className="w-full h-8 rounded-lg border border-dashed border-gray-300 text-xs text-gray-500 hover:border-indigo-400 hover:text-indigo-600 flex items-center justify-center gap-1.5 transition-colors">
+                <Plus className="h-3.5 w-3.5" /> Adicionar botão
+              </button>
+            )}
           </div>
         )}
 

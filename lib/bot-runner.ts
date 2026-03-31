@@ -134,19 +134,26 @@ async function executeNode(
     }
 
     case "BUTTON": {
-      const text = (data.text as string) ?? ""
-      const buttonLabel = (data.buttonLabel as string) ?? ""
-      const buttonUrl = (data.buttonUrl as string) ?? ""
-      if (text.trim() && buttonLabel && buttonUrl) {
-        await tg(token, "sendMessage", {
-          chat_id: chatId,
-          text,
-          parse_mode: "Markdown",
-          reply_markup: {
-            inline_keyboard: [[{ text: buttonLabel, url: buttonUrl }]],
-          },
-        })
+      type BtnItem = { id: string; label: string; mode: "url" | "flow"; url: string }
+      const buttons: BtnItem[] = Array.isArray(data.buttons) ? (data.buttons as BtnItem[]) : []
+      if (buttons.length > 0) {
+        const keyboard = buttons
+          .filter((b) => b.label)
+          .map((b) =>
+            b.mode === "url" && b.url
+              ? [{ text: b.label, url: b.url }]
+              : [{ text: b.label, callback_data: `flow:${node.id}:${b.id}` }]
+          )
+        if (keyboard.length > 0) {
+          await tg(token, "sendMessage", {
+            chat_id: chatId,
+            text: "Escolha uma opção:",
+            parse_mode: "Markdown",
+            reply_markup: { inline_keyboard: keyboard },
+          })
+        }
       }
+      // Flow stops here when there are flow-mode buttons; continues via callback_query handling
       break
     }
 
@@ -242,6 +249,15 @@ async function runFlow(
 
     // Payment node: stop here — flow continues via webhook
     if (node.type === "PAYMENT") break
+
+    // Button node with flow-mode buttons: stop here — resumes on callback_query
+    if (node.type === "BUTTON") {
+      type BtnItem = { mode: string }
+      const btns: BtnItem[] = Array.isArray((node.data as Record<string, unknown>).buttons)
+        ? ((node.data as Record<string, unknown>).buttons as BtnItem[])
+        : []
+      if (btns.some((b) => b.mode === "flow")) break
+    }
 
     // Follow first edge (non-payment nodes have a single output)
     const edges = adj.get(currentId)
