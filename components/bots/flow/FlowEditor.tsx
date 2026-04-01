@@ -12,7 +12,7 @@ import { toast } from "sonner"
 import {
   Save, Loader2, ArrowLeft, AlertCircle,
   Type, Image as ImageIcon, Film, Music, FileText, MoreHorizontal,
-  MousePointerClick, Clock, Timer, CreditCard, Undo2, Redo2, UserX,
+  MousePointerClick, Clock, Timer, CreditCard, Undo2, Redo2,
   GitBranch, RefreshCw,
 } from "lucide-react"
 import * as AlertDialog from "@radix-ui/react-alert-dialog"
@@ -21,7 +21,7 @@ import { useRouter } from "next/navigation"
 import {
   StartNode, TextNode, ImageNode, VideoNode, AudioNode, FileNode,
   TypingNode, ButtonNode, DelayNode, SmartDelayNode, PaymentNode,
-  RemarketingStartNode, KickMemberNode, edgeTypes,
+  RemarketingStartNode, edgeTypes,
 } from "./nodes"
 import { NodeConfigPanel } from "./NodeConfigPanel"
 
@@ -31,7 +31,7 @@ const nodeTypes: NodeTypes = {
   start: StartNode, text: TextNode, image: ImageNode, video: VideoNode,
   audio: AudioNode, file: FileNode, typing: TypingNode, button: ButtonNode,
   delay: DelayNode, smart_delay: SmartDelayNode, payment: PaymentNode,
-  remarketing_start: RemarketingStartNode, kick_member: KickMemberNode,
+  remarketing_start: RemarketingStartNode,
 }
 const typedEdgeTypes: EdgeTypes = edgeTypes
 
@@ -39,7 +39,7 @@ const typedEdgeTypes: EdgeTypes = edgeTypes
 
 interface Product { id: string; name: string; priceInCents: number }
 interface FlowEditorProps { botId: string; botName: string; botChannelId?: string | null; products: Product[]; mode?: "main" | "remarketing" }
-type NodeType = "text" | "image" | "video" | "audio" | "file" | "typing" | "button" | "delay" | "smart_delay" | "payment" | "kick_member"
+type NodeType = "text" | "image" | "video" | "audio" | "file" | "typing" | "button" | "delay" | "smart_delay" | "payment"
 type Snapshot = { nodes: Node[]; edges: Edge[] }
 
 function getDefaultData(type: NodeType): Record<string, unknown> {
@@ -54,7 +54,6 @@ function getDefaultData(type: NodeType): Record<string, unknown> {
     case "delay": return { amount: 5, unit: "seconds" }
     case "smart_delay": return { minAmount: 1, maxAmount: 5, unit: "seconds", showTyping: false }
     case "payment": return { productId: "", productName: "", image: "", imageMediaId: "", text: "", ctaText: "Pagar agora" }
-    case "kick_member": return {}
   }
 }
 
@@ -82,7 +81,7 @@ function minimapColor(n: Node) {
     start: "#10b981", text: "#3b82f6", image: "#0ea5e9", video: "#a855f7",
     audio: "#ec4899", file: "#64748b", typing: "#14b8a6", button: "#6366f1",
     delay: "#f59e0b", smart_delay: "#f97316", payment: "#8b5cf6",
-    remarketing_start: "#10b981", kick_member: "#ef4444",
+    remarketing_start: "#10b981",
   }
   return m[n.type ?? ""] ?? "#94a3b8"
 }
@@ -194,7 +193,6 @@ const NODE_PICKER_ITEMS_REMARKETING: { type: NodeType; label: string; icon: stri
   { type: "delay", label: "Atraso", icon: "⏱", color: "bg-amber-500" },
   { type: "smart_delay", label: "Smart Delay", icon: "⏰", color: "bg-orange-500" },
   { type: "payment", label: "Pagamento", icon: "💳", color: "bg-violet-500" },
-  { type: "kick_member", label: "Expulsar do Grupo", icon: "🚫", color: "bg-red-500" },
 ]
 
 function FlowEditorInner({ botId, botName, botChannelId, products, mode = "main" }: FlowEditorProps) {
@@ -744,7 +742,6 @@ function FlowEditorInner({ botId, botName, botChannelId, products, mode = "main"
           {isRemarketing && (
             <PaletteGroup title="Ação">
               <PaletteItem icon={<CreditCard className="h-4 w-4" />} label="Pagamento" nodeType="payment" color="border-violet-200 bg-violet-50 text-violet-800 hover:bg-violet-100" onAdd={() => addNode("payment")} />
-              <PaletteItem icon={<UserX className="h-4 w-4" />} label="Expulsar do Grupo" nodeType="kick_member" color="border-red-200 bg-red-50 text-red-800 hover:bg-red-100" onAdd={() => addNode("kick_member")} />
             </PaletteGroup>
           )}
           <div className="pt-2 border-t border-gray-100">
