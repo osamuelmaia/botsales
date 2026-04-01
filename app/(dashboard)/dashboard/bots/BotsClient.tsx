@@ -156,12 +156,8 @@ function BotCard({ bot, onDelete, onUpdated }: { bot: BotListItem; onDelete: (id
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export function BotsClient({ initialBots }: { initialBots: BotListItem[] }) {
-  const { data: bots = initialBots, mutate } = useSWR<BotListItem[]>(
-    "/api/bots",
-    fetcher,
-    { fallbackData: initialBots }
-  )
+export function BotsClient() {
+  const { data: bots = [], mutate } = useSWR<BotListItem[]>("/api/bots", fetcher)
   const [open, setOpen] = useState(false)
 
   return (

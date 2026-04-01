@@ -25,13 +25,7 @@ function today() { return new Date().toISOString().slice(0, 10) }
 const selectCls = "h-9 rounded-lg border border-gray-200 bg-white px-3 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent cursor-pointer"
 const inputCls  = "h-9 rounded-lg border border-gray-200 bg-white px-3 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent"
 
-export function SalesClient({
-  initialData,
-  initialStartDate,
-}: {
-  initialData: SalesData
-  initialStartDate: string
-}) {
+export function SalesClient({ initialStartDate }: { initialStartDate: string }) {
   const [filters, setFilters] = useState<Filters>({
     startDate: initialStartDate,
     endDate: today(),
@@ -42,17 +36,14 @@ export function SalesClient({
 
   const key = useMemo(() => {
     const params = new URLSearchParams({ page: String(page), limit: "50" })
-    if (filters.startDate)             params.set("startDate", filters.startDate)
-    if (filters.endDate)               params.set("endDate", filters.endDate)
-    if (filters.status !== "ALL")      params.set("status", filters.status)
+    if (filters.startDate)               params.set("startDate", filters.startDate)
+    if (filters.endDate)                 params.set("endDate", filters.endDate)
+    if (filters.status !== "ALL")        params.set("status", filters.status)
     if (filters.paymentMethod !== "ALL") params.set("paymentMethod", filters.paymentMethod)
     return `/api/sales?${params}`
   }, [filters, page])
 
-  const { data = initialData, isLoading } = useSWR<SalesData>(key, fetcher, {
-    fallbackData: initialData,
-    keepPreviousData: true,
-  })
+  const { data, isLoading } = useSWR<SalesData>(key, fetcher, { keepPreviousData: true })
 
   function setFilter<K extends keyof Filters>(k: K, v: Filters[K]) {
     setFilters((p) => ({ ...p, [k]: v }))
@@ -121,11 +112,11 @@ export function SalesClient({
 
       {/* Table */}
       <SalesTable
-        data={data.sales}
-        loading={isLoading}
+        data={data?.sales ?? []}
+        loading={isLoading && !data}
         page={page}
-        pages={data.pages}
-        total={data.total}
+        pages={data?.pages ?? 1}
+        total={data?.total ?? 0}
         onPage={setPage}
       />
     </div>

@@ -36,12 +36,8 @@ function CopyCheckoutLink({ productId }: { productId: string }) {
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export function ProductsClient({ initialProducts }: { initialProducts: ProductData[] }) {
-  const { data: products = initialProducts, mutate } = useSWR<ProductData[]>(
-    "/api/products",
-    fetcher,
-    { fallbackData: initialProducts }
-  )
+export function ProductsClient() {
+  const { data: products = [], mutate } = useSWR<ProductData[]>("/api/products", fetcher)
 
   const [sheetOpen, setSheetOpen] = useState(false)
   const [editingProduct, setEditingProduct] = useState<ProductData | null>(null)

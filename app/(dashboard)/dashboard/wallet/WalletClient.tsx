@@ -173,10 +173,8 @@ function WithdrawalPanel({ data, onSuccess }: { data: WalletData; onSuccess: () 
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export function WalletClient({ initialData }: { initialData: WalletData }) {
-  const { data = initialData, mutate, isValidating } = useSWR<WalletData>(
-    "/api/wallet", fetcher, { fallbackData: initialData }
-  )
+export function WalletClient() {
+  const { data, mutate, isValidating } = useSWR<WalletData>("/api/wallet", fetcher)
   const [showBankForm, setShowBankForm] = useState(false)
   const [deletingId, setDeletingId] = useState<string | null>(null)
 
@@ -201,6 +199,7 @@ export function WalletClient({ initialData }: { initialData: WalletData }) {
     else toast.error("Erro ao atualizar conta")
   }
 
+  if (!data) return null
   const accounts = data.bankAccounts
   const withdrawals = data.recentWithdrawals
 
@@ -219,13 +218,13 @@ export function WalletClient({ initialData }: { initialData: WalletData }) {
         </button>
       </div>
 
-      <BalanceHero data={data} />
-      <FeeInfo feePercent={data.feePercent} feeCents={data.feeCents} />
+      <BalanceHero data={data!} />
+      <FeeInfo feePercent={data!.feePercent} feeCents={data!.feeCents} />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Left */}
         <div className="space-y-4">
-          <WithdrawalPanel data={data} onSuccess={() => mutate()} />
+          <WithdrawalPanel data={data!} onSuccess={() => mutate()} />
 
           {/* History */}
           <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
