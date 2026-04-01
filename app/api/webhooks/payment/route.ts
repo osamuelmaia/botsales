@@ -70,7 +70,6 @@ async function handleSubscriptionRenewal(gatewayChargeId: string): Promise<void>
   })
   if (!subscription) return
 
-  const now = new Date()
   const newPeriodEnd = new Date(subscription.currentPeriodEnd)
   newPeriodEnd.setMonth(newPeriodEnd.getMonth() + 1)
 
