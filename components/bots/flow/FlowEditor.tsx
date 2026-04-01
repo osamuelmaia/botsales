@@ -250,6 +250,13 @@ function FlowEditorInner({ botId, botName, botChannelId, products }: FlowEditorP
 
   const onConnect = useCallback(
     (connection: Connection) => {
+      const alreadyConnected = edgesRef.current.some(
+        (e) => e.source === connection.source && e.sourceHandle === connection.sourceHandle
+      )
+      if (alreadyConnected) {
+        toast.error("Cada nó só pode ter uma saída. Remova a conexão existente para criar uma nova.")
+        return
+      }
       pushUndo()
       setEdges((eds) => addEdge({ ...connection, id: crypto.randomUUID(), type: "deletable" }, eds))
     },
@@ -378,6 +385,14 @@ function FlowEditorInner({ botId, botName, botChannelId, products }: FlowEditorP
 
   const handlePickerSelect = useCallback((type: NodeType) => {
     if (!nodePicker) return
+    const alreadyConnected = edgesRef.current.some(
+      (e) => e.source === nodePicker.sourceNodeId && e.sourceHandle === nodePicker.sourceHandle
+    )
+    if (alreadyConnected) {
+      toast.error("Cada nó só pode ter uma saída. Remova a conexão existente para criar uma nova.")
+      setNodePicker(null)
+      return
+    }
     pushUndo()
     const newNode: Node = { id: crypto.randomUUID(), type, position: { x: nodePicker.x, y: nodePicker.y }, data: getDefaultData(type) }
     const newEdge: Edge = {
