@@ -307,7 +307,7 @@ export function WithdrawalsAdmin({
         <AlertCircle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
         <p className="text-xs text-amber-700">
           <strong>Atenção:</strong> Verifique os dados bancários antes de aprovar. Após aprovação, o status passa para
-          "Processando" — execute a transferência manualmente e clique em "Concluir" quando o pagamento for enviado.
+          &quot;Processando&quot; — execute a transferência manualmente e clique em &quot;Concluir&quot; quando o pagamento for enviado.
           Ao recusar, o saldo é devolvido ao usuário automaticamente.
         </p>
       </div>

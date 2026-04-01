@@ -4,7 +4,7 @@ import { safeDecrypt } from "@/lib/utils"
 import { WithdrawalsAdmin } from "./WithdrawalsAdmin"
 
 export default async function AdminWithdrawalsPage() {
-  const session = await auth()
+  await auth()
 
   const [withdrawals, total] = await Promise.all([
     prisma.withdrawal.findMany({

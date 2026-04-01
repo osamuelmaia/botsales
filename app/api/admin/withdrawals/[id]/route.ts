@@ -36,20 +36,20 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 
   const now = new Date()
 
+  type WithdrawalUpdateData = Record<string, unknown>
+
   if (parsed.data.action === "approve") {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const updated = await prisma.withdrawal.update({
       where: { id: params.id },
-      data: { status: "PROCESSING", reviewedBy: adminId, reviewedAt: now } as any,
+      data: { status: "PROCESSING", reviewedBy: adminId, reviewedAt: now } as WithdrawalUpdateData,
     })
     return NextResponse.json({ withdrawal: updated })
   }
 
   // Reject — balance is automatically restored since we exclude FAILED from reserved
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const updated = await prisma.withdrawal.update({
     where: { id: params.id },
-    data: { status: "FAILED", adminNote: parsed.data.adminNote, reviewedBy: adminId, reviewedAt: now } as any,
+    data: { status: "FAILED", adminNote: parsed.data.adminNote, reviewedBy: adminId, reviewedAt: now } as WithdrawalUpdateData,
   })
   return NextResponse.json({ withdrawal: updated })
 }
