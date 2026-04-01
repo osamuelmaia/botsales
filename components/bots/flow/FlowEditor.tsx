@@ -5,6 +5,7 @@ import {
   ReactFlow, Background, Controls, MiniMap, addEdge,
   useNodesState, useEdgesState, Connection, Edge, Node, NodeTypes, EdgeTypes,
   BackgroundVariant, NodeChange, EdgeChange, useReactFlow, ReactFlowProvider,
+  useViewport,
 } from "@xyflow/react"
 import "@xyflow/react/dist/style.css"
 import { toast } from "sonner"
@@ -13,6 +14,7 @@ import {
   Type, Image as ImageIcon, Film, Music, FileText, MoreHorizontal,
   MousePointerClick, Clock, Timer, CreditCard, Undo2, Redo2,
 } from "lucide-react"
+import * as AlertDialog from "@radix-ui/react-alert-dialog"
 import { useRouter } from "next/navigation"
 
 import {
@@ -80,6 +82,32 @@ function minimapColor(n: Node) {
   return m[n.type ?? ""] ?? "#94a3b8"
 }
 
+// ─── Snap alignment helpers ───────────────────────────────────────────────────
+
+const SNAP_THRESHOLD = 6
+
+interface GuideLine {
+  type: "horizontal" | "vertical"
+  pos: number
+  start: number
+  end: number
+}
+
+function getNodeBounds(node: Node) {
+  const w = (node.measured as { width?: number })?.width ?? 220
+  const h = (node.measured as { height?: number })?.height ?? 80
+  return {
+    left: node.position.x,
+    right: node.position.x + w,
+    top: node.position.y,
+    bottom: node.position.y + h,
+    cx: node.position.x + w / 2,
+    cy: node.position.y + h / 2,
+    w,
+    h,
+  }
+}
+
 // ─── FlowEditor ───────────────────────────────────────────────────────────────
 
 const MAX_HISTORY = 50
@@ -118,6 +146,14 @@ function FlowEditorInner({ botId, botName, botChannelId, products }: FlowEditorP
   const reactFlowWrapper = useRef<HTMLDivElement>(null)
   const autoOpenedRef = useRef(false)
 
+  // Draft / unsaved changes
+  const [isDirty, setIsDirty] = useState(false)
+  const [showLeaveDialog, setShowLeaveDialog] = useState(false)
+
+  // Snap alignment guide lines
+  const [guideLines, setGuideLines] = useState<GuideLine[]>([])
+  const viewport = useViewport()
+
   // Handle drop node picker state
   const [nodePicker, setNodePicker] = useState<{ x: number; y: number; screenX: number; screenY: number; sourceNodeId: string; sourceHandle: string | null } | null>(null)
   const connectingRef = useRef<{ nodeId: string; handleId: string | null } | null>(null)
@@ -142,6 +178,7 @@ function FlowEditorInner({ botId, botName, botChannelId, products }: FlowEditorP
 
   const pushUndo = useCallback(() => {
     if (isRestoringRef.current) return
+    setIsDirty(true)
     pastRef.current.push(getSnapshot())
     futureRef.current = []
     if (pastRef.current.length > MAX_HISTORY) pastRef.current.shift()
@@ -158,6 +195,7 @@ function FlowEditorInner({ botId, botName, botChannelId, products }: FlowEditorP
 
   const undo = useCallback(() => {
     if (pastRef.current.length === 0) return
+    setIsDirty(true)
     futureRef.current.push(getSnapshot())
     const snapshot = pastRef.current.pop()!
     isRestoringRef.current = true
@@ -169,6 +207,7 @@ function FlowEditorInner({ botId, botName, botChannelId, products }: FlowEditorP
 
   const redo = useCallback(() => {
     if (futureRef.current.length === 0) return
+    setIsDirty(true)
     pastRef.current.push(getSnapshot())
     const snapshot = futureRef.current.pop()!
     isRestoringRef.current = true
@@ -191,6 +230,15 @@ function FlowEditorInner({ botId, botName, botChannelId, products }: FlowEditorP
     window.addEventListener("keydown", handleKeyDown)
     return () => window.removeEventListener("keydown", handleKeyDown)
   }, [undo, redo])
+
+  // ─── Warn before leaving with unsaved changes ───────────────────────────────
+
+  useEffect(() => {
+    if (!isDirty) return
+    const handler = (e: BeforeUnloadEvent) => { e.preventDefault(); e.returnValue = "" }
+    window.addEventListener("beforeunload", handler)
+    return () => window.removeEventListener("beforeunload", handler)
+  }, [isDirty])
 
   // ─── Load flow ──────────────────────────────────────────────────────────────
 
@@ -241,6 +289,7 @@ function FlowEditorInner({ botId, botName, botChannelId, products }: FlowEditorP
       })
       const json = await res.json()
       if (!res.ok) { toast.error(json.error ?? "Erro ao salvar fluxo"); return }
+      setIsDirty(false)
       toast.success("Fluxo salvo com sucesso!")
     } catch { toast.error("Erro ao salvar fluxo") }
     finally { setSaving(false) }
@@ -295,9 +344,93 @@ function FlowEditorInner({ botId, botName, botChannelId, products }: FlowEditorP
     [onEdgesChange, pushUndo]
   )
 
-  // ─── Node drag for undo ─────────────────────────────────────────────────────
+  // ─── Node drag: undo + snap alignment ────────────────────────────────────────
 
   const onNodeDragStart = useCallback(() => { pushUndo() }, [pushUndo])
+
+  const onNodeDrag = useCallback((_: React.MouseEvent, dragNode: Node) => {
+    const db = getNodeBounds(dragNode)
+    const lines: GuideLine[] = []
+
+    for (const node of nodesRef.current) {
+      if (node.id === dragNode.id) continue
+      const nb = getNodeBounds(node)
+
+      // Vertical guides (X alignment)
+      const xPairs: [number, number][] = [
+        [db.left, nb.left], [db.left, nb.right], [db.right, nb.left],
+        [db.right, nb.right], [db.cx, nb.cx],
+      ]
+      for (const [dv, nv] of xPairs) {
+        if (Math.abs(dv - nv) < SNAP_THRESHOLD) {
+          lines.push({ type: "vertical", pos: nv, start: Math.min(db.top, nb.top) - 20, end: Math.max(db.bottom, nb.bottom) + 20 })
+        }
+      }
+
+      // Horizontal guides (Y alignment)
+      const yPairs: [number, number][] = [
+        [db.top, nb.top], [db.top, nb.bottom], [db.bottom, nb.top],
+        [db.bottom, nb.bottom], [db.cy, nb.cy],
+      ]
+      for (const [dv, nv] of yPairs) {
+        if (Math.abs(dv - nv) < SNAP_THRESHOLD) {
+          lines.push({ type: "horizontal", pos: nv, start: Math.min(db.left, nb.left) - 20, end: Math.max(db.right, nb.right) + 20 })
+        }
+      }
+    }
+
+    setGuideLines(lines)
+  }, [])
+
+  const onNodeDragStop = useCallback((_: React.MouseEvent, dragNode: Node) => {
+    setGuideLines([])
+    const dw = (dragNode.measured as { width?: number })?.width ?? 220
+    const dh = (dragNode.measured as { height?: number })?.height ?? 80
+    const dLeft = dragNode.position.x
+    const dRight = dLeft + dw
+    const dTop = dragNode.position.y
+    const dBottom = dTop + dh
+    const dCx = dLeft + dw / 2
+    const dCy = dTop + dh / 2
+
+    let bestX: number | null = null, bestY: number | null = null
+    let minDx = SNAP_THRESHOLD, minDy = SNAP_THRESHOLD
+
+    for (const node of nodesRef.current) {
+      if (node.id === dragNode.id) continue
+      const nb = getNodeBounds(node)
+
+      // X snap candidates: [dragEdge, targetEdge, newPositionX]
+      const xs: [number, number, number][] = [
+        [dLeft, nb.left, nb.left], [dLeft, nb.right, nb.right],
+        [dRight, nb.left, nb.left - dw], [dRight, nb.right, nb.right - dw],
+        [dCx, nb.cx, nb.cx - dw / 2],
+      ]
+      for (const [de, ne, nx] of xs) {
+        const d = Math.abs(de - ne)
+        if (d < minDx) { minDx = d; bestX = nx }
+      }
+
+      // Y snap candidates
+      const ys: [number, number, number][] = [
+        [dTop, nb.top, nb.top], [dTop, nb.bottom, nb.bottom],
+        [dBottom, nb.top, nb.top - dh], [dBottom, nb.bottom, nb.bottom - dh],
+        [dCy, nb.cy, nb.cy - dh / 2],
+      ]
+      for (const [de, ne, ny] of ys) {
+        const d = Math.abs(de - ne)
+        if (d < minDy) { minDy = d; bestY = ny }
+      }
+    }
+
+    if (bestX !== null || bestY !== null) {
+      setNodes((nds) => nds.map((n) =>
+        n.id === dragNode.id
+          ? { ...n, position: { x: bestX ?? n.position.x, y: bestY ?? n.position.y } }
+          : n
+      ))
+    }
+  }, [setNodes])
 
   // ─── Add node ───────────────────────────────────────────────────────────────
 
@@ -428,7 +561,7 @@ function FlowEditorInner({ botId, botName, botChannelId, products }: FlowEditorP
     <div className="flex flex-col h-screen bg-gray-50">
       {/* Top bar */}
       <div className="flex items-center gap-3 px-4 py-3 bg-white border-b border-gray-200 shrink-0">
-        <button onClick={() => router.push(`/dashboard/bots/${botId}`)}
+        <button onClick={() => isDirty ? setShowLeaveDialog(true) : router.push(`/dashboard/bots/${botId}`)}
           className="h-8 w-8 flex items-center justify-center rounded-md text-gray-500 hover:bg-gray-100 transition-colors">
           <ArrowLeft className="h-4 w-4" />
         </button>
@@ -453,8 +586,14 @@ function FlowEditorInner({ botId, botName, botChannelId, products }: FlowEditorP
           </button>
         </div>
 
+        {isDirty && (
+          <span className="text-xs text-amber-600 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full font-medium">
+            Rascunho
+          </span>
+        )}
+
         <button onClick={handleSave} disabled={saving}
-          className="flex items-center gap-2 h-8 px-4 bg-gray-900 text-white rounded-md text-sm font-medium hover:bg-gray-800 disabled:opacity-50 transition-colors shrink-0">
+          className={`flex items-center gap-2 h-8 px-4 rounded-md text-sm font-medium disabled:opacity-50 transition-colors shrink-0 ${isDirty ? "bg-amber-500 text-white hover:bg-amber-600" : "bg-gray-900 text-white hover:bg-gray-800"}`}>
           {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
           {saving ? "Salvando..." : "Salvar"}
         </button>
@@ -498,7 +637,7 @@ function FlowEditorInner({ botId, botName, botChannelId, products }: FlowEditorP
             onNodesChange={wrappedOnNodesChange} onEdgesChange={wrappedOnEdgesChange}
             onConnect={onConnect} onNodeClick={onNodeClick}
             onPaneClick={() => { onPaneClick(); if (Date.now() - pickerJustOpenedRef.current > 200) setNodePicker(null) }}
-            onNodeDragStart={onNodeDragStart}
+            onNodeDragStart={onNodeDragStart} onNodeDrag={onNodeDrag} onNodeDragStop={onNodeDragStop}
             onConnectStart={onConnectStart} onConnectEnd={onConnectEnd}
             nodeTypes={nodeTypes} edgeTypes={typedEdgeTypes}
             defaultEdgeOptions={{ type: "deletable" }} fitView
@@ -507,6 +646,29 @@ function FlowEditorInner({ botId, botName, botChannelId, products }: FlowEditorP
             <Controls className="!bottom-4 !left-4" />
             <MiniMap nodeColor={minimapColor} className="!bottom-4 !right-4 !rounded-lg !border !border-gray-200" />
           </ReactFlow>
+
+          {/* Snap alignment guide lines */}
+          {guideLines.map((line, i) =>
+            line.type === "vertical" ? (
+              <div key={`vg-${i}`} className="pointer-events-none absolute" style={{
+                left: line.pos * viewport.zoom + viewport.x,
+                top: line.start * viewport.zoom + viewport.y,
+                width: 1,
+                height: (line.end - line.start) * viewport.zoom,
+                backgroundColor: "#3b82f6",
+                zIndex: 1000,
+              }} />
+            ) : (
+              <div key={`hg-${i}`} className="pointer-events-none absolute" style={{
+                left: line.start * viewport.zoom + viewport.x,
+                top: line.pos * viewport.zoom + viewport.y,
+                width: (line.end - line.start) * viewport.zoom,
+                height: 1,
+                backgroundColor: "#3b82f6",
+                zIndex: 1000,
+              }} />
+            )
+          )}
 
           {/* Node picker popup (ManyChat style) */}
           {nodePicker && (
@@ -532,6 +694,32 @@ function FlowEditorInner({ botId, botName, botChannelId, products }: FlowEditorP
             products={products} onUpdate={handleNodeUpdate} onClose={() => setSelectedNode(null)} />
         )}
       </div>
+
+      {/* Leave confirmation dialog */}
+      <AlertDialog.Root open={showLeaveDialog} onOpenChange={setShowLeaveDialog}>
+        <AlertDialog.Portal>
+          <AlertDialog.Overlay className="fixed inset-0 bg-black/40 z-50 data-[state=open]:animate-in data-[state=open]:fade-in" />
+          <AlertDialog.Content className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-50 w-full max-w-md bg-white rounded-xl p-6 shadow-2xl data-[state=open]:animate-in data-[state=open]:fade-in data-[state=open]:zoom-in-95">
+            <AlertDialog.Title className="text-lg font-semibold text-gray-900">
+              Alterações não salvas
+            </AlertDialog.Title>
+            <AlertDialog.Description className="mt-2 text-sm text-gray-600">
+              Você tem alterações que ainda não foram salvas. Se sair agora, todo o progresso será perdido. Deseja sair mesmo assim?
+            </AlertDialog.Description>
+            <div className="mt-6 flex justify-end gap-3">
+              <AlertDialog.Cancel className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors">
+                Continuar editando
+              </AlertDialog.Cancel>
+              <AlertDialog.Action
+                onClick={() => router.push(`/dashboard/bots/${botId}`)}
+                className="px-4 py-2 text-sm font-medium text-white bg-red-500 rounded-lg hover:bg-red-600 transition-colors"
+              >
+                Sair sem salvar
+              </AlertDialog.Action>
+            </div>
+          </AlertDialog.Content>
+        </AlertDialog.Portal>
+      </AlertDialog.Root>
     </div>
   )
 }
