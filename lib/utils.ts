@@ -26,3 +26,18 @@ export function decryptToken(encryptedToken: string): string {
   const decrypted = Buffer.concat([decipher.update(enc), decipher.final()])
   return decrypted.toString("utf8")
 }
+
+/** Decrypt a field that may be plaintext (pre-encryption legacy records). */
+export function safeDecrypt(value: string): string {
+  try {
+    return decryptToken(value)
+  } catch {
+    return value
+  }
+}
+
+/** Encrypt if value is non-empty, otherwise return as-is. */
+export function encryptField(value: string | null | undefined): string | null {
+  if (!value) return value ?? null
+  return encryptToken(value)
+}

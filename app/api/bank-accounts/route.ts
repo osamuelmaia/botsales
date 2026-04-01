@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { z } from "zod"
+import { encryptToken, safeDecrypt } from "@/lib/utils"
 
 const createSchema = z.object({
   bankCode: z.string().min(3).max(10),
@@ -9,10 +10,26 @@ const createSchema = z.object({
   account: z.string().min(1).max(20),
   accountType: z.enum(["CHECKING", "SAVINGS"]),
   holderName: z.string().min(2).max(100),
-  document: z.string().min(14).max(18), // masked CPF (14) or CNPJ (18)
-  pixKey: z.string().min(1).max(100),
+  document: z.string().min(14).max(18),
+  pixKey: z.string().min(1).max(100).optional(),
   isDefault: z.boolean().optional(),
 })
+
+// Decrypt sensitive fields for API response
+function decryptAccount(a: {
+  id: string; userId: string; bankCode: string; agency: string; account: string
+  accountType: string; holderName: string; document: string; pixKey: string | null
+  isDefault: boolean; createdAt: Date
+}) {
+  return {
+    ...a,
+    agency: safeDecrypt(a.agency),
+    account: safeDecrypt(a.account),
+    document: safeDecrypt(a.document),
+    pixKey: a.pixKey ? safeDecrypt(a.pixKey) : null,
+    createdAt: a.createdAt.toISOString(),
+  }
+}
 
 export async function GET() {
   const session = await auth()
@@ -25,7 +42,7 @@ export async function GET() {
     orderBy: [{ isDefault: "desc" }, { createdAt: "desc" }],
   })
 
-  return NextResponse.json({ accounts })
+  return NextResponse.json({ accounts: accounts.map(decryptAccount) })
 }
 
 export async function POST(req: NextRequest) {
@@ -42,7 +59,6 @@ export async function POST(req: NextRequest) {
   }
   const { isDefault, ...data } = parsed.data
 
-  // If setting as default, unset existing defaults
   if (isDefault) {
     await prisma.bankAccount.updateMany({
       where: { userId, isDefault: true },
@@ -51,8 +67,16 @@ export async function POST(req: NextRequest) {
   }
 
   const account = await prisma.bankAccount.create({
-    data: { ...data, userId, isDefault: isDefault ?? false },
+    data: {
+      ...data,
+      agency: encryptToken(data.agency),
+      account: encryptToken(data.account),
+      document: encryptToken(data.document),
+      pixKey: data.pixKey ? encryptToken(data.pixKey) : null,
+      userId,
+      isDefault: isDefault ?? false,
+    },
   })
 
-  return NextResponse.json({ account }, { status: 201 })
+  return NextResponse.json({ account: decryptAccount(account) }, { status: 201 })
 }

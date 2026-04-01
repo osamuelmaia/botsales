@@ -27,7 +27,8 @@ interface Withdrawal {
 
 interface WalletData {
   balanceCents: number; availableCents: number; pendingCents: number
-  withdrawnCents: number; feePercent: number; feeCents: number
+  withdrawnCents: number; pendingApprovalCents: number
+  feePercent: number; feeCents: number
   recentWithdrawals: Withdrawal[]; bankAccounts: BankAccount[]
 }
 
@@ -66,8 +67,15 @@ function BalanceHero({ data }: { data: WalletData }) {
           <p className="text-xs text-gray-400 mt-1">Pronto para sacar a qualquer momento</p>
         </div>
         <div className="flex gap-6">
+          {data.pendingApprovalCents > 0 && (
+            <div>
+              <p className="text-xs text-gray-400 mb-0.5">Em análise</p>
+              <p className="text-lg font-semibold tabular-nums text-amber-300">{formatBRL(data.pendingApprovalCents)}</p>
+              <p className="text-xs text-gray-500 mt-0.5">Aguardando aprovação</p>
+            </div>
+          )}
           <div>
-            <p className="text-xs text-gray-400 mb-0.5">Saldo pendente</p>
+            <p className="text-xs text-gray-400 mb-0.5">Saldo a liberar</p>
             <p className="text-lg font-semibold tabular-nums text-yellow-300">{formatBRL(data.pendingCents)}</p>
             <p className="text-xs text-gray-500 mt-0.5">PIX: 1 dia • Cartão: 30 dias</p>
           </div>

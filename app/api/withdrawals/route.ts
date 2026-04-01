@@ -3,8 +3,12 @@ import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { z } from "zod"
 
+const MIN_WITHDRAWAL_CENTS = 1000 // R$ 10,00
+
 const createSchema = z.object({
-  amountCents: z.number().int().positive(),
+  amountCents: z.number().int().min(MIN_WITHDRAWAL_CENTS, {
+    message: `Valor mínimo para saque é R$ ${(MIN_WITHDRAWAL_CENTS / 100).toFixed(2).replace(".", ",")}`,
+  }),
   bankAccountId: z.string().cuid(),
 })
 
@@ -33,7 +37,8 @@ export async function POST(req: NextRequest) {
   const body = await req.json()
   const parsed = createSchema.safeParse(body)
   if (!parsed.success) {
-    return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 })
+    const msg = parsed.error.issues[0]?.message ?? "Dados inválidos"
+    return NextResponse.json({ error: msg }, { status: 400 })
   }
   const { amountCents, bankAccountId } = parsed.data
 
@@ -45,7 +50,24 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Conta bancária não encontrada" }, { status: 404 })
   }
 
-  // Calculate available balance
+  // Duplicate detection — block identical request within 60 seconds
+  const recentDuplicate = await prisma.withdrawal.findFirst({
+    where: {
+      userId,
+      bankAccountId,
+      amountCents,
+      status: "REQUESTED",
+      requestedAt: { gte: new Date(Date.now() - 60_000) },
+    },
+  })
+  if (recentDuplicate) {
+    return NextResponse.json(
+      { error: "Solicitação duplicada. Aguarde antes de tentar novamente." },
+      { status: 429 },
+    )
+  }
+
+  // Balance check — reserves REQUESTED + PROCESSING + COMPLETED to prevent double-spending
   const now = new Date()
   const [approvedSales, existingWithdrawals] = await Promise.all([
     prisma.sale.findMany({
@@ -53,21 +75,18 @@ export async function POST(req: NextRequest) {
       select: { netAmountCents: true },
     }),
     prisma.withdrawal.findMany({
-      where: {
-        userId,
-        status: { in: ["REQUESTED", "PROCESSING", "COMPLETED"] },
-      },
+      where: { userId, status: { in: ["REQUESTED", "PROCESSING", "COMPLETED"] } },
       select: { amountCents: true },
     }),
   ])
 
   const availableCents = approvedSales.reduce((s, x) => s + x.netAmountCents, 0)
-  const withdrawnCents = existingWithdrawals.reduce((s, x) => s + x.amountCents, 0)
-  const balanceCents = Math.max(0, availableCents - withdrawnCents)
+  const reservedCents  = existingWithdrawals.reduce((s, x) => s + x.amountCents, 0)
+  const balanceCents   = Math.max(0, availableCents - reservedCents)
 
   if (amountCents > balanceCents) {
     return NextResponse.json(
-      { error: `Saldo insuficiente. Disponível: R$ ${(balanceCents / 100).toFixed(2)}` },
+      { error: `Saldo insuficiente. Disponível: R$ ${(balanceCents / 100).toFixed(2).replace(".", ",")}` },
       { status: 422 },
     )
   }

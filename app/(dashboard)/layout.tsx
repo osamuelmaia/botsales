@@ -86,12 +86,15 @@ export default async function DashboardLayout({ children }: { children: React.Re
       else pendingCents += s.netAmountCents
     }
     const withdrawnCents = withdrawals
-      .filter((w) => ["COMPLETED", "PROCESSING", "REQUESTED"].includes(w.status))
+      .filter((w) => ["COMPLETED", "PROCESSING"].includes(w.status))
+      .reduce((sum, w) => sum + w.amountCents, 0)
+    const pendingApprovalCents = withdrawals
+      .filter((w) => w.status === "REQUESTED")
       .reduce((sum, w) => sum + w.amountCents, 0)
 
     fallback["/api/wallet"] = {
-      balanceCents: Math.max(0, availableCents - withdrawnCents),
-      availableCents, pendingCents, withdrawnCents,
+      balanceCents: Math.max(0, availableCents - withdrawnCents - pendingApprovalCents),
+      availableCents, pendingCents, withdrawnCents, pendingApprovalCents,
       feePercent: Number(user?.platformFeePercent ?? 5.99),
       feeCents: user?.platformFeeCents ?? 100,
       recentWithdrawals: withdrawals.map((w) => ({

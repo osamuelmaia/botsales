@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { z } from "zod"
+import { encryptToken, safeDecrypt } from "@/lib/utils"
 
 const updateSchema = z.object({
   isDefault: z.boolean().optional(),
@@ -36,12 +37,25 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     })
   }
 
-  const updated = await prisma.bankAccount.update({
-    where: { id },
-    data: { ...rest, ...(isDefault !== undefined ? { isDefault } : {}) },
-  })
+  const updateData: Record<string, unknown> = {
+    ...(isDefault !== undefined ? { isDefault } : {}),
+  }
+  if (rest.pixKey !== undefined) {
+    updateData.pixKey = rest.pixKey ? encryptToken(rest.pixKey) : null
+  }
 
-  return NextResponse.json({ account: updated })
+  const updated = await prisma.bankAccount.update({ where: { id }, data: updateData })
+
+  return NextResponse.json({
+    account: {
+      ...updated,
+      agency:   safeDecrypt(updated.agency),
+      account:  safeDecrypt(updated.account),
+      document: safeDecrypt(updated.document),
+      pixKey:   updated.pixKey ? safeDecrypt(updated.pixKey) : null,
+      createdAt: updated.createdAt.toISOString(),
+    },
+  })
 }
 
 export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {

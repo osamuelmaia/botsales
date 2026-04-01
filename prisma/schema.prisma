@@ -247,14 +247,18 @@ model Withdrawal {
   bankAccountId String
   amountCents   Int
   status        WithdrawalStatus @default(REQUESTED)
+  adminNote     String?          // rejection reason or admin notes
+  reviewedBy    String?          // admin userId who approved/rejected
   requestedAt   DateTime         @default(now())
-  processedAt   DateTime?
+  reviewedAt    DateTime?        // when admin acted on this
+  processedAt   DateTime?        // when payment was actually sent
 
   user        User        @relation(fields: [userId], references: [id])
   bankAccount BankAccount @relation(fields: [bankAccountId], references: [id])
 
   @@index([userId])
   @@index([status])
+  @@index([requestedAt])
 }
 
 model BotMedia {
