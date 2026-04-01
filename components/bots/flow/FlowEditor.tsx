@@ -212,6 +212,9 @@ function FlowEditorInner({ botId, botName, botChannelId, products, mode = "main"
   const [selectedNode, setSelectedNode] = useState<Node | null>(null)
   const reactFlowWrapper = useRef<HTMLDivElement>(null)
   const autoOpenedRef = useRef(false)
+  // Stable ref so fitView can be called without adding reactFlowInstance to effect deps
+  const reactFlowInstanceRef = useRef(reactFlowInstance)
+  reactFlowInstanceRef.current = reactFlowInstance
 
   // Draft / unsaved changes — tracked per tab so switching is non-destructive
   const [dirtyMain, setDirtyMain] = useState(false)
@@ -371,9 +374,10 @@ function FlowEditorInner({ botId, botName, botChannelId, products, mode = "main"
       .catch(() => toast.error("Erro ao carregar fluxo"))
       .finally(() => {
         setLoading(false)
-        setTimeout(() => reactFlowInstance.fitView({ padding: 0.15, duration: 300 }), 80)
+        setTimeout(() => reactFlowInstanceRef.current.fitView({ padding: 0.15, duration: 300 }), 80)
       })
-  }, [botId, botName, botChannelId, setNodes, setEdges, reactFlowInstance])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [botId, botName, botChannelId, setNodes, setEdges])
 
   // ─── Save flow ──────────────────────────────────────────────────────────────
 
@@ -399,7 +403,7 @@ function FlowEditorInner({ botId, botName, botChannelId, products, mode = "main"
     setActiveMode(next)
 
     // Fit view after React re-renders the new nodes
-    setTimeout(() => reactFlowInstance.fitView({ padding: 0.15, duration: 300 }), 50)
+    setTimeout(() => reactFlowInstanceRef.current.fitView({ padding: 0.15, duration: 300 }), 50)
   }
 
   function requestSwitchTab(next: "main" | "remarketing") {
