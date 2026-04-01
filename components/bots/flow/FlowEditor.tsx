@@ -202,6 +202,9 @@ function FlowEditorInner({ botId, botName, botChannelId, products, mode = "main"
   const [pendingMode, setPendingMode] = useState<"main" | "remarketing" | null>(null)
   const [showSwitchTabDialog, setShowSwitchTabDialog] = useState(false)
   const isRemarketing = activeMode === "remarketing"
+  // Ref so callbacks always see the current mode without stale closure
+  const activeModeRef = useRef(activeMode)
+  activeModeRef.current = activeMode
   const router = useRouter()
   const reactFlowInstance = useReactFlow()
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([])
@@ -212,9 +215,16 @@ function FlowEditorInner({ botId, botName, botChannelId, products, mode = "main"
   const reactFlowWrapper = useRef<HTMLDivElement>(null)
   const autoOpenedRef = useRef(false)
 
-  // Draft / unsaved changes
-  const [isDirty, setIsDirty] = useState(false)
+  // Draft / unsaved changes — tracked per tab so switching is non-destructive
+  const [dirtyMain, setDirtyMain] = useState(false)
+  const [dirtyRem, setDirtyRem] = useState(false)
+  const isDirty = activeMode === "main" ? dirtyMain : dirtyRem
+  const isAnyDirty = dirtyMain || dirtyRem
   const [showLeaveDialog, setShowLeaveDialog] = useState(false)
+
+  // In-memory stash — holds the inactive tab's flow so switching is instant
+  const mainStashRef = useRef<{ nodes: Node[]; edges: Edge[] } | null>(null)
+  const remStashRef = useRef<{ nodes: Node[]; edges: Edge[] } | null>(null)
 
   // Snap alignment guide lines
   const [guideLines, setGuideLines] = useState<GuideLine[]>([])
@@ -242,13 +252,18 @@ function FlowEditorInner({ botId, botName, botChannelId, products, mode = "main"
     edges: JSON.parse(JSON.stringify(edgesRef.current)),
   }), [])
 
+  const setActiveDirty = useCallback(() => {
+    if (activeModeRef.current === "main") setDirtyMain(true)
+    else setDirtyRem(true)
+  }, [])
+
   const pushUndo = useCallback(() => {
     if (isRestoringRef.current) return
-    setIsDirty(true)
+    setActiveDirty()
     pastRef.current.push(getSnapshot())
     futureRef.current = []
     if (pastRef.current.length > MAX_HISTORY) pastRef.current.shift()
-  }, [getSnapshot])
+  }, [getSnapshot, setActiveDirty])
 
   const pushUndoDebounced = useCallback(() => {
     if (isRestoringRef.current) return
@@ -261,7 +276,7 @@ function FlowEditorInner({ botId, botName, botChannelId, products, mode = "main"
 
   const undo = useCallback(() => {
     if (pastRef.current.length === 0) return
-    setIsDirty(true)
+    setActiveDirty()
     futureRef.current.push(getSnapshot())
     const snapshot = pastRef.current.pop()!
     isRestoringRef.current = true
@@ -273,7 +288,7 @@ function FlowEditorInner({ botId, botName, botChannelId, products, mode = "main"
 
   const redo = useCallback(() => {
     if (futureRef.current.length === 0) return
-    setIsDirty(true)
+    setActiveDirty()
     pastRef.current.push(getSnapshot())
     const snapshot = futureRef.current.pop()!
     isRestoringRef.current = true
@@ -300,74 +315,88 @@ function FlowEditorInner({ botId, botName, botChannelId, products, mode = "main"
   // ─── Warn before leaving with unsaved changes ───────────────────────────────
 
   useEffect(() => {
-    if (!isDirty) return
+    if (!isAnyDirty) return
     const handler = (e: BeforeUnloadEvent) => { e.preventDefault(); e.returnValue = "" }
     window.addEventListener("beforeunload", handler)
     return () => window.removeEventListener("beforeunload", handler)
-  }, [isDirty])
+  }, [isAnyDirty])
 
-  // ─── Load flow ──────────────────────────────────────────────────────────────
+  // ─── Load BOTH flows in parallel (runs once per botId) ──────────────────────
 
   useEffect(() => {
-    const endpoint = isRemarketing
-      ? `/api/bots/${botId}/remarketing-flow`
-      : `/api/bots/${botId}/flow`
-
-    fetch(endpoint)
-      .then((r) => r.json())
-      .then((payload: { nodes?: Node[]; edges?: Edge[]; remarketingFlow?: { nodes?: Node[]; edges?: Edge[] } }) => {
-        // Remarketing endpoint wraps in { remarketingFlow: { nodes, edges } }
-        const n: Node[] = isRemarketing
-          ? (payload.remarketingFlow?.nodes ?? [])
-          : (payload.nodes ?? [])
-        const e: Edge[] = isRemarketing
-          ? (payload.remarketingFlow?.edges ?? [])
-          : (payload.edges ?? [])
-
-        if (isRemarketing) {
-          // Ensure a fixed remarketing_start node exists
-          const hasStart = n.some((nd) => nd.type === "remarketing_start")
-          if (!hasStart) {
-            const startNode: Node = {
-              id: "remarketing-start",
-              type: "remarketing_start",
-              position: { x: 80, y: 200 },
-              data: {},
-              deletable: false,
-            }
-            setNodes([startNode, ...n])
-          } else {
-            // Make existing remarketing_start non-deletable
-            setNodes(n.map((nd) => nd.type === "remarketing_start" ? { ...nd, deletable: false } : nd))
-          }
-          setEdges(e)
-        } else {
-          const populated = n.map((node) => {
-            if (node.type === "start") {
-              return { ...node, data: {
+    setLoading(true)
+    Promise.all([
+      fetch(`/api/bots/${botId}/flow`).then((r) => r.json()),
+      fetch(`/api/bots/${botId}/remarketing-flow`).then((r) => r.json()),
+    ])
+      .then(([mainData, remData]: [
+        { nodes?: Node[]; edges?: Edge[] },
+        { remarketingFlow?: { nodes?: Node[]; edges?: Edge[] } }
+      ]) => {
+        // ── Process main flow ──────────────────────────────────────────────
+        const rawMain: Node[] = mainData.nodes ?? []
+        const mainEdges: Edge[] = mainData.edges ?? []
+        const mainNodes = rawMain.map((node) =>
+          node.type === "start"
+            ? { ...node, data: {
                 botName,
                 channelId: (node.data as Record<string, unknown>).channelId ?? botChannelId ?? "",
                 chatTitle: (node.data as Record<string, unknown>).chatTitle ?? "",
               }}
-            }
-            return node
-          })
-          setNodes(populated)
-          setEdges(e)
-          const startNode = populated.find((nd) => nd.type === "start")
-          if (startNode && !autoOpenedRef.current) {
-            if (!(startNode.data as Record<string, unknown>).channelId) {
-              autoOpenedRef.current = true
-              setSelectedNode(startNode)
-            }
+            : node
+        )
+        mainStashRef.current = { nodes: mainNodes, edges: mainEdges }
+
+        // ── Process remarketing flow ───────────────────────────────────────
+        const rawRem: Node[] = remData.remarketingFlow?.nodes ?? []
+        const remEdges: Edge[] = remData.remarketingFlow?.edges ?? []
+        const hasRemStart = rawRem.some((nd) => nd.type === "remarketing_start")
+        const remNodes = hasRemStart
+          ? rawRem.map((nd) => nd.type === "remarketing_start" ? { ...nd, deletable: false } : nd)
+          : [{ id: "remarketing-start", type: "remarketing_start", position: { x: 80, y: 200 }, data: {}, deletable: false } as Node, ...rawRem]
+        remStashRef.current = { nodes: remNodes, edges: remEdges }
+
+        // ── Load active tab ────────────────────────────────────────────────
+        if (activeModeRef.current === "main") {
+          setNodes(mainNodes)
+          setEdges(mainEdges)
+          const startNode = mainNodes.find((nd) => nd.type === "start")
+          if (startNode && !autoOpenedRef.current && !(startNode.data as Record<string, unknown>).channelId) {
+            autoOpenedRef.current = true
+            setSelectedNode(startNode)
           }
+        } else {
+          setNodes(remNodes)
+          setEdges(remEdges)
         }
       })
       .catch(() => toast.error("Erro ao carregar fluxo"))
       .finally(() => setLoading(false))
-  }, [botId, botName, botChannelId, isRemarketing, setNodes, setEdges])
+  }, [botId, botName, botChannelId, setNodes, setEdges])
 
   // ─── Save flow ──────────────────────────────────────────────────────────────
+
+  // ─── Instant tab switch (O(1) — no fetch, just swap stash refs) ─────────────
+
+  function doSwitchTab(next: "main" | "remarketing") {
+    // Stash current tab
+    const currentStash = { nodes: nodesRef.current, edges: edgesRef.current }
+    if (activeModeRef.current === "main") mainStashRef.current = currentStash
+    else remStashRef.current = currentStash
+
+    // Restore target tab from stash
+    const target = next === "main" ? mainStashRef.current : remStashRef.current
+    if (target) {
+      setNodes(target.nodes)
+      setEdges(target.edges)
+    }
+
+    // Clear undo history for the new tab (they belong to different flows)
+    pastRef.current = []
+    futureRef.current = []
+
+    setActiveMode(next)
+  }
 
   function requestSwitchTab(next: "main" | "remarketing") {
     if (next === activeMode) return
@@ -375,16 +404,16 @@ function FlowEditorInner({ botId, botName, botChannelId, products, mode = "main"
       setPendingMode(next)
       setShowSwitchTabDialog(true)
     } else {
-      setActiveMode(next)
-      setLoading(true)
+      doSwitchTab(next)
     }
   }
 
   function confirmSwitchTab() {
     if (!pendingMode) return
-    setIsDirty(false)
-    setActiveMode(pendingMode)
-    setLoading(true)
+    // Discard dirty state for the current tab
+    if (activeMode === "main") setDirtyMain(false)
+    else setDirtyRem(false)
+    doSwitchTab(pendingMode)
     setPendingMode(null)
     setShowSwitchTabDialog(false)
   }
@@ -411,7 +440,7 @@ function FlowEditorInner({ botId, botName, botChannelId, products, mode = "main"
       })
       const json = await res.json()
       if (!res.ok) { toast.error(json.error ?? "Erro ao salvar fluxo"); return }
-      setIsDirty(false)
+      if (isRemarketing) setDirtyRem(false); else setDirtyMain(false)
       toast.success("Fluxo salvo com sucesso!")
     } catch { toast.error("Erro ao salvar fluxo") }
     finally { setSaving(false) }
