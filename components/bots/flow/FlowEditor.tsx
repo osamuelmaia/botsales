@@ -13,6 +13,7 @@ import {
   Save, Loader2, ArrowLeft, AlertCircle,
   Type, Image as ImageIcon, Film, Music, FileText, MoreHorizontal,
   MousePointerClick, Clock, Timer, CreditCard, Undo2, Redo2, UserX,
+  GitBranch, RefreshCw,
 } from "lucide-react"
 import * as AlertDialog from "@radix-ui/react-alert-dialog"
 import { useRouter } from "next/navigation"
@@ -197,7 +198,10 @@ const NODE_PICKER_ITEMS_REMARKETING: { type: NodeType; label: string; icon: stri
 ]
 
 function FlowEditorInner({ botId, botName, botChannelId, products, mode = "main" }: FlowEditorProps) {
-  const isRemarketing = mode === "remarketing"
+  const [activeMode, setActiveMode] = useState<"main" | "remarketing">(mode)
+  const [pendingMode, setPendingMode] = useState<"main" | "remarketing" | null>(null)
+  const [showSwitchTabDialog, setShowSwitchTabDialog] = useState(false)
+  const isRemarketing = activeMode === "remarketing"
   const router = useRouter()
   const reactFlowInstance = useReactFlow()
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([])
@@ -364,6 +368,26 @@ function FlowEditorInner({ botId, botName, botChannelId, products, mode = "main"
   }, [botId, botName, botChannelId, isRemarketing, setNodes, setEdges])
 
   // ─── Save flow ──────────────────────────────────────────────────────────────
+
+  function requestSwitchTab(next: "main" | "remarketing") {
+    if (next === activeMode) return
+    if (isDirty) {
+      setPendingMode(next)
+      setShowSwitchTabDialog(true)
+    } else {
+      setActiveMode(next)
+      setLoading(true)
+    }
+  }
+
+  function confirmSwitchTab() {
+    if (!pendingMode) return
+    setIsDirty(false)
+    setActiveMode(pendingMode)
+    setLoading(true)
+    setPendingMode(null)
+    setShowSwitchTabDialog(false)
+  }
 
   async function handleSave() {
     if (!isRemarketing) {
@@ -601,15 +625,40 @@ function FlowEditorInner({ botId, botName, botChannelId, products, mode = "main"
       {/* Top bar */}
       <div className="flex items-center gap-3 px-4 py-3 bg-white border-b border-gray-200 shrink-0">
         <button
-          onClick={() => isDirty ? setShowLeaveDialog(true) : router.push(`/dashboard/bots/${botId}`)}
+          onClick={() => isDirty ? setShowLeaveDialog(true) : router.push(`/dashboard/bots`)}
           className="h-8 w-8 flex items-center justify-center rounded-md text-gray-500 hover:bg-gray-100 transition-colors">
           <ArrowLeft className="h-4 w-4" />
         </button>
+
+        {/* Tabs */}
+        <div className="flex items-center gap-0.5 bg-gray-100 rounded-lg p-0.5">
+          <button
+            onClick={() => requestSwitchTab("main")}
+            className={`flex items-center gap-1.5 h-7 px-3 rounded-md text-xs font-medium transition-colors ${
+              activeMode === "main"
+                ? "bg-white text-gray-900 shadow-sm"
+                : "text-gray-500 hover:text-gray-700"
+            }`}
+          >
+            <GitBranch className="h-3.5 w-3.5" />
+            Fluxo Principal
+          </button>
+          <button
+            onClick={() => requestSwitchTab("remarketing")}
+            className={`flex items-center gap-1.5 h-7 px-3 rounded-md text-xs font-medium transition-colors ${
+              activeMode === "remarketing"
+                ? "bg-white text-gray-900 shadow-sm"
+                : "text-gray-500 hover:text-gray-700"
+            }`}
+          >
+            <RefreshCw className="h-3.5 w-3.5" />
+            Remarketing
+          </button>
+        </div>
+
         <div className="flex-1 min-w-0">
-          <h1 className="text-sm font-semibold text-gray-900 truncate">
-            {isRemarketing ? `Fluxo de Remarketing — ${botName}` : `Editor de Fluxo — ${botName}`}
-          </h1>
-          {!startConfigured && (
+          <p className="text-sm font-medium text-gray-500 truncate">{botName}</p>
+          {!startConfigured && !isRemarketing && (
             <p className="text-xs text-amber-600 flex items-center gap-1">
               <AlertCircle className="h-3 w-3" />Configure o grupo/canal no nó de Início
             </p>
@@ -744,6 +793,32 @@ function FlowEditorInner({ botId, botName, botChannelId, products, mode = "main"
             products={products} onUpdate={handleNodeUpdate} onClose={() => setSelectedNode(null)} />
         )}
       </div>
+
+      {/* Switch tab confirmation dialog */}
+      <AlertDialog.Root open={showSwitchTabDialog} onOpenChange={setShowSwitchTabDialog}>
+        <AlertDialog.Portal>
+          <AlertDialog.Overlay className="fixed inset-0 bg-black/40 z-50 data-[state=open]:animate-in data-[state=open]:fade-in" />
+          <AlertDialog.Content className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-50 w-full max-w-md bg-white rounded-xl p-6 shadow-2xl data-[state=open]:animate-in data-[state=open]:fade-in data-[state=open]:zoom-in-95">
+            <AlertDialog.Title className="text-lg font-semibold text-gray-900">
+              Alterações não salvas
+            </AlertDialog.Title>
+            <AlertDialog.Description className="mt-2 text-sm text-gray-600">
+              Você tem alterações não salvas nesta aba. Trocar de aba descartará o progresso atual.
+            </AlertDialog.Description>
+            <div className="mt-6 flex justify-end gap-3">
+              <AlertDialog.Cancel className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors">
+                Continuar editando
+              </AlertDialog.Cancel>
+              <AlertDialog.Action
+                onClick={confirmSwitchTab}
+                className="px-4 py-2 text-sm font-medium text-white bg-red-500 rounded-lg hover:bg-red-600 transition-colors"
+              >
+                Trocar e descartar
+              </AlertDialog.Action>
+            </div>
+          </AlertDialog.Content>
+        </AlertDialog.Portal>
+      </AlertDialog.Root>
 
       {/* Leave confirmation dialog */}
       <AlertDialog.Root open={showLeaveDialog} onOpenChange={setShowLeaveDialog}>

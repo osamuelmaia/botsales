@@ -252,6 +252,14 @@ async function handleCreatePayment(data: CreatePaymentJob): Promise<void> {
 async function handleKickMember(data: KickMemberJob): Promise<void> {
   console.log(`[KICK_MEMBER] subscription=${data.subscriptionId} user=${data.tgUserId}`)
 
+  const subscription = await prisma.subscription.findUnique({ where: { id: data.subscriptionId } })
+
+  // If user already renewed (ACTIVE) or was cancelled, skip the kick
+  if (!subscription || subscription.status !== "REMARKETING") {
+    console.log(`[KICK_MEMBER] skipping — status=${subscription?.status ?? "not found"}`)
+    return
+  }
+
   const bot = await prisma.bot.findUnique({ where: { id: data.botId } })
   if (!bot) return
 
@@ -306,17 +314,11 @@ async function handleProcessRemarketing(data: ProcessRemarketingJob): Promise<vo
     include: { bot: true },
   })
 
-  if (!subscription || subscription.status === "KICKED" || subscription.status === "CANCELLED") {
-    console.log(`[PROCESS_REMARKETING] skipping — status=${subscription?.status}`)
+  // Only proceed if subscription is still in REMARKETING state.
+  // If the user already renewed (ACTIVE) or was cancelled/kicked, stop immediately.
+  if (!subscription || subscription.status !== "REMARKETING") {
+    console.log(`[PROCESS_REMARKETING] skipping — status=${subscription?.status ?? "not found"}`)
     return
-  }
-
-  // Mark as REMARKETING if still ACTIVE (first attempt)
-  if (subscription.status === "ACTIVE") {
-    await prisma.subscription.update({
-      where: { id: data.subscriptionId },
-      data: { status: "REMARKETING", remarketingStart: new Date() },
-    })
   }
 
   const chatId = parseInt(data.tgUserId, 10)

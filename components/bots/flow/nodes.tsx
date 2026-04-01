@@ -423,14 +423,20 @@ export const SmartDelayNode = memo(function SmartDelayNode({ id, data, selected 
 
 export const RemarketingStartNode = memo(function RemarketingStartNode({ selected }: NodeProps) {
   return (
-    <div className={`relative bg-white rounded-xl border-2 shadow-md min-w-[200px] transition-colors ${selected ? "border-emerald-500" : "border-emerald-300"}`}>
+    <div className={`relative bg-white rounded-xl border-2 shadow-md min-w-[220px] max-w-[280px] transition-colors ${selected ? "border-emerald-500" : "border-emerald-300"}`}>
       <div className="flex items-center gap-2 px-4 py-3 bg-emerald-50 rounded-t-xl border-b border-emerald-200">
         <RefreshCw className="h-4 w-4 text-emerald-600 shrink-0" />
         <span className="text-sm font-semibold text-emerald-800">Início do Remarketing</span>
-        <span className="ml-auto text-xs text-emerald-600 bg-emerald-100 px-1.5 py-0.5 rounded font-mono">gatilho</span>
+        <span className="ml-auto text-xs text-emerald-600 bg-emerald-100 px-1.5 py-0.5 rounded font-mono shrink-0">gatilho</span>
       </div>
-      <div className="px-4 py-2">
-        <p className="text-xs text-gray-500">Disparado quando a renovação é recusada</p>
+      <div className="px-4 py-3 space-y-2">
+        <p className="text-xs text-gray-600">Disparado quando a renovação é recusada.</p>
+        <div className="flex items-start gap-1.5 bg-emerald-50 border border-emerald-200 rounded-md px-2.5 py-2">
+          <CheckCircle2 className="h-3 w-3 text-emerald-600 shrink-0 mt-0.5" />
+          <p className="text-[11px] text-emerald-700 leading-snug">
+            O ciclo para automaticamente quando o assinante renova. Enquanto não renovar, o fluxo continua.
+          </p>
+        </div>
       </div>
       <Handle type="source" position={Position.Right} className={`${handleStyle} !bg-emerald-500`} />
     </div>

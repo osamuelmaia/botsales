@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { toast } from "sonner"
-import { Plus, Settings, Trash2, Bot, Loader2, GitBranch, RefreshCw } from "lucide-react"
+import { Plus, Settings, Trash2, Bot, Loader2, GitBranch } from "lucide-react"
 import * as Dialog from "@radix-ui/react-dialog"
 import * as AlertDialog from "@radix-ui/react-alert-dialog"
 import { useRouter } from "next/navigation"
@@ -30,8 +30,7 @@ function BotCardSkeleton() {
       <div className="h-4 bg-gray-200 rounded w-24 mb-4" />
       <div className="flex gap-2">
         <div className="h-8 bg-gray-200 rounded w-24" />
-        <div className="h-8 bg-gray-200 rounded w-24" />
-        <div className="h-8 bg-gray-200 rounded w-28" />
+        <div className="h-8 bg-gray-200 rounded w-20" />
         <div className="h-8 bg-gray-200 rounded w-8 ml-auto" />
       </div>
     </div>
@@ -209,14 +208,6 @@ function BotCard({ bot, onDelete, onUpdated }: BotCardProps) {
           >
             <GitBranch className="h-3.5 w-3.5" />
             Fluxo
-          </button>
-
-          <button
-            onClick={() => router.push(`/dashboard/bots/${bot.id}/remarketing`)}
-            className="flex items-center gap-1.5 h-8 px-3 rounded-md border border-gray-300 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-          >
-            <RefreshCw className="h-3.5 w-3.5" />
-            Remarketing
           </button>
 
           <AlertDialog.Root open={deleteOpen} onOpenChange={setDeleteOpen}>
