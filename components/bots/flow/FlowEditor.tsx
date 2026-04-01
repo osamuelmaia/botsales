@@ -84,7 +84,7 @@ function minimapColor(n: Node) {
 
 // ─── Snap alignment helpers ───────────────────────────────────────────────────
 
-const SNAP_THRESHOLD = 6
+const SNAP_THRESHOLD = 8   // px — detect + snap range
 
 interface GuideLine {
   type: "horizontal" | "vertical"
@@ -106,6 +106,52 @@ function getNodeBounds(node: Node) {
     w,
     h,
   }
+}
+
+function computeSnap(dragNode: Node, allNodes: Node[]) {
+  const db = getNodeBounds(dragNode)
+  let snapX: number | null = null, snapY: number | null = null
+  let guideX: GuideLine | null = null, guideY: GuideLine | null = null
+  let minDx = SNAP_THRESHOLD, minDy = SNAP_THRESHOLD
+
+  for (const node of allNodes) {
+    if (node.id === dragNode.id) continue
+    const nb = getNodeBounds(node)
+
+    // X: [dragEdge, targetEdge, resulting newPositionX]
+    const xs: [number, number, number][] = [
+      [db.left, nb.left, nb.left],       [db.left, nb.right, nb.right],
+      [db.right, nb.right, nb.right - db.w], [db.right, nb.left, nb.left - db.w],
+      [db.cx, nb.cx, nb.cx - db.w / 2],
+    ]
+    for (const [de, ne, nx] of xs) {
+      const d = Math.abs(de - ne)
+      if (d < minDx) {
+        minDx = d; snapX = nx
+        guideX = { type: "vertical", pos: ne, start: Math.min(db.top, nb.top), end: Math.max(db.bottom, nb.bottom) }
+      }
+    }
+
+    // Y: [dragEdge, targetEdge, resulting newPositionY]
+    const ys: [number, number, number][] = [
+      [db.top, nb.top, nb.top],          [db.top, nb.bottom, nb.bottom],
+      [db.bottom, nb.bottom, nb.bottom - db.h], [db.bottom, nb.top, nb.top - db.h],
+      [db.cy, nb.cy, nb.cy - db.h / 2],
+    ]
+    for (const [de, ne, ny] of ys) {
+      const d = Math.abs(de - ne)
+      if (d < minDy) {
+        minDy = d; snapY = ny
+        guideY = { type: "horizontal", pos: ne, start: Math.min(db.left, nb.left), end: Math.max(db.right, nb.right) }
+      }
+    }
+  }
+
+  const guides: GuideLine[] = []
+  if (guideX) guides.push(guideX)
+  if (guideY) guides.push(guideY)
+
+  return { snapX, snapY, guides }
 }
 
 // ─── FlowEditor ───────────────────────────────────────────────────────────────
@@ -349,84 +395,25 @@ function FlowEditorInner({ botId, botName, botChannelId, products }: FlowEditorP
   const onNodeDragStart = useCallback(() => { pushUndo() }, [pushUndo])
 
   const onNodeDrag = useCallback((_: React.MouseEvent, dragNode: Node) => {
-    const db = getNodeBounds(dragNode)
-    const lines: GuideLine[] = []
-
-    for (const node of nodesRef.current) {
-      if (node.id === dragNode.id) continue
-      const nb = getNodeBounds(node)
-
-      // Vertical guides (X alignment)
-      const xPairs: [number, number][] = [
-        [db.left, nb.left], [db.left, nb.right], [db.right, nb.left],
-        [db.right, nb.right], [db.cx, nb.cx],
-      ]
-      for (const [dv, nv] of xPairs) {
-        if (Math.abs(dv - nv) < SNAP_THRESHOLD) {
-          lines.push({ type: "vertical", pos: nv, start: Math.min(db.top, nb.top) - 20, end: Math.max(db.bottom, nb.bottom) + 20 })
-        }
-      }
-
-      // Horizontal guides (Y alignment)
-      const yPairs: [number, number][] = [
-        [db.top, nb.top], [db.top, nb.bottom], [db.bottom, nb.top],
-        [db.bottom, nb.bottom], [db.cy, nb.cy],
-      ]
-      for (const [dv, nv] of yPairs) {
-        if (Math.abs(dv - nv) < SNAP_THRESHOLD) {
-          lines.push({ type: "horizontal", pos: nv, start: Math.min(db.left, nb.left) - 20, end: Math.max(db.right, nb.right) + 20 })
-        }
-      }
+    const { snapX, snapY, guides } = computeSnap(dragNode, nodesRef.current)
+    setGuideLines(guides)
+    if (snapX !== null || snapY !== null) {
+      setNodes((nds) => nds.map((n) =>
+        n.id === dragNode.id
+          ? { ...n, position: { x: snapX ?? n.position.x, y: snapY ?? n.position.y } }
+          : n
+      ))
     }
-
-    setGuideLines(lines)
-  }, [])
+  }, [setNodes])
 
   const onNodeDragStop = useCallback((_: React.MouseEvent, dragNode: Node) => {
     setGuideLines([])
-    const dw = (dragNode.measured as { width?: number })?.width ?? 220
-    const dh = (dragNode.measured as { height?: number })?.height ?? 80
-    const dLeft = dragNode.position.x
-    const dRight = dLeft + dw
-    const dTop = dragNode.position.y
-    const dBottom = dTop + dh
-    const dCx = dLeft + dw / 2
-    const dCy = dTop + dh / 2
-
-    let bestX: number | null = null, bestY: number | null = null
-    let minDx = SNAP_THRESHOLD, minDy = SNAP_THRESHOLD
-
-    for (const node of nodesRef.current) {
-      if (node.id === dragNode.id) continue
-      const nb = getNodeBounds(node)
-
-      // X snap candidates: [dragEdge, targetEdge, newPositionX]
-      const xs: [number, number, number][] = [
-        [dLeft, nb.left, nb.left], [dLeft, nb.right, nb.right],
-        [dRight, nb.left, nb.left - dw], [dRight, nb.right, nb.right - dw],
-        [dCx, nb.cx, nb.cx - dw / 2],
-      ]
-      for (const [de, ne, nx] of xs) {
-        const d = Math.abs(de - ne)
-        if (d < minDx) { minDx = d; bestX = nx }
-      }
-
-      // Y snap candidates
-      const ys: [number, number, number][] = [
-        [dTop, nb.top, nb.top], [dTop, nb.bottom, nb.bottom],
-        [dBottom, nb.top, nb.top - dh], [dBottom, nb.bottom, nb.bottom - dh],
-        [dCy, nb.cy, nb.cy - dh / 2],
-      ]
-      for (const [de, ne, ny] of ys) {
-        const d = Math.abs(de - ne)
-        if (d < minDy) { minDy = d; bestY = ny }
-      }
-    }
-
-    if (bestX !== null || bestY !== null) {
+    // Final snap safety net (catches last frame)
+    const { snapX, snapY } = computeSnap(dragNode, nodesRef.current)
+    if (snapX !== null || snapY !== null) {
       setNodes((nds) => nds.map((n) =>
         n.id === dragNode.id
-          ? { ...n, position: { x: bestX ?? n.position.x, y: bestY ?? n.position.y } }
+          ? { ...n, position: { x: snapX ?? n.position.x, y: snapY ?? n.position.y } }
           : n
       ))
     }
@@ -587,13 +574,13 @@ function FlowEditorInner({ botId, botName, botChannelId, products }: FlowEditorP
         </div>
 
         {isDirty && (
-          <span className="text-xs text-amber-600 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full font-medium">
-            Rascunho
+          <span className="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">
+            Não salvo
           </span>
         )}
 
         <button onClick={handleSave} disabled={saving}
-          className={`flex items-center gap-2 h-8 px-4 rounded-md text-sm font-medium disabled:opacity-50 transition-colors shrink-0 ${isDirty ? "bg-amber-500 text-white hover:bg-amber-600" : "bg-gray-900 text-white hover:bg-gray-800"}`}>
+          className="flex items-center gap-2 h-8 px-4 bg-gray-900 text-white rounded-md text-sm font-medium hover:bg-gray-800 disabled:opacity-50 transition-colors shrink-0">
           {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
           {saving ? "Salvando..." : "Salvar"}
         </button>
@@ -655,7 +642,7 @@ function FlowEditorInner({ botId, botName, botChannelId, products }: FlowEditorP
                 top: line.start * viewport.zoom + viewport.y,
                 width: 1,
                 height: (line.end - line.start) * viewport.zoom,
-                backgroundColor: "#3b82f6",
+                backgroundColor: "rgba(99,102,241,0.45)",
                 zIndex: 1000,
               }} />
             ) : (
@@ -664,7 +651,7 @@ function FlowEditorInner({ botId, botName, botChannelId, products }: FlowEditorP
                 top: line.pos * viewport.zoom + viewport.y,
                 width: (line.end - line.start) * viewport.zoom,
                 height: 1,
-                backgroundColor: "#3b82f6",
+                backgroundColor: "rgba(99,102,241,0.45)",
                 zIndex: 1000,
               }} />
             )
