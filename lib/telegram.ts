@@ -137,4 +137,46 @@ export class TelegramService {
       await TelegramService.stopPolling(botId)
     }
   }
+
+  /**
+   * Ban (and prevent re-entry) of a user from a group.
+   * The bot must be an admin with can_restrict_members permission.
+   */
+  static async banChatMember(
+    token: string,
+    groupChatId: string,
+    userId: string
+  ): Promise<void> {
+    const bot = new Bot(token)
+    await bot.api.banChatMember(groupChatId, parseInt(userId, 10))
+  }
+
+  /**
+   * Lift a ban — allows the user to rejoin via invite link.
+   */
+  static async unbanChatMember(
+    token: string,
+    groupChatId: string,
+    userId: string
+  ): Promise<void> {
+    const bot = new Bot(token)
+    await bot.api.unbanChatMember(groupChatId, parseInt(userId, 10), {
+      only_if_banned: true,
+    })
+  }
+
+  /**
+   * Create a single-use invite link for a group.
+   * Used to send a fresh link to a subscriber after unbanning.
+   */
+  static async createChatInviteLink(
+    token: string,
+    groupChatId: string
+  ): Promise<string> {
+    const bot = new Bot(token)
+    const result = await bot.api.createChatInviteLink(groupChatId, {
+      member_limit: 1,
+    })
+    return result.invite_link
+  }
 }

@@ -17,7 +17,7 @@ import IORedis from "ioredis"
 import { PrismaClient } from "@prisma/client"
 import { TelegramService } from "../lib/telegram"
 import { GatewayService } from "../lib/gateway"
-import { executeFlow, registerWebhook } from "../lib/bot-runner"
+import { executeFlow, executeRemarketingFlow, registerWebhook } from "../lib/bot-runner"
 import { decryptToken } from "../lib/utils"
 
 // ─── Redis connection ─────────────────────────────────────────────────────────
@@ -70,11 +70,43 @@ export type CreatePaymentJob = {
   leadPhone?: string
 }
 
+export type KickMemberJob = {
+  type: "KICK_MEMBER"
+  botId: string
+  subscriptionId: string
+  tgUserId: string
+  groupChatId: string
+}
+
+export type UnbanMemberJob = {
+  type: "UNBAN_MEMBER"
+  botId: string
+  subscriptionId: string
+  tgUserId: string
+  groupChatId: string
+}
+
+export type ProcessRemarketingJob = {
+  type: "PROCESS_REMARKETING"
+  botId: string
+  subscriptionId: string
+  tgUserId: string          // subscriber DM chat ID
+  startNodeId?: string      // resume from specific node (for DELAY nodes)
+}
+
+export type CheckRenewalsJob = {
+  type: "CHECK_RENEWALS"
+}
+
 export type BotJob =
   | ProcessFlowJob
   | SendMessageJob
   | ProcessDelayJob
   | CreatePaymentJob
+  | KickMemberJob
+  | UnbanMemberJob
+  | ProcessRemarketingJob
+  | CheckRenewalsJob
 
 // ─── Job handlers ─────────────────────────────────────────────────────────────
 
@@ -217,6 +249,141 @@ async function handleCreatePayment(data: CreatePaymentJob): Promise<void> {
   ])
 }
 
+async function handleKickMember(data: KickMemberJob): Promise<void> {
+  console.log(`[KICK_MEMBER] subscription=${data.subscriptionId} user=${data.tgUserId}`)
+
+  const bot = await prisma.bot.findUnique({ where: { id: data.botId } })
+  if (!bot) return
+
+  const token = decryptToken(bot.tokenEncrypted)
+
+  try {
+    await TelegramService.banChatMember(token, data.groupChatId, data.tgUserId)
+    console.log(`[KICK_MEMBER] banned user ${data.tgUserId} from group ${data.groupChatId}`)
+  } catch (err) {
+    console.error(`[KICK_MEMBER] ban failed:`, err)
+  }
+
+  await prisma.subscription.update({
+    where: { id: data.subscriptionId },
+    data: { status: "KICKED" },
+  })
+}
+
+async function handleUnbanMember(data: UnbanMemberJob): Promise<void> {
+  console.log(`[UNBAN_MEMBER] subscription=${data.subscriptionId} user=${data.tgUserId}`)
+
+  const bot = await prisma.bot.findUnique({ where: { id: data.botId } })
+  if (!bot) return
+
+  const token = decryptToken(bot.tokenEncrypted)
+
+  try {
+    await TelegramService.unbanChatMember(token, data.groupChatId, data.tgUserId)
+    // Send a fresh single-use invite link so the user can rejoin
+    const inviteLink = await TelegramService.createChatInviteLink(token, data.groupChatId)
+    await TelegramService.sendMessage(
+      token,
+      parseInt(data.tgUserId, 10),
+      `✅ Sua assinatura foi renovada! Use o link abaixo para acessar o grupo:\n${inviteLink}`
+    )
+    console.log(`[UNBAN_MEMBER] unbanned user ${data.tgUserId} and sent invite`)
+  } catch (err) {
+    console.error(`[UNBAN_MEMBER] unban failed:`, err)
+  }
+
+  await prisma.subscription.update({
+    where: { id: data.subscriptionId },
+    data: { status: "ACTIVE", remarketingStart: null },
+  })
+}
+
+async function handleProcessRemarketing(data: ProcessRemarketingJob): Promise<void> {
+  console.log(`[PROCESS_REMARKETING] subscription=${data.subscriptionId} user=${data.tgUserId}`)
+
+  const subscription = await prisma.subscription.findUnique({
+    where: { id: data.subscriptionId },
+    include: { bot: true },
+  })
+
+  if (!subscription || subscription.status === "KICKED" || subscription.status === "CANCELLED") {
+    console.log(`[PROCESS_REMARKETING] skipping — status=${subscription?.status}`)
+    return
+  }
+
+  // Mark as REMARKETING if still ACTIVE (first attempt)
+  if (subscription.status === "ACTIVE") {
+    await prisma.subscription.update({
+      where: { id: data.subscriptionId },
+      data: { status: "REMARKETING", remarketingStart: new Date() },
+    })
+  }
+
+  const chatId = parseInt(data.tgUserId, 10)
+  if (!isNaN(chatId)) {
+    await executeRemarketingFlow(data.botId, chatId, data.startNodeId)
+  }
+}
+
+async function handleCheckRenewals(): Promise<void> {
+  console.log("[CHECK_RENEWALS] scanning subscriptions...")
+
+  const now = new Date()
+
+  // Find ACTIVE subscriptions past their period end — start remarketing
+  const expiredActive = await prisma.subscription.findMany({
+    where: { status: "ACTIVE", currentPeriodEnd: { lt: now } },
+    include: { bot: true },
+  })
+
+  for (const sub of expiredActive) {
+    const gracePeriodEnd = new Date(sub.currentPeriodEnd)
+    gracePeriodEnd.setDate(gracePeriodEnd.getDate() + sub.bot.gracePeriodDays)
+
+    if (now < gracePeriodEnd) {
+      // Within grace period — start remarketing
+      await botQueue.add("process-remarketing", {
+        type: "PROCESS_REMARKETING" as const,
+        botId: sub.botId,
+        subscriptionId: sub.id,
+        tgUserId: sub.tgUserId,
+      })
+    } else {
+      // Grace period also expired — kick immediately
+      await botQueue.add("kick-member", {
+        type: "KICK_MEMBER" as const,
+        botId: sub.botId,
+        subscriptionId: sub.id,
+        tgUserId: sub.tgUserId,
+        groupChatId: sub.groupTgChatId,
+      })
+    }
+  }
+
+  // Find REMARKETING subscriptions past grace period — kick them
+  const expiredRemarketing = await prisma.subscription.findMany({
+    where: { status: "REMARKETING" },
+    include: { bot: true },
+  })
+
+  for (const sub of expiredRemarketing) {
+    const gracePeriodEnd = new Date(sub.currentPeriodEnd)
+    gracePeriodEnd.setDate(gracePeriodEnd.getDate() + sub.bot.gracePeriodDays)
+
+    if (now >= gracePeriodEnd) {
+      await botQueue.add("kick-member", {
+        type: "KICK_MEMBER" as const,
+        botId: sub.botId,
+        subscriptionId: sub.id,
+        tgUserId: sub.tgUserId,
+        groupChatId: sub.groupTgChatId,
+      })
+    }
+  }
+
+  console.log(`[CHECK_RENEWALS] processed ${expiredActive.length} expired active, ${expiredRemarketing.length} remarketing`)
+}
+
 // ─── Worker ───────────────────────────────────────────────────────────────────
 
 const worker = new Worker<BotJob>(
@@ -235,6 +402,18 @@ const worker = new Worker<BotJob>(
         break
       case "CREATE_PAYMENT":
         await handleCreatePayment(data)
+        break
+      case "KICK_MEMBER":
+        await handleKickMember(data)
+        break
+      case "UNBAN_MEMBER":
+        await handleUnbanMember(data)
+        break
+      case "PROCESS_REMARKETING":
+        await handleProcessRemarketing(data)
+        break
+      case "CHECK_RENEWALS":
+        await handleCheckRenewals()
         break
       default:
         console.warn("[worker] unknown job type:", (data as { type: string }).type)
@@ -309,9 +488,22 @@ async function shutdown(): Promise<void> {
 process.on("SIGINT", shutdown)
 process.on("SIGTERM", shutdown)
 
+// ─── Recurring jobs ───────────────────────────────────────────────────────────
+
+async function scheduleRecurringJobs(): Promise<void> {
+  // Run CHECK_RENEWALS every hour
+  await botQueue.add(
+    "check-renewals",
+    { type: "CHECK_RENEWALS" as const },
+    { repeat: { every: 60 * 60 * 1000 } }
+  )
+  console.log("[worker] scheduled CHECK_RENEWALS every 1h")
+}
+
 // ─── Boot ─────────────────────────────────────────────────────────────────────
 
 startActiveBots()
+  .then(() => scheduleRecurringJobs())
   .then(() => console.log("[worker] ready — listening for jobs on queue: bot-jobs"))
   .catch((err) => {
     console.error("[worker] startup error:", err)

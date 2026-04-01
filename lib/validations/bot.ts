@@ -11,6 +11,7 @@ export const botUpdateSchema = z.object({
   token: z.string().min(10, "Token do bot inválido").optional(),
   productIds: z.array(z.string()).max(3, "Máximo de 3 produtos por bot").optional(),
   isActive: z.boolean().optional(),
+  gracePeriodDays: z.number().int().min(0).max(30).optional(),
 })
 
 export type BotCreateInput = z.infer<typeof botCreateSchema>

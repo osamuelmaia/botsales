@@ -32,6 +32,7 @@ export async function GET(_req: Request, { params }: Params) {
     name: bot.name,
     token: decryptToken(bot.tokenEncrypted),
     isActive: bot.isActive,
+    gracePeriodDays: bot.gracePeriodDays,
     productIds: bot.botProducts.map((bp) => bp.productId),
   })
 }
@@ -55,12 +56,13 @@ export async function PATCH(request: Request, { params }: Params) {
     return NextResponse.json({ error: parsed.error.issues[0].message }, { status: 400 })
   }
 
-  const { name, token, productIds, isActive } = parsed.data
+  const { name, token, productIds, isActive, gracePeriodDays } = parsed.data
 
   const updateData: Record<string, unknown> = {}
   if (name !== undefined) updateData.name = name
   if (token !== undefined) updateData.tokenEncrypted = encryptToken(token)
   if (isActive !== undefined) updateData.isActive = isActive
+  if (gracePeriodDays !== undefined) updateData.gracePeriodDays = gracePeriodDays
 
   // Handle webhook registration before saving
   if (isActive !== undefined) {

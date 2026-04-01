@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server"
 import { GatewayService } from "@/lib/gateway"
 import { prisma } from "@/lib/prisma"
 import { executeFlow } from "@/lib/bot-runner"
+import { TelegramService } from "@/lib/telegram"
+import { decryptToken } from "@/lib/utils"
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -52,6 +54,71 @@ async function resumeFlowFromPayment(
 
   // Resume the flow from the target node
   await executeFlow(sale.botId, chatId, edge.targetNodeId)
+}
+
+// ─── Subscription lifecycle helpers ──────────────────────────────────────────
+
+/**
+ * Called when a recurring charge is confirmed.
+ * - If subscription is ACTIVE: extends currentPeriodEnd by 30 days (monthly)
+ * - If subscription is REMARKETING or KICKED: lift ban, send invite link, mark ACTIVE
+ */
+async function handleSubscriptionRenewal(gatewayChargeId: string): Promise<void> {
+  const subscription = await prisma.subscription.findFirst({
+    where: { gatewayChargeId },
+    include: { bot: true },
+  })
+  if (!subscription) return
+
+  const now = new Date()
+  const newPeriodEnd = new Date(subscription.currentPeriodEnd)
+  newPeriodEnd.setMonth(newPeriodEnd.getMonth() + 1)
+
+  const token = decryptToken(subscription.bot.tokenEncrypted)
+
+  if (subscription.status === "KICKED") {
+    // User was banned — lift ban and send fresh invite link
+    try {
+      await TelegramService.unbanChatMember(token, subscription.groupTgChatId, subscription.tgUserId)
+      const inviteLink = await TelegramService.createChatInviteLink(token, subscription.groupTgChatId)
+      await TelegramService.sendMessage(
+        token,
+        parseInt(subscription.tgUserId, 10),
+        `✅ Sua assinatura foi renovada! Use o link abaixo para acessar o grupo:\n${inviteLink}`
+      )
+    } catch (err) {
+      console.error("[handleSubscriptionRenewal] unban failed:", err)
+    }
+  }
+
+  await prisma.subscription.update({
+    where: { id: subscription.id },
+    data: {
+      status: "ACTIVE",
+      currentPeriodEnd: newPeriodEnd,
+      remarketingStart: null,
+    },
+  })
+
+  console.log(`[subscription] renewed ${subscription.id} → new period end ${newPeriodEnd.toISOString()}`)
+}
+
+/**
+ * Called when a recurring charge is refused.
+ * Marks subscription as REMARKETING (worker handles the grace period kick).
+ */
+async function handleSubscriptionRefused(gatewayChargeId: string): Promise<void> {
+  const subscription = await prisma.subscription.findFirst({
+    where: { gatewayChargeId, status: "ACTIVE" },
+  })
+  if (!subscription) return
+
+  await prisma.subscription.update({
+    where: { id: subscription.id },
+    data: { status: "REMARKETING", remarketingStart: new Date() },
+  })
+
+  console.log(`[subscription] refused ${subscription.id} → REMARKETING`)
 }
 
 // ─── POST /api/webhooks/payment ───────────────────────────────────────────────
@@ -112,6 +179,11 @@ export async function POST(req: NextRequest) {
     // Continue bot flow from "approved" handle — fire-and-forget
     resumeFlowFromPayment(sale.id, "approved").catch(console.error)
 
+    // If this charge belongs to a recurring subscription, renew it
+    if (event.gatewayId) {
+      handleSubscriptionRenewal(event.gatewayId).catch(console.error)
+    }
+
   } else if (event.type === "PAYMENT_REFUSED") {
     await prisma.sale.update({
       where: { id: sale.id },
@@ -119,6 +191,11 @@ export async function POST(req: NextRequest) {
     })
 
     resumeFlowFromPayment(sale.id, "refused").catch(console.error)
+
+    // If this is a recurring subscription charge that was refused, start remarketing
+    if (event.gatewayId) {
+      handleSubscriptionRefused(event.gatewayId).catch(console.error)
+    }
 
   } else if (event.type === "PAYMENT_REFUNDED") {
     await prisma.sale.update({

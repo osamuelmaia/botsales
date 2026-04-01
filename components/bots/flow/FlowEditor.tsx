@@ -12,14 +12,15 @@ import { toast } from "sonner"
 import {
   Save, Loader2, ArrowLeft, AlertCircle,
   Type, Image as ImageIcon, Film, Music, FileText, MoreHorizontal,
-  MousePointerClick, Clock, Timer, CreditCard, Undo2, Redo2,
+  MousePointerClick, Clock, Timer, CreditCard, Undo2, Redo2, UserX,
 } from "lucide-react"
 import * as AlertDialog from "@radix-ui/react-alert-dialog"
 import { useRouter } from "next/navigation"
 
 import {
   StartNode, TextNode, ImageNode, VideoNode, AudioNode, FileNode,
-  TypingNode, ButtonNode, DelayNode, SmartDelayNode, PaymentNode, edgeTypes,
+  TypingNode, ButtonNode, DelayNode, SmartDelayNode, PaymentNode,
+  RemarketingStartNode, KickMemberNode, edgeTypes,
 } from "./nodes"
 import { NodeConfigPanel } from "./NodeConfigPanel"
 
@@ -29,14 +30,15 @@ const nodeTypes: NodeTypes = {
   start: StartNode, text: TextNode, image: ImageNode, video: VideoNode,
   audio: AudioNode, file: FileNode, typing: TypingNode, button: ButtonNode,
   delay: DelayNode, smart_delay: SmartDelayNode, payment: PaymentNode,
+  remarketing_start: RemarketingStartNode, kick_member: KickMemberNode,
 }
 const typedEdgeTypes: EdgeTypes = edgeTypes
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface Product { id: string; name: string; priceInCents: number }
-interface FlowEditorProps { botId: string; botName: string; botChannelId?: string | null; products: Product[] }
-type NodeType = "text" | "image" | "video" | "audio" | "file" | "typing" | "button" | "delay" | "smart_delay" | "payment"
+interface FlowEditorProps { botId: string; botName: string; botChannelId?: string | null; products: Product[]; mode?: "main" | "remarketing" }
+type NodeType = "text" | "image" | "video" | "audio" | "file" | "typing" | "button" | "delay" | "smart_delay" | "payment" | "kick_member"
 type Snapshot = { nodes: Node[]; edges: Edge[] }
 
 function getDefaultData(type: NodeType): Record<string, unknown> {
@@ -51,6 +53,7 @@ function getDefaultData(type: NodeType): Record<string, unknown> {
     case "delay": return { amount: 5, unit: "seconds" }
     case "smart_delay": return { minAmount: 1, maxAmount: 5, unit: "seconds", showTyping: false }
     case "payment": return { productId: "", productName: "", image: "", imageMediaId: "", text: "", ctaText: "Pagar agora" }
+    case "kick_member": return {}
   }
 }
 
@@ -78,6 +81,7 @@ function minimapColor(n: Node) {
     start: "#10b981", text: "#3b82f6", image: "#0ea5e9", video: "#a855f7",
     audio: "#ec4899", file: "#64748b", typing: "#14b8a6", button: "#6366f1",
     delay: "#f59e0b", smart_delay: "#f97316", payment: "#8b5cf6",
+    remarketing_start: "#10b981", kick_member: "#ef4444",
   }
   return m[n.type ?? ""] ?? "#94a3b8"
 }
@@ -168,7 +172,7 @@ export function FlowEditor(props: FlowEditorProps) {
 
 // ─── Node picker items ────────────────────────────────────────────────────────
 
-const NODE_PICKER_ITEMS: { type: NodeType; label: string; icon: string; color: string }[] = [
+const NODE_PICKER_ITEMS_MAIN: { type: NodeType; label: string; icon: string; color: string }[] = [
   { type: "text", label: "Texto", icon: "T", color: "bg-blue-500" },
   { type: "image", label: "Imagem", icon: "🖼", color: "bg-sky-500" },
   { type: "video", label: "Vídeo", icon: "🎬", color: "bg-purple-500" },
@@ -181,7 +185,19 @@ const NODE_PICKER_ITEMS: { type: NodeType; label: string; icon: string; color: s
   { type: "payment", label: "Pagamento", icon: "💳", color: "bg-violet-500" },
 ]
 
-function FlowEditorInner({ botId, botName, botChannelId, products }: FlowEditorProps) {
+const NODE_PICKER_ITEMS_REMARKETING: { type: NodeType; label: string; icon: string; color: string }[] = [
+  { type: "text", label: "Texto", icon: "T", color: "bg-blue-500" },
+  { type: "image", label: "Imagem", icon: "🖼", color: "bg-sky-500" },
+  { type: "typing", label: "Digitando...", icon: "⋯", color: "bg-teal-500" },
+  { type: "button", label: "Botão", icon: "🔘", color: "bg-indigo-500" },
+  { type: "delay", label: "Atraso", icon: "⏱", color: "bg-amber-500" },
+  { type: "smart_delay", label: "Smart Delay", icon: "⏰", color: "bg-orange-500" },
+  { type: "payment", label: "Pagamento", icon: "💳", color: "bg-violet-500" },
+  { type: "kick_member", label: "Expulsar do Grupo", icon: "🚫", color: "bg-red-500" },
+]
+
+function FlowEditorInner({ botId, botName, botChannelId, products, mode = "main" }: FlowEditorProps) {
+  const isRemarketing = mode === "remarketing"
   const router = useRouter()
   const reactFlowInstance = useReactFlow()
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([])
@@ -289,46 +305,82 @@ function FlowEditorInner({ botId, botName, botChannelId, products }: FlowEditorP
   // ─── Load flow ──────────────────────────────────────────────────────────────
 
   useEffect(() => {
-    fetch(`/api/bots/${botId}/flow`)
+    const endpoint = isRemarketing
+      ? `/api/bots/${botId}/remarketing-flow`
+      : `/api/bots/${botId}/flow`
+
+    fetch(endpoint)
       .then((r) => r.json())
-      .then(({ nodes: n, edges: e }: { nodes: Node[]; edges: Edge[] }) => {
-        const populated = n.map((node) => {
-          if (node.type === "start") {
-            return { ...node, data: {
-              botName,
-              channelId: (node.data as Record<string, unknown>).channelId ?? botChannelId ?? "",
-              chatTitle: (node.data as Record<string, unknown>).chatTitle ?? "",
-            }}
+      .then((payload: { nodes?: Node[]; edges?: Edge[]; remarketingFlow?: { nodes?: Node[]; edges?: Edge[] } }) => {
+        // Remarketing endpoint wraps in { remarketingFlow: { nodes, edges } }
+        const n: Node[] = isRemarketing
+          ? (payload.remarketingFlow?.nodes ?? [])
+          : (payload.nodes ?? [])
+        const e: Edge[] = isRemarketing
+          ? (payload.remarketingFlow?.edges ?? [])
+          : (payload.edges ?? [])
+
+        if (isRemarketing) {
+          // Ensure a fixed remarketing_start node exists
+          const hasStart = n.some((nd) => nd.type === "remarketing_start")
+          if (!hasStart) {
+            const startNode: Node = {
+              id: "remarketing-start",
+              type: "remarketing_start",
+              position: { x: 80, y: 200 },
+              data: {},
+              deletable: false,
+            }
+            setNodes([startNode, ...n])
+          } else {
+            // Make existing remarketing_start non-deletable
+            setNodes(n.map((nd) => nd.type === "remarketing_start" ? { ...nd, deletable: false } : nd))
           }
-          return node
-        })
-        setNodes(populated)
-        setEdges(e)
-        const startNode = populated.find((nd) => nd.type === "start")
-        if (startNode && !autoOpenedRef.current) {
-          if (!(startNode.data as Record<string, unknown>).channelId) {
-            autoOpenedRef.current = true
-            setSelectedNode(startNode)
+          setEdges(e)
+        } else {
+          const populated = n.map((node) => {
+            if (node.type === "start") {
+              return { ...node, data: {
+                botName,
+                channelId: (node.data as Record<string, unknown>).channelId ?? botChannelId ?? "",
+                chatTitle: (node.data as Record<string, unknown>).chatTitle ?? "",
+              }}
+            }
+            return node
+          })
+          setNodes(populated)
+          setEdges(e)
+          const startNode = populated.find((nd) => nd.type === "start")
+          if (startNode && !autoOpenedRef.current) {
+            if (!(startNode.data as Record<string, unknown>).channelId) {
+              autoOpenedRef.current = true
+              setSelectedNode(startNode)
+            }
           }
         }
       })
       .catch(() => toast.error("Erro ao carregar fluxo"))
       .finally(() => setLoading(false))
-  }, [botId, botName, botChannelId, setNodes, setEdges])
+  }, [botId, botName, botChannelId, isRemarketing, setNodes, setEdges])
 
   // ─── Save flow ──────────────────────────────────────────────────────────────
 
   async function handleSave() {
-    const startNode = nodes.find((n) => n.type === "start")
-    const channelId = (startNode?.data as Record<string, unknown>)?.channelId as string | undefined
-    if (!channelId?.trim()) {
-      toast.error("Configure e valide o grupo/canal no nó de Início antes de salvar")
-      setSelectedNode(startNode ?? null)
-      return
+    if (!isRemarketing) {
+      const startNode = nodes.find((n) => n.type === "start")
+      const channelId = (startNode?.data as Record<string, unknown>)?.channelId as string | undefined
+      if (!channelId?.trim()) {
+        toast.error("Configure e valide o grupo/canal no nó de Início antes de salvar")
+        setSelectedNode(startNode ?? null)
+        return
+      }
     }
     setSaving(true)
     try {
-      const res = await fetch(`/api/bots/${botId}/flow`, {
+      const endpoint = isRemarketing
+        ? `/api/bots/${botId}/remarketing-flow`
+        : `/api/bots/${botId}/flow`
+      const res = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ nodes, edges }),
@@ -532,7 +584,7 @@ function FlowEditorInner({ botId, botName, botChannelId, products }: FlowEditorP
   // ─── Render ─────────────────────────────────────────────────────────────────
 
   const startNode = nodes.find((n) => n.type === "start")
-  const startConfigured = !!(startNode?.data as Record<string, unknown>)?.channelId
+  const startConfigured = isRemarketing || !!(startNode?.data as Record<string, unknown>)?.channelId
   const canUndo = pastRef.current.length > 0
   const canRedo = futureRef.current.length > 0
 
@@ -548,12 +600,15 @@ function FlowEditorInner({ botId, botName, botChannelId, products }: FlowEditorP
     <div className="flex flex-col h-screen bg-gray-50">
       {/* Top bar */}
       <div className="flex items-center gap-3 px-4 py-3 bg-white border-b border-gray-200 shrink-0">
-        <button onClick={() => isDirty ? setShowLeaveDialog(true) : router.push(`/dashboard/bots/${botId}`)}
+        <button
+          onClick={() => isDirty ? setShowLeaveDialog(true) : router.push(`/dashboard/bots/${botId}`)}
           className="h-8 w-8 flex items-center justify-center rounded-md text-gray-500 hover:bg-gray-100 transition-colors">
           <ArrowLeft className="h-4 w-4" />
         </button>
         <div className="flex-1 min-w-0">
-          <h1 className="text-sm font-semibold text-gray-900 truncate">Editor de Fluxo — {botName}</h1>
+          <h1 className="text-sm font-semibold text-gray-900 truncate">
+            {isRemarketing ? `Fluxo de Remarketing — ${botName}` : `Editor de Fluxo — ${botName}`}
+          </h1>
           {!startConfigured && (
             <p className="text-xs text-amber-600 flex items-center gap-1">
               <AlertCircle className="h-3 w-3" />Configure o grupo/canal no nó de Início
@@ -603,9 +658,17 @@ function FlowEditorInner({ botId, botName, botChannelId, products }: FlowEditorP
             <PaletteItem icon={<Clock className="h-4 w-4" />} label="Atraso" nodeType="delay" color="border-amber-200 bg-amber-50 text-amber-800 hover:bg-amber-100" onAdd={() => addNode("delay")} />
             <PaletteItem icon={<Timer className="h-4 w-4" />} label="Smart Delay" nodeType="smart_delay" color="border-orange-200 bg-orange-50 text-orange-800 hover:bg-orange-100" onAdd={() => addNode("smart_delay")} />
           </PaletteGroup>
-          <PaletteGroup title="Pagamento">
-            <PaletteItem icon={<CreditCard className="h-4 w-4" />} label="Pagamento" nodeType="payment" color="border-violet-200 bg-violet-50 text-violet-800 hover:bg-violet-100" onAdd={() => addNode("payment")} />
-          </PaletteGroup>
+          {!isRemarketing && (
+            <PaletteGroup title="Pagamento">
+              <PaletteItem icon={<CreditCard className="h-4 w-4" />} label="Pagamento" nodeType="payment" color="border-violet-200 bg-violet-50 text-violet-800 hover:bg-violet-100" onAdd={() => addNode("payment")} />
+            </PaletteGroup>
+          )}
+          {isRemarketing && (
+            <PaletteGroup title="Ação">
+              <PaletteItem icon={<CreditCard className="h-4 w-4" />} label="Pagamento" nodeType="payment" color="border-violet-200 bg-violet-50 text-violet-800 hover:bg-violet-100" onAdd={() => addNode("payment")} />
+              <PaletteItem icon={<UserX className="h-4 w-4" />} label="Expulsar do Grupo" nodeType="kick_member" color="border-red-200 bg-red-50 text-red-800 hover:bg-red-100" onAdd={() => addNode("kick_member")} />
+            </PaletteGroup>
+          )}
           <div className="pt-2 border-t border-gray-100">
             <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1.5">Dicas</p>
             <ul className="text-xs text-gray-500 space-y-1">
@@ -664,7 +727,7 @@ function FlowEditorInner({ botId, botName, botChannelId, products }: FlowEditorP
               style={{ left: nodePicker.screenX - (reactFlowWrapper.current?.getBoundingClientRect().left ?? 0), top: nodePicker.screenY - (reactFlowWrapper.current?.getBoundingClientRect().top ?? 0) }}
             >
               <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider px-2 py-1">Adicionar nó</p>
-              {NODE_PICKER_ITEMS.map((item) => (
+              {(isRemarketing ? NODE_PICKER_ITEMS_REMARKETING : NODE_PICKER_ITEMS_MAIN).map((item) => (
                 <button key={item.type} onClick={() => handlePickerSelect(item.type)}
                   className="flex items-center gap-2 w-full px-2 py-1.5 rounded-lg text-sm text-gray-700 hover:bg-gray-100 transition-colors">
                   <span className={`w-5 h-5 rounded flex items-center justify-center text-white text-[10px] ${item.color}`}>{item.icon}</span>
@@ -698,7 +761,7 @@ function FlowEditorInner({ botId, botName, botChannelId, products }: FlowEditorP
                 Continuar editando
               </AlertDialog.Cancel>
               <AlertDialog.Action
-                onClick={() => router.push(`/dashboard/bots/${botId}`)}
+                onClick={() => router.push(`/dashboard/bots`)}
                 className="px-4 py-2 text-sm font-medium text-white bg-red-500 rounded-lg hover:bg-red-600 transition-colors"
               >
                 Sair sem salvar

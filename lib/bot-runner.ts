@@ -1,5 +1,6 @@
 import { prisma } from "./prisma"
 import { decryptToken } from "./utils"
+import { TelegramService } from "./telegram"
 
 const TG = "https://api.telegram.org/bot"
 
@@ -9,6 +10,9 @@ type BotWithFlow = {
   id: string
   isActive: boolean
   tokenEncrypted: string
+  gracePeriodDays: number
+  remarketingFlow: unknown
+  channelId: string | null
   flowNodes: FlowNode[]
   flowEdges: FlowEdge[]
 }
@@ -17,7 +21,28 @@ async function loadBot(botId: string): Promise<BotWithFlow | null> {
   return prisma.bot.findUnique({
     where: { id: botId },
     include: { flowNodes: true, flowEdges: true },
-  })
+  }) as Promise<BotWithFlow | null>
+}
+
+/**
+ * Build a synthetic BotWithFlow from the remarketingFlow JSON stored on the bot.
+ * The JSON shape matches { nodes: FlowNode[], edges: FlowEdge[] }.
+ */
+async function loadBotWithRemarketingFlow(botId: string): Promise<BotWithFlow | null> {
+  const bot = await prisma.bot.findUnique({ where: { id: botId } })
+  if (!bot) return null
+
+  const rf = bot.remarketingFlow as { nodes?: FlowNode[]; edges?: FlowEdge[] } | null
+  return {
+    id: bot.id,
+    isActive: bot.isActive,
+    tokenEncrypted: bot.tokenEncrypted,
+    gracePeriodDays: bot.gracePeriodDays,
+    remarketingFlow: bot.remarketingFlow,
+    channelId: bot.channelId,
+    flowNodes: rf?.nodes ?? [],
+    flowEdges: rf?.edges ?? [],
+  }
 }
 
 async function tg(token: string, method: string, body: Record<string, unknown>) {
@@ -192,6 +217,27 @@ async function executeNode(
       break
     }
 
+    case "REMARKETING_START": {
+      // Trigger node for remarketing flows — no action, flow traversal starts from next node
+      break
+    }
+
+    case "KICK_MEMBER": {
+      // Ban the user from the group (tgUserId is stored in context via chatId for DM flows)
+      // The bot must be admin with can_restrict_members in the group
+      const groupChatId = (data.groupChatId as string) ?? ""
+      const tgUserId = String(chatId)
+      if (groupChatId) {
+        try {
+          await TelegramService.banChatMember(token, groupChatId, tgUserId)
+          console.log(`[KICK_MEMBER] banned user ${tgUserId} from group ${groupChatId}`)
+        } catch (err) {
+          console.error(`[KICK_MEMBER] failed to ban user ${tgUserId}:`, err)
+        }
+      }
+      break
+    }
+
     case "PAYMENT": {
       const productId = data.productId as string | undefined
       if (productId) {
@@ -308,6 +354,30 @@ export async function executeFlow(botId: string, chatId: number, startNodeId?: s
   if (!firstNodeId) {
     // Default: start from the node after TRIGGER_START
     const startNode = bot.flowNodes.find((n) => n.type === "TRIGGER_START")
+    if (!startNode) return
+    firstNodeId = bot.flowEdges.find((e) => e.sourceNodeId === startNode.id)?.targetNodeId
+  }
+
+  if (!firstNodeId) return
+  await runFlow(bot, chatId, firstNodeId)
+}
+
+/**
+ * Execute the remarketing flow for a subscriber.
+ * Uses Bot.remarketingFlow JSON as the node/edge graph.
+ * chatId = the subscriber's Telegram DM chat ID (tgUserId).
+ */
+export async function executeRemarketingFlow(
+  botId: string,
+  chatId: number,
+  startNodeId?: string
+): Promise<void> {
+  const bot = await loadBotWithRemarketingFlow(botId)
+  if (!bot || !bot.isActive) return
+
+  let firstNodeId: string | undefined = startNodeId
+  if (!firstNodeId) {
+    const startNode = bot.flowNodes.find((n) => n.type === "REMARKETING_START")
     if (!startNode) return
     firstNodeId = bot.flowEdges.find((e) => e.sourceNodeId === startNode.id)?.targetNodeId
   }

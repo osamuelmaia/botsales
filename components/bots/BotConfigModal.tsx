@@ -16,6 +16,7 @@ interface BotDetail {
   name: string
   token: string
   isActive: boolean
+  gracePeriodDays: number
   productIds: string[]
 }
 
@@ -58,6 +59,7 @@ export function BotConfigModal({ botId, open, onOpenChange, onSaved }: Props) {
   const [token, setToken] = useState("")
   const [productIds, setProductIds] = useState<string[]>([])
   const [isActive, setIsActive] = useState(false)
+  const [gracePeriodDays, setGracePeriodDays] = useState(3)
 
   const [showToken, setShowToken] = useState(false)
   const [validation, setValidation] = useState<ValidationState>({ status: "idle" })
@@ -81,6 +83,7 @@ export function BotConfigModal({ botId, open, onOpenChange, onSaved }: Props) {
         setToken(botData.token)
         setProductIds(botData.productIds)
         setIsActive(botData.isActive)
+        setGracePeriodDays(botData.gracePeriodDays ?? 3)
         if (Array.isArray(productsData)) setProducts(productsData)
       })
       .finally(() => setLoadingData(false))
@@ -117,7 +120,7 @@ export function BotConfigModal({ botId, open, onOpenChange, onSaved }: Props) {
     const res = await fetch(`/api/bots/${botId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, token, productIds, isActive }),
+      body: JSON.stringify({ name, token, productIds, isActive, gracePeriodDays }),
     })
     const json = await res.json()
     setSaving(false)
@@ -284,6 +287,29 @@ export function BotConfigModal({ botId, open, onOpenChange, onSaved }: Props) {
                       Máximo de 3 produtos por bot atingido.
                     </p>
                   )}
+                </div>
+
+                {/* Período de carência */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Período de carência (dias)
+                  </label>
+                  <p className="text-xs text-gray-400 mb-2">
+                    Tempo que o bot tenta recuperar o assinante antes de removê-lo do grupo quando uma renovação é recusada.
+                  </p>
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="number"
+                      min={0}
+                      max={30}
+                      value={gracePeriodDays}
+                      onChange={(e) => setGracePeriodDays(Math.max(0, Math.min(30, parseInt(e.target.value) || 0)))}
+                      className="w-20 h-10 rounded-md border border-gray-300 px-3 text-sm text-gray-900 text-center focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent"
+                    />
+                    <span className="text-sm text-gray-500">
+                      {gracePeriodDays === 0 ? "Remoção imediata" : `${gracePeriodDays} dia${gracePeriodDays !== 1 ? "s" : ""} de carência`}
+                    </span>
+                  </div>
                 </div>
 
                 {/* Ativo */}

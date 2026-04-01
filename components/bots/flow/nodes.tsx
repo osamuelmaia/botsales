@@ -8,6 +8,7 @@ import {
 import {
   Zap, Type, Image as ImageIcon, Film, Music, FileText, MoreHorizontal,
   MousePointerClick, Clock, Timer, CreditCard, X, AlertCircle, CheckCircle2, Link2, ArrowRight,
+  RefreshCw, UserX,
 } from "lucide-react"
 
 // ─── DeletableEdge ────────────────────────────────────────────────────────────
@@ -415,6 +416,45 @@ export const SmartDelayNode = memo(function SmartDelayNode({ id, data, selected 
         )}
       </div>
     </NodeShell>
+  )
+})
+
+// ─── RemarketingStartNode ─────────────────────────────────────────────────────
+
+export const RemarketingStartNode = memo(function RemarketingStartNode({ selected }: NodeProps) {
+  return (
+    <div className={`relative bg-white rounded-xl border-2 shadow-md min-w-[200px] transition-colors ${selected ? "border-emerald-500" : "border-emerald-300"}`}>
+      <div className="flex items-center gap-2 px-4 py-3 bg-emerald-50 rounded-t-xl border-b border-emerald-200">
+        <RefreshCw className="h-4 w-4 text-emerald-600 shrink-0" />
+        <span className="text-sm font-semibold text-emerald-800">Início do Remarketing</span>
+        <span className="ml-auto text-xs text-emerald-600 bg-emerald-100 px-1.5 py-0.5 rounded font-mono">gatilho</span>
+      </div>
+      <div className="px-4 py-2">
+        <p className="text-xs text-gray-500">Disparado quando a renovação é recusada</p>
+      </div>
+      <Handle type="source" position={Position.Right} className={`${handleStyle} !bg-emerald-500`} />
+    </div>
+  )
+})
+
+// ─── KickMemberNode ───────────────────────────────────────────────────────────
+
+export const KickMemberNode = memo(function KickMemberNode({ id, selected }: NodeProps) {
+  return (
+    <div className={`group relative bg-white rounded-xl border-2 shadow-md min-w-[180px] max-w-[260px] transition-colors ${selected ? "border-red-500" : "border-red-300"}`}>
+      <DeleteButton nodeId={id} />
+      <div className="flex items-center gap-2 px-4 py-3 bg-red-50 rounded-t-xl border-b border-red-200">
+        <UserX className="h-4 w-4 text-red-600 shrink-0" />
+        <span className="text-sm font-semibold text-red-800">Expulsar do Grupo</span>
+      </div>
+      <div className="px-4 py-2">
+        <p className="text-xs text-gray-500">
+          Bane o usuário do grupo. Será desbanido ao renovar.
+        </p>
+      </div>
+      {/* Terminal node — only has a target handle, no source */}
+      <Handle type="target" position={Position.Left} className={`${handleStyle} !bg-red-400`} />
+    </div>
   )
 })
 
