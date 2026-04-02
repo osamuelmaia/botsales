@@ -43,6 +43,7 @@ enum FlowNodeType {
   PAYMENT
   REMARKETING_START
   KICK_MEMBER
+  GRANT_ACCESS
 }
 
 enum SaleStatus {

@@ -21,7 +21,7 @@ import { useRouter } from "next/navigation"
 import {
   StartNode, TextNode, ImageNode, VideoNode, AudioNode, FileNode,
   TypingNode, ButtonNode, DelayNode, SmartDelayNode, PaymentNode,
-  RemarketingStartNode, edgeTypes,
+  RemarketingStartNode, GrantAccessNode, edgeTypes,
 } from "./nodes"
 import { NodeConfigPanel } from "./NodeConfigPanel"
 
@@ -31,7 +31,7 @@ const nodeTypes: NodeTypes = {
   start: StartNode, text: TextNode, image: ImageNode, video: VideoNode,
   audio: AudioNode, file: FileNode, typing: TypingNode, button: ButtonNode,
   delay: DelayNode, smart_delay: SmartDelayNode, payment: PaymentNode,
-  remarketing_start: RemarketingStartNode,
+  remarketing_start: RemarketingStartNode, grant_access: GrantAccessNode,
 }
 const typedEdgeTypes: EdgeTypes = edgeTypes
 
@@ -39,7 +39,7 @@ const typedEdgeTypes: EdgeTypes = edgeTypes
 
 interface Product { id: string; name: string; priceInCents: number }
 interface FlowEditorProps { botId: string; botName: string; botChannelId?: string | null; products: Product[]; mode?: "main" | "remarketing" }
-type NodeType = "text" | "image" | "video" | "audio" | "file" | "typing" | "button" | "delay" | "smart_delay" | "payment"
+type NodeType = "text" | "image" | "video" | "audio" | "file" | "typing" | "button" | "delay" | "smart_delay" | "payment" | "grant_access"
 type Snapshot = { nodes: Node[]; edges: Edge[] }
 
 function getDefaultData(type: NodeType): Record<string, unknown> {
@@ -54,6 +54,7 @@ function getDefaultData(type: NodeType): Record<string, unknown> {
     case "delay": return { amount: 5, unit: "seconds" }
     case "smart_delay": return { minAmount: 1, maxAmount: 5, unit: "seconds", showTyping: false }
     case "payment": return { productId: "", productName: "", image: "", imageMediaId: "", text: "", ctaText: "Pagar agora" }
+    case "grant_access": return { channelId: "", chatTitle: "" }
   }
 }
 
@@ -81,7 +82,7 @@ function minimapColor(n: Node) {
     start: "#10b981", text: "#3b82f6", image: "#0ea5e9", video: "#a855f7",
     audio: "#ec4899", file: "#64748b", typing: "#14b8a6", button: "#6366f1",
     delay: "#f59e0b", smart_delay: "#f97316", payment: "#8b5cf6",
-    remarketing_start: "#10b981",
+    remarketing_start: "#10b981", grant_access: "#10b981",
   }
   return m[n.type ?? ""] ?? "#94a3b8"
 }
@@ -183,6 +184,7 @@ const NODE_PICKER_ITEMS_MAIN: { type: NodeType; label: string; icon: string; col
   { type: "delay", label: "Atraso", icon: "⏱", color: "bg-amber-500" },
   { type: "smart_delay", label: "Smart Delay", icon: "⏰", color: "bg-orange-500" },
   { type: "payment", label: "Pagamento", icon: "💳", color: "bg-violet-500" },
+  { type: "grant_access", label: "Liberar acesso ao canal", icon: "👥", color: "bg-emerald-600" },
 ]
 
 const NODE_PICKER_ITEMS_REMARKETING: { type: NodeType; label: string; icon: string; color: string }[] = [
@@ -195,7 +197,7 @@ const NODE_PICKER_ITEMS_REMARKETING: { type: NodeType; label: string; icon: stri
   { type: "payment", label: "Pagamento", icon: "💳", color: "bg-violet-500" },
 ]
 
-function FlowEditorInner({ botId, botName, botChannelId, products, mode = "main" }: FlowEditorProps) {
+function FlowEditorInner({ botId, botName, products, mode = "main" }: FlowEditorProps) {
   const [activeMode, setActiveMode] = useState<"main" | "remarketing">(mode)
   const [pendingMode, setPendingMode] = useState<"main" | "remarketing" | null>(null)
   const [showSwitchTabDialog, setShowSwitchTabDialog] = useState(false)
@@ -339,11 +341,7 @@ function FlowEditorInner({ botId, botName, botChannelId, products, mode = "main"
         const mainEdges: Edge[] = mainData.edges ?? []
         const mainNodes = rawMain.map((node) =>
           node.type === "start"
-            ? { ...node, data: {
-                botName,
-                channelId: (node.data as Record<string, unknown>).channelId ?? botChannelId ?? "",
-                chatTitle: (node.data as Record<string, unknown>).chatTitle ?? "",
-              }}
+            ? { ...node, data: { ...node.data, botName } }
             : node
         )
         mainStashRef.current = { nodes: mainNodes, edges: mainEdges }
@@ -361,10 +359,13 @@ function FlowEditorInner({ botId, botName, botChannelId, products, mode = "main"
         if (activeModeRef.current === "main") {
           setNodes(mainNodes)
           setEdges(mainEdges)
-          const startNode = mainNodes.find((nd) => nd.type === "start")
-          if (startNode && !autoOpenedRef.current && !(startNode.data as Record<string, unknown>).channelId) {
+          // Auto-open first unconfigured grant_access node
+          const unconfiguredGrant = mainNodes.find(
+            (nd) => nd.type === "grant_access" && !(nd.data as Record<string, unknown>).channelId
+          )
+          if (unconfiguredGrant && !autoOpenedRef.current) {
             autoOpenedRef.current = true
-            setSelectedNode(startNode)
+            setSelectedNode(unconfiguredGrant)
           }
         } else {
           setNodes(remNodes)
@@ -377,7 +378,7 @@ function FlowEditorInner({ botId, botName, botChannelId, products, mode = "main"
         setTimeout(() => reactFlowInstanceRef.current.fitView({ padding: 0.15, duration: 300 }), 80)
       })
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [botId, botName, botChannelId, setNodes, setEdges])
+  }, [botId, botName, setNodes, setEdges]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ─── Save flow ──────────────────────────────────────────────────────────────
 
@@ -428,11 +429,11 @@ function FlowEditorInner({ botId, botName, botChannelId, products, mode = "main"
 
   async function handleSave() {
     if (!isRemarketing) {
-      const startNode = nodes.find((n) => n.type === "start")
-      const channelId = (startNode?.data as Record<string, unknown>)?.channelId as string | undefined
-      if (!channelId?.trim()) {
-        toast.error("Configure e valide o grupo/canal no nó de Início antes de salvar")
-        setSelectedNode(startNode ?? null)
+      const grantNodes = nodes.filter((n) => n.type === "grant_access")
+      const unconfigured = grantNodes.find((n) => !(n.data as Record<string, unknown>).channelId)
+      if (unconfigured) {
+        toast.error("Configure e valide o grupo/canal no nó 'Liberar acesso ao canal' antes de salvar")
+        setSelectedNode(unconfigured)
         return
       }
     }
@@ -644,8 +645,9 @@ function FlowEditorInner({ botId, botName, botChannelId, products, mode = "main"
 
   // ─── Render ─────────────────────────────────────────────────────────────────
 
-  const startNode = nodes.find((n) => n.type === "start")
-  const startConfigured = isRemarketing || !!(startNode?.data as Record<string, unknown>)?.channelId
+  const hasUnconfiguredGrant = !isRemarketing && nodes.some(
+    (n) => n.type === "grant_access" && !(n.data as Record<string, unknown>).channelId
+  )
   const canUndo = pastRef.current.length > 0
   const canRedo = futureRef.current.length > 0
 
@@ -695,9 +697,9 @@ function FlowEditorInner({ botId, botName, botChannelId, products, mode = "main"
 
         <div className="flex-1 min-w-0">
           <p className="text-sm font-medium text-gray-500 truncate">{botName}</p>
-          {!startConfigured && !isRemarketing && (
+          {hasUnconfiguredGrant && (
             <p className="text-xs text-amber-600 flex items-center gap-1">
-              <AlertCircle className="h-3 w-3" />Configure o grupo/canal no nó de Início
+              <AlertCircle className="h-3 w-3" />Configure o grupo/canal no nó &quot;Liberar acesso ao canal&quot;
             </p>
           )}
         </div>
@@ -745,8 +747,9 @@ function FlowEditorInner({ botId, botName, botChannelId, products, mode = "main"
             <PaletteItem icon={<Timer className="h-4 w-4" />} label="Smart Delay" nodeType="smart_delay" color="border-orange-200 bg-orange-50 text-orange-800 hover:bg-orange-100" onAdd={() => addNode("smart_delay")} />
           </PaletteGroup>
           {!isRemarketing && (
-            <PaletteGroup title="Pagamento">
+            <PaletteGroup title="Pagamento e acesso">
               <PaletteItem icon={<CreditCard className="h-4 w-4" />} label="Pagamento" nodeType="payment" color="border-violet-200 bg-violet-50 text-violet-800 hover:bg-violet-100" onAdd={() => addNode("payment")} />
+              <PaletteItem icon={<GitBranch className="h-4 w-4" />} label="Liberar acesso ao canal" nodeType="grant_access" color="border-emerald-200 bg-emerald-50 text-emerald-800 hover:bg-emerald-100" onAdd={() => addNode("grant_access")} />
             </PaletteGroup>
           )}
           {isRemarketing && (

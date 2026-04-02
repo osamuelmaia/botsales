@@ -8,7 +8,7 @@ import {
 import {
   Zap, Type, Image as ImageIcon, Film, Music, FileText, MoreHorizontal,
   MousePointerClick, Clock, Timer, CreditCard, X, AlertCircle, CheckCircle2, Link2, ArrowRight,
-  RefreshCw,
+  RefreshCw, Users,
 } from "lucide-react"
 
 // ─── DeletableEdge ────────────────────────────────────────────────────────────
@@ -138,20 +138,37 @@ function NodeShell({
 // ─── StartNode ────────────────────────────────────────────────────────────────
 
 export const StartNode = memo(function StartNode({ data, selected }: NodeProps) {
-  const d = data as { channelId?: string; chatTitle?: string; botName?: string }
-  const configured = !!d.channelId?.trim()
+  const d = data as { botName?: string }
   return (
-    <div className={`relative bg-white rounded-xl border-2 shadow-md min-w-[200px] transition-colors ${selected ? "border-emerald-500" : configured ? "border-emerald-300" : "border-amber-400"}`}>
+    <div className={`relative bg-white rounded-xl border-2 shadow-md min-w-[200px] transition-colors ${selected ? "border-emerald-500" : "border-emerald-300"}`}>
       <div className="flex items-center gap-2 px-4 py-3 bg-emerald-50 rounded-t-xl border-b border-emerald-200">
         <Zap className="h-4 w-4 text-emerald-600 shrink-0" />
         <span className="text-sm font-semibold text-emerald-800">Início</span>
         <span className="ml-auto text-xs text-emerald-600 bg-emerald-100 px-1.5 py-0.5 rounded font-mono">/start</span>
       </div>
-      {d.botName && (
-        <div className="px-4 pt-2 pb-0">
-          <p className="text-xs text-gray-500">Bot: <span className="font-medium text-gray-700">{d.botName}</span></p>
-        </div>
-      )}
+      <div className="px-4 py-2">
+        <p className="text-xs text-gray-500">
+          Bot: <span className="font-medium text-gray-700">{d.botName ?? "—"}</span>
+        </p>
+        <p className="text-xs text-gray-400 mt-0.5">Disparado quando usuário envia /start</p>
+      </div>
+      <Handle type="source" position={Position.Right} className={`${handleStyle} !bg-emerald-500`} />
+    </div>
+  )
+})
+
+// ─── GrantAccessNode ──────────────────────────────────────────────────────────
+
+export const GrantAccessNode = memo(function GrantAccessNode({ id, data, selected }: NodeProps) {
+  const d = data as { channelId?: string; chatTitle?: string }
+  const configured = !!d.channelId?.trim()
+  return (
+    <div className={`group relative bg-white rounded-xl border-2 shadow-md min-w-[200px] max-w-[260px] transition-colors ${selected ? "border-emerald-500" : configured ? "border-emerald-300" : "border-amber-400"}`}>
+      <DeleteButton nodeId={id} />
+      <div className="flex items-center gap-2 px-4 py-3 bg-emerald-50 rounded-t-xl border-b border-emerald-100">
+        <Users className="h-4 w-4 text-emerald-600 shrink-0" />
+        <span className="text-sm font-semibold text-emerald-800">Liberar acesso ao canal</span>
+      </div>
       <div className="px-4 py-2">
         {configured ? (
           <div className="flex items-center gap-1.5">
@@ -164,7 +181,9 @@ export const StartNode = memo(function StartNode({ data, selected }: NodeProps) 
             <p className="text-xs text-amber-700 font-medium">Configure o grupo/canal</p>
           </div>
         )}
+        <p className="text-xs text-gray-400 mt-1">Envia link de convite ao cliente aprovado</p>
       </div>
+      <Handle type="target" position={Position.Left} className={`${handleStyle} !bg-emerald-400`} />
       <Handle type="source" position={Position.Right} className={`${handleStyle} !bg-emerald-500`} />
     </div>
   )

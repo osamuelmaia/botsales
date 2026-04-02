@@ -239,6 +239,7 @@ export function NodeConfigPanel({ node, botId, botName, products, onUpdate, onCl
     video: "Configurar Vídeo", audio: "Configurar Áudio", file: "Configurar Arquivo",
     typing: "Configurar Digitando...", button: "Configurar Botão", delay: "Configurar Atraso",
     smart_delay: "Configurar Smart Delay", payment: "Configurar Pagamento",
+    grant_access: "Liberar acesso ao canal",
   }
 
   return (
@@ -256,11 +257,23 @@ export function NodeConfigPanel({ node, botId, botName, products, onUpdate, onCl
 
         {/* ── Start ─────────────────────────────────────────────────────── */}
         {node.type === "start" && (
-          <div className="space-y-4">
+          <div className="space-y-3">
             <div className="bg-gray-50 rounded-lg px-3 py-2.5 border border-gray-200">
               <p className="text-xs text-gray-500 mb-0.5">Bot vinculado</p>
               <p className="text-sm font-semibold text-gray-900">{botName}</p>
             </div>
+            <p className="text-xs text-gray-500">
+              Este nó é disparado automaticamente quando o usuário envia <code className="bg-gray-100 px-1 rounded">/start</code> no Telegram. Conecte-o aos próximos passos do fluxo.
+            </p>
+          </div>
+        )}
+
+        {/* ── Grant Access ───────────────────────────────────────────────── */}
+        {node.type === "grant_access" && (
+          <div className="space-y-4">
+            <p className="text-xs text-gray-500">
+              Quando executado, o bot gera um link de convite único e envia ao cliente. Use após o nó de <strong>Pagamento aprovado</strong>.
+            </p>
             <div>
               <label className={labelCls}>ID do Grupo/Canal <span className="text-red-500">*</span></label>
               <div className="flex gap-2">
@@ -604,8 +617,8 @@ export function NodeConfigPanel({ node, botId, botName, products, onUpdate, onCl
         )}
       </div>
 
-      {/* Footer: only start node needs confirm button */}
-      {node.type === "start" && (
+      {/* Footer: grant_access node needs confirm button */}
+      {node.type === "grant_access" && (
         <div className="p-4 border-t border-gray-100">
           <button onClick={onClose} disabled={!channelValid}
             className="w-full h-9 bg-gray-900 text-white rounded-md text-sm font-medium hover:bg-gray-800 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
