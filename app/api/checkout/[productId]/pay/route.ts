@@ -193,6 +193,7 @@ export async function POST(
   } catch (err) {
     await prisma.sale.delete({ where: { id: sale.id } }).catch(() => {})
     const message = err instanceof Error ? err.message : "Erro ao processar pagamento"
+    console.error("[checkout/pay] error:", message)
     return NextResponse.json({ error: message }, { status: 502 })
   }
 
