@@ -192,22 +192,39 @@ export async function POST(
         phone: phone?.replace(/\D/g, "") ?? "",
       })
 
-      const billingType = product.isRecurring && product.billingType ? product.billingType : "MONTHLY"
+      let gatewayId: string
 
-      const subscription = await GatewayService.createSubscription({
-        customerName: name,
-        customerEmail: email,
-        customerCpfCnpj: cpf,
-        amountCents: product.priceInCents,
-        billingType,
-        description: product.name,
-        externalReference: sale.id,
-        cardToken,
-      })
+      if (product.isRecurring && product.billingType) {
+        // Produto recorrente → assinatura no Asaas
+        const billingType = product.billingType as "MONTHLY" | "ANNUAL"
+        const subscription = await GatewayService.createSubscription({
+          customerName: name,
+          customerEmail: email,
+          customerCpfCnpj: cpf,
+          amountCents: product.priceInCents,
+          billingType,
+          description: product.name,
+          externalReference: sale.id,
+          cardToken,
+        })
+        gatewayId = subscription.id
+      } else {
+        // Produto avulso → cobrança única no cartão
+        const payment = await GatewayService.createOneTimeCardPayment({
+          customerName: name,
+          customerEmail: email,
+          customerCpfCnpj: cpf,
+          amountCents: product.priceInCents,
+          description: product.name,
+          externalReference: sale.id,
+          cardToken,
+        })
+        gatewayId = payment.id
+      }
 
       await prisma.sale.update({
         where: { id: sale.id },
-        data: { gatewayId: subscription.id, gatewayStatus: "PENDING" },
+        data: { gatewayId, gatewayStatus: "PENDING" },
       })
 
       return NextResponse.json({ saleId: sale.id, success: true })

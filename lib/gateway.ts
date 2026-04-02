@@ -245,6 +245,38 @@ export const GatewayService = {
   },
 
   /**
+   * Cria cobrança avulsa com cartão de crédito (produto não-recorrente).
+   * Retorna o ID do pagamento no Asaas.
+   */
+  async createOneTimeCardPayment(params: {
+    customerName: string
+    customerEmail: string
+    customerCpfCnpj: string
+    amountCents: number
+    description: string
+    externalReference: string
+    cardToken: string
+  }): Promise<{ id: string }> {
+    const customerId = await findOrCreateCustomer({
+      name: params.customerName,
+      email: params.customerEmail,
+      cpfCnpj: params.customerCpfCnpj,
+    })
+
+    const payment = await asaasPost<AsaasPayment>("/payments", {
+      customer: customerId,
+      billingType: "CREDIT_CARD",
+      value: params.amountCents / 100,
+      dueDate: todayDateString(),
+      description: params.description,
+      externalReference: params.externalReference,
+      creditCardToken: params.cardToken,
+    })
+
+    return { id: payment.id }
+  },
+
+  /**
    * Cria assinatura recorrente (cartão de crédito).
    */
   async createSubscription(params: {
