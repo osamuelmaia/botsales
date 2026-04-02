@@ -13,8 +13,12 @@ import { ChevronLeft, ChevronRight } from "lucide-react"
 export interface SaleRow {
   id: string
   createdAt: string
-  lead: { name: string | null; email: string | null } | null
+  paidAt: string | null
+  availableAt: string | null
+  gatewayId: string | null
+  lead: { name: string | null; email: string | null; phone: string | null } | null
   product: { name: string } | null
+  bot: { name: string } | null
   paymentMethod: "PIX" | "CREDIT_CARD"
   grossAmountCents: number
   feeAmountCents: number
@@ -157,9 +161,10 @@ interface Props {
   pages: number
   total: number
   onPage: (p: number) => void
+  onRowClick?: (row: SaleRow) => void
 }
 
-export function SalesTable({ data, loading, page, pages, total, onPage }: Props) {
+export function SalesTable({ data, loading, page, pages, total, onPage, onRowClick }: Props) {
   const table = useReactTable({
     data,
     columns,
@@ -190,14 +195,18 @@ export function SalesTable({ data, loading, page, pages, total, onPage }: Props)
               <EmptyState />
             ) : (
               table.getRowModel().rows.map((row) => (
-                <tr key={row.id} className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
+                <tr
+                  key={row.id}
+                  onClick={() => onRowClick?.(row.original)}
+                  className={`border-b border-gray-100 hover:bg-gray-50 transition-colors ${onRowClick ? "cursor-pointer" : ""}`}
+                >
                   {row.getVisibleCells().map((cell) => (
                     <td key={cell.id} className="px-4 py-3 whitespace-nowrap">
                       {flexRender(cell.column.columnDef.cell, cell.getContext())}
                     </td>
                   ))}
                 </tr>
-              ))
+              )))
             )}
           </tbody>
         </table>

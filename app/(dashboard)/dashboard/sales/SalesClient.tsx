@@ -3,6 +3,7 @@
 import useSWR from "swr"
 import { useState, useMemo } from "react"
 import { SalesTable, type SaleRow } from "@/components/sales/SalesTable"
+import { SaleDrawer } from "@/components/sales/SaleDrawer"
 import { ExportButton } from "@/components/sales/ExportButton"
 import { fetcher } from "@/lib/fetcher"
 
@@ -33,6 +34,7 @@ export function SalesClient({ initialStartDate }: { initialStartDate: string }) 
     paymentMethod: "ALL",
   })
   const [page, setPage] = useState(1)
+  const [selectedSale, setSelectedSale] = useState<SaleRow | null>(null)
 
   const key = useMemo(() => {
     const params = new URLSearchParams({ page: String(page), limit: "50" })
@@ -118,7 +120,11 @@ export function SalesClient({ initialStartDate }: { initialStartDate: string }) 
         pages={data?.pages ?? 1}
         total={data?.total ?? 0}
         onPage={setPage}
+        onRowClick={setSelectedSale}
       />
+
+      {/* Detail drawer */}
+      <SaleDrawer sale={selectedSale} onClose={() => setSelectedSale(null)} />
     </div>
   )
 }

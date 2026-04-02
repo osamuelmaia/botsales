@@ -36,8 +36,9 @@ export async function GET(req: NextRequest) {
       skip: (page - 1) * limit,
       take: limit,
       include: {
-        lead: { select: { name: true, email: true } },
+        lead: { select: { name: true, email: true, phone: true } },
         product: { select: { name: true } },
+        bot: { select: { name: true } },
       },
     }),
     prisma.sale.count({ where }),
