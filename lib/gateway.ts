@@ -17,6 +17,8 @@ const BASE_URL =
     ? "https://api.asaas.com/api/v3"
     : "https://sandbox.asaas.com/api/v3"
 
+console.log(`[asaas] environment: ${process.env.ASAAS_ENVIRONMENT ?? "sandbox (default)"} → ${BASE_URL}`)
+
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const REQUEST_TIMEOUT = 15_000 // 15 seconds
@@ -81,7 +83,10 @@ async function asaasRequest<T>(
   path: string,
   body?: unknown
 ): Promise<T> {
-  const res = await fetch(`${BASE_URL}${path}`, {
+  const url = `${BASE_URL}${path}`
+  console.log(`[asaas] ${method} ${url}`)
+
+  const res = await fetch(url, {
     method,
     headers: {
       "Content-Type": "application/json",
@@ -93,6 +98,7 @@ async function asaasRequest<T>(
 
   if (!res.ok) {
     const text = await res.text()
+    console.error(`[asaas] ${method} ${path} → ${res.status}: ${text}`)
     throw new Error(`Asaas ${method} ${path} → ${res.status}: ${text}`)
   }
 
