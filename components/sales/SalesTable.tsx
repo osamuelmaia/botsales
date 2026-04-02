@@ -18,7 +18,6 @@ export interface SaleRow {
   gatewayId: string | null
   lead: { name: string | null; email: string | null; phone: string | null } | null
   product: { name: string } | null
-  bot: { name: string } | null
   paymentMethod: "PIX" | "CREDIT_CARD"
   grossAmountCents: number
   feeAmountCents: number
@@ -206,7 +205,7 @@ export function SalesTable({ data, loading, page, pages, total, onPage, onRowCli
                     </td>
                   ))}
                 </tr>
-              )))
+              ))
             )}
           </tbody>
         </table>

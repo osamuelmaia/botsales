@@ -109,7 +109,6 @@ export function SaleDrawer({ sale, onClose }: Props) {
               <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">Produto</h3>
               <div className="bg-gray-50 rounded-xl px-4 divide-y divide-gray-100">
                 <Row label="Produto" value={sale.product?.name} />
-                <Row label="Bot"     value={sale.bot?.name} />
               </div>
             </section>
 

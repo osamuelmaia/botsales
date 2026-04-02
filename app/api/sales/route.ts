@@ -38,7 +38,6 @@ export async function GET(req: NextRequest) {
       include: {
         lead: { select: { name: true, email: true, phone: true } },
         product: { select: { name: true } },
-        bot: { select: { name: true } },
       },
     }),
     prisma.sale.count({ where }),
