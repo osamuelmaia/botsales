@@ -527,7 +527,7 @@ export const PaymentNode = memo(function PaymentNode({ id, data, selected }: Nod
         <div className="mx-3 mb-2 flex items-start gap-1.5 bg-amber-50 border border-amber-100 rounded-lg px-2 py-1.5">
           <AlertCircle className="h-3 w-3 text-amber-500 shrink-0 mt-0.5" />
           <p className="text-[10px] text-amber-700 leading-tight">
-            <strong>Recomendado:</strong> conecte o fluxo <strong>Aprovado</strong> ao nó <strong>Liberar acesso ao canal</strong> para enviar o convite do grupo ao usuário automaticamente
+            <strong>Recomendado:</strong> conecte ao fluxo <strong>Aprovado</strong> o nó de <strong>Liberar acesso</strong> para enviar o convite ao seu cliente.
           </p>
         </div>
       )}
