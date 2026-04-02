@@ -67,7 +67,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
         prisma.sale.findMany({
           where: { userId, createdAt: { gte: startDt, lte: endDt } },
           orderBy: { createdAt: "desc" }, take: 50,
-          include: { lead: { select: { name: true, email: true } }, product: { select: { name: true } } },
+          include: { lead: { select: { name: true, email: true, phone: true } }, product: { select: { name: true } } },
         }),
         // Sales total count
         prisma.sale.count({ where: { userId, createdAt: { gte: startDt, lte: endDt } } }),
@@ -113,7 +113,9 @@ export default async function DashboardLayout({ children }: { children: React.Re
         ...s,
         createdAt: s.createdAt.toISOString(),
         updatedAt: s.updatedAt.toISOString(),
+        paidAt: s.paidAt?.toISOString() ?? null,
         availableAt: s.availableAt?.toISOString() ?? null,
+        refundedAt: s.refundedAt?.toISOString() ?? null,
       })),
       total: salesTotal,
       pages: Math.ceil(salesTotal / 50),
