@@ -10,7 +10,7 @@ type Params = { params: { id: string } }
 
 const nodeSchema = z.object({
   id: z.string(),
-  type: z.enum(["start", "text", "image", "video", "audio", "file", "typing", "button", "delay", "smart_delay", "payment"]),
+  type: z.enum(["start", "text", "image", "video", "audio", "file", "typing", "button", "delay", "smart_delay", "payment", "grant_access"]),
   position: z.object({ x: z.number(), y: z.number() }),
   data: z.record(z.string(), z.unknown()),
 })
@@ -30,7 +30,7 @@ const saveFlowSchema = z.object({
 
 // ─── Type map ─────────────────────────────────────────────────────────────────
 
-const TYPE_TO_ENUM = {
+const TYPE_TO_ENUM: Record<string, string> = {
   start: "TRIGGER_START",
   text: "TEXT",
   image: "IMAGE",
@@ -42,7 +42,8 @@ const TYPE_TO_ENUM = {
   delay: "DELAY",
   smart_delay: "SMART_DELAY",
   payment: "PAYMENT",
-} as const
+  grant_access: "GRANT_ACCESS",
+}
 
 const ENUM_TO_TYPE: Record<string, string> = {
   TRIGGER_START: "start",
@@ -56,6 +57,7 @@ const ENUM_TO_TYPE: Record<string, string> = {
   DELAY: "delay",
   SMART_DELAY: "smart_delay",
   PAYMENT: "payment",
+  GRANT_ACCESS: "grant_access",
 }
 
 // ─── GET /api/bots/[id]/flow ──────────────────────────────────────────────────
@@ -155,11 +157,19 @@ export async function POST(request: Request, { params }: Params) {
     )
   }
 
-  // Ensure start node has channelId configured
-  const startNodeChannelId = (startNodes[0].data as Record<string, unknown>).channelId as string | undefined
-  if (!startNodeChannelId?.trim()) {
+  // Sync channelId to Bot from the first configured grant_access node
+  const grantNode = nodes.find((n) => n.type === "grant_access")
+  const grantChannelId = grantNode
+    ? ((grantNode.data as Record<string, unknown>).channelId as string | undefined)?.trim() ?? null
+    : null
+
+  // Block save if there's an unconfigured grant_access node
+  const hasUnconfiguredGrant = nodes.some(
+    (n) => n.type === "grant_access" && !((n.data as Record<string, unknown>).channelId as string | undefined)?.trim()
+  )
+  if (hasUnconfiguredGrant) {
     return NextResponse.json(
-      { error: "Configure o ID do grupo/canal no nó de Início antes de salvar" },
+      { error: "Configure o ID do grupo/canal no nó 'Liberar acesso ao canal' antes de salvar" },
       { status: 422 }
     )
   }
@@ -172,7 +182,7 @@ export async function POST(request: Request, { params }: Params) {
   await prisma.$transaction(async (tx) => {
     await tx.bot.update({
       where: { id: params.id },
-      data: { channelId: startNodeChannelId.trim() },
+      data: { channelId: grantChannelId },
     })
     await tx.flowEdge.deleteMany({ where: { botId: params.id } })
     await tx.flowNode.deleteMany({ where: { botId: params.id } })
@@ -180,7 +190,7 @@ export async function POST(request: Request, { params }: Params) {
       data: nodes.map((n) => ({
         id: n.id,
         botId: params.id,
-        type: TYPE_TO_ENUM[n.type],
+        type: TYPE_TO_ENUM[n.type] as import("@prisma/client").FlowNodeType,
         posX: n.position.x,
         posY: n.position.y,
         data: n.data as Prisma.InputJsonValue,
