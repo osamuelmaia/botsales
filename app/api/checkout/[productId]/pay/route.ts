@@ -17,9 +17,9 @@ const paymentBodySchema = z.object({
   ),
   phone: z.string().max(20).default(""),
   // Telegram context (optional)
-  tgChatId: z.string().max(30).optional(),
-  tgBotId: z.string().max(30).optional(),
-  tgNodeId: z.string().max(30).optional(),
+  tgChatId: z.string().max(50).optional(),
+  tgBotId: z.string().max(50).optional(),
+  tgNodeId: z.string().max(50).optional(),
   // Card-only fields (validated conditionally below)
   cardHolderName: z.string().max(200).optional(),
   cardNumber: z.string().max(25).optional(),
