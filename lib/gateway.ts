@@ -14,8 +14,8 @@ import crypto from "crypto"
 
 const BASE_URL =
   process.env.ASAAS_ENVIRONMENT === "production"
-    ? "https://api.asaas.com/api/v3"
-    : "https://sandbox.asaas.com/api/v3"
+    ? "https://api.asaas.com/v3"
+    : "https://api-sandbox.asaas.com/v3"
 
 console.log(`[asaas] environment: ${process.env.ASAAS_ENVIRONMENT ?? "sandbox (default)"} → ${BASE_URL}`)
 
