@@ -46,8 +46,8 @@ const STATUS_CONFIG = {
 } as const
 
 const METHOD_CONFIG = {
-  PIX:         { label: "PIX",    cls: "bg-teal-100 text-teal-700" },
-  CREDIT_CARD: { label: "Cartão", cls: "bg-blue-100 text-blue-700" },
+  PIX:         { label: "PIX",    cls: "bg-gray-100 text-gray-600" },
+  CREDIT_CARD: { label: "Cartão", cls: "bg-gray-100 text-gray-600" },
 } as const
 
 function StatusBadge({ status }: { status: SaleRow["status"] }) {
@@ -94,11 +94,11 @@ const columns = [
   }),
   col.accessor("feeAmountCents", {
     header: "Taxa",
-    cell: (i) => <span className="text-red-600 tabular-nums">{formatBRL(i.getValue())}</span>,
+    cell: (i) => <span className="text-gray-500 tabular-nums">{formatBRL(i.getValue())}</span>,
   }),
   col.accessor("netAmountCents", {
     header: "Valor Líquido",
-    cell: (i) => <span className="text-green-700 font-semibold tabular-nums">{formatBRL(i.getValue())}</span>,
+    cell: (i) => <span className="text-gray-900 font-medium tabular-nums">{formatBRL(i.getValue())}</span>,
   }),
   col.accessor("status", {
     header: "Status",
