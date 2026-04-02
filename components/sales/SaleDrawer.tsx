@@ -57,15 +57,15 @@ interface Props {
 export function SaleDrawer({ sale, onClose }: Props) {
   return (
     <>
-      {/* Backdrop */}
+      {/* Backdrop — only covers the content area below the topbar */}
       <div
-        className={`fixed inset-0 z-40 bg-black/20 transition-opacity duration-300 ${sale ? "opacity-100" : "opacity-0 pointer-events-none"}`}
+        className={`fixed inset-x-0 bottom-0 top-16 z-40 bg-black/20 transition-opacity duration-300 ${sale ? "opacity-100" : "opacity-0 pointer-events-none"}`}
         onClick={onClose}
       />
 
       {/* Panel */}
       <div
-        className={`fixed right-0 top-0 z-50 h-full w-full max-w-md bg-white shadow-2xl flex flex-col transform transition-transform duration-300 ease-in-out ${sale ? "translate-x-0" : "translate-x-full"}`}
+        className={`fixed right-0 top-16 z-50 h-[calc(100vh-4rem)] w-full max-w-md bg-white shadow-2xl flex flex-col transform transition-transform duration-300 ease-in-out ${sale ? "translate-x-0" : "translate-x-full"}`}
       >
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
