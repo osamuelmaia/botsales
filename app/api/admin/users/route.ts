@@ -52,7 +52,7 @@ export async function GET(req: NextRequest) {
 
   // Per-user sales breakdown (only for this page's user IDs)
   const userIds = users.map((u) => u.id)
-  let statsMap = new Map<string, { total: number; approved: number; gmv: number; pix: number; card: number }>()
+  const statsMap = new Map<string, { total: number; approved: number; gmv: number; pix: number; card: number }>()
   if (userIds.length > 0) {
     const rows = await prisma.$queryRaw<SaleStatRow[]>`
       SELECT
