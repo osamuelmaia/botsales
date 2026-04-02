@@ -734,7 +734,7 @@ function FlowEditorInner({ botId, botName, channelPermissionError, products, mod
       {/* Editor area */}
       <div className="flex flex-1 min-h-0">
         {/* Palette */}
-        <div className="w-52 bg-white border-r border-gray-200 p-3 space-y-4 shrink-0 overflow-y-auto">
+        <div className="w-64 bg-white border-r border-gray-200 p-3 space-y-4 shrink-0 overflow-y-auto">
           <PaletteGroup title="Comunicação">
             <PaletteItem icon={<Type className="h-4 w-4" />} label="Texto" nodeType="text" color="border-blue-200 bg-blue-50 text-blue-800 hover:bg-blue-100" onAdd={() => addNode("text")} />
             <PaletteItem icon={<ImageIcon className="h-4 w-4" />} label="Imagem" nodeType="image" color="border-sky-200 bg-sky-50 text-sky-800 hover:bg-sky-100" onAdd={() => addNode("image")} />
