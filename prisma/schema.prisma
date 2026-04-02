@@ -208,8 +208,12 @@ model Lead {
   sales         Sale[]
   subscriptions Subscription[]
 
+  // Customer portal access
+  portalPasswordHash String?
+
   @@unique([botId, telegramId])
   @@index([botId])
+  @@index([email])
 }
 
 model Sale {

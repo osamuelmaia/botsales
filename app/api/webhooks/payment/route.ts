@@ -4,6 +4,9 @@ import { prisma } from "@/lib/prisma"
 import { executeFlow } from "@/lib/bot-runner"
 import { TelegramService } from "@/lib/telegram"
 import { decryptToken } from "@/lib/utils"
+import { sendEmail, buildPortalAccessEmail, buildPurchaseConfirmationEmail } from "@/lib/email"
+import bcrypt from "bcryptjs"
+import crypto from "crypto"
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -232,6 +235,54 @@ export async function POST(req: NextRequest) {
     resumeFlowFromPayment(sale.id, "approved").catch((err) =>
       console.error("[webhook] resumeFlowFromPayment failed:", err)
     )
+
+    // Send portal access email to customer (fire-and-forget)
+    ;(async () => {
+      try {
+        const fullSale = await prisma.sale.findUnique({
+          where: { id: sale.id },
+          select: {
+            lead:    { select: { id: true, name: true, email: true, portalPasswordHash: true } },
+            product: { select: { name: true } },
+          },
+        })
+        if (!fullSale?.lead?.email) return
+
+        const { lead, product } = fullSale
+        const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://botsales.app"
+
+        if (!lead.portalPasswordHash) {
+          // First time: generate password, save hashed, send credentials email
+          const password = crypto.randomBytes(5).toString("base64url").substring(0, 8)
+          const hash     = await bcrypt.hash(password, 12)
+          await prisma.lead.update({ where: { id: lead.id }, data: { portalPasswordHash: hash } })
+          await sendEmail({
+            to:      lead.email,
+            subject: `Acesso liberado — ${product?.name ?? "seu produto"}`,
+            html:    buildPortalAccessEmail({
+              customerName: lead.name ?? "Cliente",
+              email:        lead.email,
+              password,
+              productName:  product?.name ?? "produto",
+              appUrl,
+            }),
+          })
+        } else {
+          // Returning customer: just confirm the payment
+          await sendEmail({
+            to:      lead.email,
+            subject: `Pagamento confirmado — ${product?.name ?? "seu produto"}`,
+            html:    buildPurchaseConfirmationEmail({
+              customerName: lead.name ?? "Cliente",
+              productName:  product?.name ?? "produto",
+              appUrl,
+            }),
+          })
+        }
+      } catch (err) {
+        console.error("[webhook] email send failed:", err)
+      }
+    })()
 
     // If this is a recurring product, create or renew Subscription
     if (event.subscriptionId) {

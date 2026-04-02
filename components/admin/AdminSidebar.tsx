@@ -3,7 +3,7 @@
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import {
-  LayoutDashboard, Wallet, Users, ShoppingCart, Bot, LogOut,
+  LayoutDashboard, Wallet, Users, ShoppingCart, Bot, LogOut, UserCheck,
 } from "lucide-react"
 import { signOut } from "next-auth/react"
 import useSWR from "swr"
@@ -15,6 +15,7 @@ const NAV = [
   { href: "/admin/users",       icon: Users,           label: "Usuários"    },
   { href: "/admin/sales",       icon: ShoppingCart,    label: "Vendas"      },
   { href: "/admin/bots",        icon: Bot,             label: "Bots"        },
+  { href: "/admin/customers",   icon: UserCheck,       label: "Clientes"    },
 ]
 
 interface PendingData { total: number }
