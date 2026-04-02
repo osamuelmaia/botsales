@@ -265,17 +265,64 @@ async function handleKickMember(data: KickMemberJob): Promise<void> {
 
   const token = decryptToken(bot.tokenEncrypted)
 
+  const isPermissionError = (msg: string) =>
+    msg.includes("CHAT_ADMIN_REQUIRED") ||
+    msg.includes("not enough rights") ||
+    msg.includes("bot was kicked") ||
+    msg.includes("bot is not a member") ||
+    msg.includes("need administrator rights")
+
   try {
     await TelegramService.banChatMember(token, data.groupChatId, data.tgUserId)
     console.log(`[KICK_MEMBER] banned user ${data.tgUserId} from group ${data.groupChatId}`)
-  } catch (err) {
-    console.error(`[KICK_MEMBER] ban failed:`, err)
-  }
 
-  await prisma.subscription.update({
-    where: { id: data.subscriptionId },
-    data: { status: "KICKED" },
-  })
+    await prisma.subscription.update({
+      where: { id: data.subscriptionId },
+      data: { status: "KICKED" },
+    })
+
+    // Clear any previous permission error on this bot
+    await prisma.bot.update({
+      where: { id: data.botId },
+      data: { channelPermissionError: null, channelPermissionErrorAt: null } as Record<string, unknown>,
+    })
+  } catch (err) {
+    const errorMsg = err instanceof Error ? err.message : String(err)
+    console.error(`[KICK_MEMBER] ban failed for user ${data.tgUserId}:`, errorMsg)
+
+    if (isPermissionError(errorMsg)) {
+      // Bot lost admin — record error and queue for retry, do NOT mark as KICKED
+      await prisma.bot.update({
+        where: { id: data.botId },
+        data: {
+          channelPermissionError: `Sem permissão no grupo ${data.groupChatId}: ${errorMsg}`,
+          channelPermissionErrorAt: new Date(),
+        } as Record<string, unknown>,
+      })
+
+      // Store as pending kick (avoid duplicate)
+      const existing = await prisma.pendingKick.findFirst({
+        where: { botId: data.botId, subscriptionId: data.subscriptionId },
+      })
+      if (!existing) {
+        await prisma.pendingKick.create({
+          data: {
+            botId: data.botId,
+            subscriptionId: data.subscriptionId,
+            tgUserId: data.tgUserId,
+            groupChatId: data.groupChatId,
+            errorMessage: errorMsg,
+          },
+        })
+      }
+    } else {
+      // Non-permission error (user left, network, etc.) — mark as KICKED anyway to avoid infinite retry
+      await prisma.subscription.update({
+        where: { id: data.subscriptionId },
+        data: { status: "KICKED" },
+      })
+    }
+  }
 }
 
 async function handleUnbanMember(data: UnbanMemberJob): Promise<void> {

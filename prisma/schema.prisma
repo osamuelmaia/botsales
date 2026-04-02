@@ -108,16 +108,18 @@ model User {
 }
 
 model Bot {
-  id              String   @id @default(cuid())
-  userId          String
-  name            String
-  tokenEncrypted  String
-  channelId       String?
-  isActive        Boolean  @default(false)
-  gracePeriodDays Int      @default(3)
-  remarketingFlow Json?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id                       String    @id @default(cuid())
+  userId                   String
+  name                     String
+  tokenEncrypted           String
+  channelId                String?
+  isActive                 Boolean   @default(false)
+  gracePeriodDays          Int       @default(3)
+  remarketingFlow          Json?
+  channelPermissionError   String?
+  channelPermissionErrorAt DateTime?
+  createdAt                DateTime  @default(now())
+  updatedAt                DateTime  @updatedAt
 
   user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
   botProducts   BotProduct[]
@@ -125,6 +127,7 @@ model Bot {
   flowEdges     FlowEdge[]
   leads         Lead[]
   subscriptions Subscription[]
+  pendingKicks  PendingKick[]
 
   @@index([userId])
 }
@@ -318,4 +321,18 @@ model Subscription {
   @@index([leadId])
   @@index([status])
   @@index([tgUserId])
+}
+
+model PendingKick {
+  id             String   @id @default(cuid())
+  botId          String
+  subscriptionId String
+  tgUserId       String
+  groupChatId    String
+  failedAt       DateTime @default(now())
+  errorMessage   String?
+
+  bot Bot @relation(fields: [botId], references: [id], onDelete: Cascade)
+
+  @@index([botId])
 }

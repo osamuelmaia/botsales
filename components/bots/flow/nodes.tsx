@@ -160,11 +160,16 @@ export const StartNode = memo(function StartNode({ data, selected }: NodeProps) 
 // ─── GrantAccessNode ──────────────────────────────────────────────────────────
 
 export const GrantAccessNode = memo(function GrantAccessNode({ id, data, selected }: NodeProps) {
-  const d = data as { channelId?: string; chatTitle?: string; ctaText?: string }
+  const d = data as { channelId?: string; chatTitle?: string; ctaText?: string; _botPermissionError?: string }
   const configured = !!d.channelId?.trim()
   const ctaText = d.ctaText || "Acessar grupo"
+  const borderColor = d._botPermissionError
+    ? selected ? "border-amber-500" : "border-amber-400"
+    : configured
+      ? selected ? "border-emerald-500" : "border-emerald-300"
+      : selected ? "border-emerald-500" : "border-amber-400"
   return (
-    <div className={`group relative bg-white rounded-xl border-2 shadow-md min-w-[200px] max-w-[260px] transition-colors ${selected ? "border-emerald-500" : configured ? "border-emerald-300" : "border-amber-400"}`}>
+    <div className={`group relative bg-white rounded-xl border-2 shadow-md min-w-[200px] max-w-[260px] transition-colors ${borderColor}`}>
       <DeleteButton nodeId={id} />
       <div className="flex items-center gap-2 px-4 py-3 bg-emerald-50 rounded-t-xl border-b border-emerald-100">
         <Users className="h-4 w-4 text-emerald-600 shrink-0" />
@@ -180,6 +185,14 @@ export const GrantAccessNode = memo(function GrantAccessNode({ id, data, selecte
           <div className="flex items-center gap-1.5">
             <AlertCircle className="h-3.5 w-3.5 text-amber-500 shrink-0" />
             <p className="text-xs text-amber-700 font-medium">Configure o grupo/canal</p>
+          </div>
+        )}
+        {d._botPermissionError && (
+          <div className="flex items-start gap-1.5 mt-1.5 bg-amber-50 border border-amber-200 rounded-md px-2 py-1.5">
+            <AlertCircle className="h-3 w-3 text-amber-500 shrink-0 mt-0.5" />
+            <p className="text-[10px] text-amber-700 leading-tight">
+              Bot sem permissão de admin. Revalide o grupo para processar kicks pendentes.
+            </p>
           </div>
         )}
         <div className="bg-emerald-600 rounded-md px-2 py-1 text-center">

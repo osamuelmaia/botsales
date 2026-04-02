@@ -103,6 +103,30 @@ export async function POST(request: Request, { params }: Params) {
       // non-critical
     }
 
+    // Clear permission error and process pending kicks
+    await prisma.bot.update({
+      where: { id: params.id },
+      data: { channelPermissionError: null, channelPermissionErrorAt: null } as Record<string, unknown>,
+    })
+
+    const pendingKicks = await prisma.pendingKick.findMany({
+      where: { botId: params.id },
+    })
+
+    if (pendingKicks.length > 0) {
+      const { botQueue } = await import("@/workers/bot-worker")
+      for (const kick of pendingKicks) {
+        await botQueue.add("kick-member", {
+          type: "KICK_MEMBER" as const,
+          botId: kick.botId,
+          subscriptionId: kick.subscriptionId,
+          tgUserId: kick.tgUserId,
+          groupChatId: kick.groupChatId,
+        })
+      }
+      await prisma.pendingKick.deleteMany({ where: { botId: params.id } })
+    }
+
     return NextResponse.json({ valid: true, chatTitle })
   } catch {
     return NextResponse.json({ valid: false, error: "Erro ao validar grupo no Telegram" })

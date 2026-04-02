@@ -38,7 +38,7 @@ const typedEdgeTypes: EdgeTypes = edgeTypes
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface Product { id: string; name: string; priceInCents: number }
-interface FlowEditorProps { botId: string; botName: string; botChannelId?: string | null; products: Product[]; mode?: "main" | "remarketing" }
+interface FlowEditorProps { botId: string; botName: string; botChannelId?: string | null; channelPermissionError?: string | null; products: Product[]; mode?: "main" | "remarketing" }
 type NodeType = "text" | "image" | "video" | "audio" | "file" | "typing" | "button" | "delay" | "smart_delay" | "payment" | "grant_access"
 type Snapshot = { nodes: Node[]; edges: Edge[] }
 
@@ -197,7 +197,7 @@ const NODE_PICKER_ITEMS_REMARKETING: { type: NodeType; label: string; icon: stri
   { type: "payment", label: "Pagamento", icon: "💳", color: "bg-violet-500" },
 ]
 
-function FlowEditorInner({ botId, botName, products, mode = "main" }: FlowEditorProps) {
+function FlowEditorInner({ botId, botName, channelPermissionError, products, mode = "main" }: FlowEditorProps) {
   const [activeMode, setActiveMode] = useState<"main" | "remarketing">(mode)
   const [pendingMode, setPendingMode] = useState<"main" | "remarketing" | null>(null)
   const [showSwitchTabDialog, setShowSwitchTabDialog] = useState(false)
@@ -339,11 +339,13 @@ function FlowEditorInner({ botId, botName, products, mode = "main" }: FlowEditor
         // ── Process main flow ──────────────────────────────────────────────
         const rawMain: Node[] = mainData.nodes ?? []
         const mainEdges: Edge[] = mainData.edges ?? []
-        const mainNodes = rawMain.map((node) =>
-          node.type === "start"
-            ? { ...node, data: { ...node.data, botName } }
-            : node
-        )
+        const mainNodes = rawMain.map((node) => {
+          if (node.type === "start") return { ...node, data: { ...node.data, botName } }
+          if (node.type === "grant_access" && channelPermissionError) {
+            return { ...node, data: { ...node.data, _botPermissionError: channelPermissionError } }
+          }
+          return node
+        })
         mainStashRef.current = { nodes: mainNodes, edges: mainEdges }
 
         // ── Process remarketing flow ───────────────────────────────────────

@@ -18,6 +18,7 @@ export async function GET() {
       name: true,
       isActive: true,
       createdAt: true,
+      channelPermissionError: true,
       _count: { select: { botProducts: true } },
     },
   })

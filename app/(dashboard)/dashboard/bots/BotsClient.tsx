@@ -3,7 +3,7 @@
 import useSWR from "swr"
 import { useState } from "react"
 import { toast } from "sonner"
-import { Plus, Settings, Trash2, Bot, Loader2, GitBranch } from "lucide-react"
+import { Plus, Settings, Trash2, Bot, Loader2, GitBranch, AlertTriangle } from "lucide-react"
 import * as Dialog from "@radix-ui/react-dialog"
 import * as AlertDialog from "@radix-ui/react-alert-dialog"
 import { useRouter } from "next/navigation"
@@ -17,6 +17,7 @@ interface BotListItem {
   name: string
   isActive: boolean
   createdAt: string
+  channelPermissionError: string | null
   _count: { botProducts: number }
 }
 
@@ -106,11 +107,23 @@ function BotCard({ bot, onDelete, onUpdated }: { bot: BotListItem; onDelete: (id
             {bot.isActive ? "Ativo" : "Inativo"}
           </span>
         </div>
-        <p className="text-sm text-gray-400 mb-4">
+        {bot.channelPermissionError && (
+          <span className="flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 mb-1 w-fit">
+            <AlertTriangle className="h-3 w-3" />
+            Necessita ajuste
+          </span>
+        )}
+        <p className="text-sm text-gray-400 mb-1">
           {bot._count.botProducts === 0
             ? "Nenhum produto vinculado"
             : `${bot._count.botProducts} produto${bot._count.botProducts > 1 ? "s" : ""} vinculado${bot._count.botProducts > 1 ? "s" : ""}`}
         </p>
+        {bot.channelPermissionError && (
+          <p className="text-xs text-amber-600 mb-3 flex items-start gap-1">
+            <AlertTriangle className="h-3 w-3 shrink-0 mt-0.5" />
+            <span>Bot sem permissão de admin no grupo. Abra o fluxo, revalide o nó <strong>Liberar acesso ao canal</strong> e salve.</span>
+          </p>
+        )}
         <div className="flex items-center gap-2">
           <button onClick={() => setConfigOpen(true)}
             className="flex items-center gap-1.5 h-8 px-3 rounded-md border border-gray-300 text-sm text-gray-700 hover:bg-gray-50 transition-colors">
