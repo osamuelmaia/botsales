@@ -54,7 +54,7 @@ function getDefaultData(type: NodeType): Record<string, unknown> {
     case "delay": return { amount: 5, unit: "seconds" }
     case "smart_delay": return { minAmount: 1, maxAmount: 5, unit: "seconds", showTyping: false }
     case "payment": return { productId: "", productName: "", image: "", imageMediaId: "", text: "", ctaText: "Pagar agora" }
-    case "grant_access": return { channelId: "", chatTitle: "" }
+    case "grant_access": return { channelId: "", chatTitle: "", ctaText: "Acessar grupo" }
   }
 }
 

@@ -119,12 +119,13 @@ function CheckoutLinkCopy({ productId }: { productId: string }) {
 export function NodeConfigPanel({ node, botId, botName, products, onUpdate, onClose }: NodeConfigPanelProps) {
   const data = node.data as Record<string, unknown>
 
-  // Start
+  // Grant access / Start (shared channel state)
   const [channelIdStart, setChannelIdStart] = useState(String(data.channelId ?? ""))
   const [validatingChannel, setValidatingChannel] = useState(false)
   const [channelValid, setChannelValid] = useState<boolean | null>(data.channelId ? true : null)
   const [channelError, setChannelError] = useState("")
   const [chatTitle, setChatTitle] = useState(String(data.chatTitle ?? ""))
+  const [grantCtaText, setGrantCtaText] = useState(String(data.ctaText ?? "Acessar grupo"))
 
   // Text
   const [textContent, setTextContent] = useState(String(data.content ?? ""))
@@ -184,6 +185,7 @@ export function NodeConfigPanel({ node, botId, botName, products, onUpdate, onCl
     const d = node.data as Record<string, unknown>
     setChannelIdStart(String(d.channelId ?? "")); setChannelValid(d.channelId ? true : null)
     setChatTitle(String(d.chatTitle ?? "")); setChannelError("")
+    setGrantCtaText(String(d.ctaText ?? "Acessar grupo"))
     setTextContent(String(d.content ?? ""))
     setImageUrl(String(d.url ?? "")); setImageMediaId(String(d.mediaId ?? "")); setImageCaption(String(d.caption ?? ""))
     setVideoUrl(String(d.url ?? "")); setVideoMediaId(String(d.mediaId ?? "")); setVideoCaption(String(d.caption ?? ""))
@@ -272,8 +274,22 @@ export function NodeConfigPanel({ node, botId, botName, products, onUpdate, onCl
         {node.type === "grant_access" && (
           <div className="space-y-4">
             <p className="text-xs text-gray-500">
-              Quando executado, o bot gera um link de convite único e envia ao cliente. Use após o nó de <strong>Pagamento aprovado</strong>.
+              O bot gera um link de convite único e envia ao cliente com um botão. Use após o nó de <strong>Pagamento aprovado</strong>.
             </p>
+
+            {/* CTA text */}
+            <div>
+              <label className={labelCls}>Texto do botão de acesso</label>
+              <input
+                value={grantCtaText}
+                onChange={(e) => { setGrantCtaText(e.target.value); emit({ ctaText: e.target.value }) }}
+                className={inputCls}
+                placeholder="Acessar grupo"
+              />
+              <p className="text-xs text-gray-400 mt-1">Texto exibido no botão que o usuário clica para entrar</p>
+            </div>
+
+            {/* Channel ID */}
             <div>
               <label className={labelCls}>ID do Grupo/Canal <span className="text-red-500">*</span></label>
               <div className="flex gap-2">
@@ -297,8 +313,19 @@ export function NodeConfigPanel({ node, botId, botName, products, onUpdate, onCl
                   <p className="text-xs text-red-600">{channelError}</p>
                 </div>
               )}
-              <p className="text-xs text-gray-400 mt-1.5">
-                O bot deve ser administrador com permissão para banir membros. Copie o ID do grupo (ex: <code className="bg-gray-100 px-0.5 rounded">-100...</code>).
+            </div>
+
+            {/* Tutorial */}
+            <div className="bg-blue-50 border border-blue-100 rounded-lg p-3 space-y-2">
+              <p className="text-xs font-semibold text-blue-800">Como obter o ID do grupo?</p>
+              <ol className="text-xs text-blue-700 space-y-1.5 list-decimal list-inside">
+                <li>Adicione o bot ao grupo como <strong>administrador</strong></li>
+                <li>Ative a permissão <strong>&quot;Banir membros&quot;</strong> para ele</li>
+                <li>No Telegram Web, abra o grupo — o ID aparece na URL: <code className="bg-blue-100 px-0.5 rounded">web.telegram.org/k/#-1001234567</code></li>
+                <li>Copie o número com o prefixo <code className="bg-blue-100 px-0.5 rounded">-100</code> (ex: <code className="bg-blue-100 px-0.5 rounded">-1001234567</code>)</li>
+              </ol>
+              <p className="text-[10px] text-blue-600">
+                Alternativa: encaminhe qualquer mensagem do grupo para <strong>@userinfobot</strong> no Telegram — ele responde com o ID.
               </p>
             </div>
           </div>

@@ -160,8 +160,9 @@ export const StartNode = memo(function StartNode({ data, selected }: NodeProps) 
 // ─── GrantAccessNode ──────────────────────────────────────────────────────────
 
 export const GrantAccessNode = memo(function GrantAccessNode({ id, data, selected }: NodeProps) {
-  const d = data as { channelId?: string; chatTitle?: string }
+  const d = data as { channelId?: string; chatTitle?: string; ctaText?: string }
   const configured = !!d.channelId?.trim()
+  const ctaText = d.ctaText || "Acessar grupo"
   return (
     <div className={`group relative bg-white rounded-xl border-2 shadow-md min-w-[200px] max-w-[260px] transition-colors ${selected ? "border-emerald-500" : configured ? "border-emerald-300" : "border-amber-400"}`}>
       <DeleteButton nodeId={id} />
@@ -169,7 +170,7 @@ export const GrantAccessNode = memo(function GrantAccessNode({ id, data, selecte
         <Users className="h-4 w-4 text-emerald-600 shrink-0" />
         <span className="text-sm font-semibold text-emerald-800">Liberar acesso ao canal</span>
       </div>
-      <div className="px-4 py-2">
+      <div className="px-4 py-2 space-y-1.5">
         {configured ? (
           <div className="flex items-center gap-1.5">
             <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
@@ -181,7 +182,9 @@ export const GrantAccessNode = memo(function GrantAccessNode({ id, data, selecte
             <p className="text-xs text-amber-700 font-medium">Configure o grupo/canal</p>
           </div>
         )}
-        <p className="text-xs text-gray-400 mt-1">Envia link de convite ao cliente aprovado</p>
+        <div className="bg-emerald-600 rounded-md px-2 py-1 text-center">
+          <span className="text-[10px] text-white font-medium">{ctaText}</span>
+        </div>
       </div>
       <Handle type="target" position={Position.Left} className={`${handleStyle} !bg-emerald-400`} />
       <Handle type="source" position={Position.Right} className={`${handleStyle} !bg-emerald-500`} />
@@ -462,6 +465,21 @@ export const RemarketingStartNode = memo(function RemarketingStartNode({ selecte
   )
 })
 
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function hasDownstreamType(startNodeId: string, type: string, edges: ReturnType<typeof useEdges>, nodes: ReturnType<typeof useNodes>): boolean {
+  const visited = new Set<string>()
+  const queue = [startNodeId]
+  while (queue.length) {
+    const current = queue.shift()!
+    if (visited.has(current)) continue
+    visited.add(current)
+    if (nodes.find((n) => n.id === current)?.type === type) return true
+    edges.filter((e) => e.source === current).forEach((e) => queue.push(e.target))
+  }
+  return false
+}
+
 // ─── PaymentNode ──────────────────────────────────────────────────────────────
 
 export const PaymentNode = memo(function PaymentNode({ id, data, selected }: NodeProps) {
@@ -473,8 +491,7 @@ export const PaymentNode = memo(function PaymentNode({ id, data, selected }: Nod
   const edges = useEdges()
   const allNodes = useNodes()
   const approvedEdge = edges.find((e) => e.source === id && e.sourceHandle === "approved")
-  const approvedTarget = approvedEdge ? allNodes.find((n) => n.id === approvedEdge.target) : null
-  const showGrantHint = approvedTarget?.type !== "grant_access"
+  const showGrantHint = !approvedEdge || !hasDownstreamType(approvedEdge.target, "grant_access", edges, allNodes)
 
   return (
     <div ref={containerRef} className={`group relative bg-white rounded-xl border-2 shadow-md min-w-[200px] max-w-[260px] transition-colors ${selected ? "border-violet-500" : "border-violet-200"}`}>
@@ -505,12 +522,12 @@ export const PaymentNode = memo(function PaymentNode({ id, data, selected }: Nod
         )}
       </div>
 
-      {/* Hint: suggest grant_access when "Aprovado" doesn't lead to one */}
+      {/* Hint: suggest grant_access when "Aprovado" path has no grant_access downstream */}
       {showGrantHint && (
         <div className="mx-3 mb-2 flex items-start gap-1.5 bg-amber-50 border border-amber-100 rounded-lg px-2 py-1.5">
           <AlertCircle className="h-3 w-3 text-amber-500 shrink-0 mt-0.5" />
           <p className="text-[10px] text-amber-700 leading-tight">
-            Conecte <strong>Aprovado</strong> ao nó <strong>Liberar acesso ao canal</strong> para enviar o link do grupo automaticamente
+            <strong>Recomendado:</strong> conecte o fluxo <strong>Aprovado</strong> ao nó <strong>Liberar acesso ao canal</strong> para enviar o convite do grupo ao usuário automaticamente
           </p>
         </div>
       )}
