@@ -238,6 +238,33 @@ async function executeNode(
       break
     }
 
+    case "GRANT_ACCESS": {
+      const channelId = (data.channelId as string) ?? ""
+      const ctaText = (data.ctaText as string) || "Acessar grupo"
+      if (channelId) {
+        try {
+          const inviteLink = await TelegramService.createChatInviteLink(token, channelId)
+          await tg(token, "sendMessage", {
+            chat_id: chatId,
+            text: `✅ Acesso liberado! Clique no botão abaixo para entrar no grupo:`,
+            parse_mode: "Markdown",
+            reply_markup: {
+              inline_keyboard: [[{ text: ctaText, url: inviteLink }]],
+            },
+          })
+          console.log(`[GRANT_ACCESS] sent invite for group ${channelId} to chat ${chatId}`)
+        } catch (err) {
+          console.error(`[GRANT_ACCESS] failed to create invite for group ${channelId}:`, err)
+          // Send fallback message so user knows something went wrong
+          await tg(token, "sendMessage", {
+            chat_id: chatId,
+            text: "⚠️ Houve um problema ao gerar seu link de acesso. Entre em contato com o vendedor.",
+          })
+        }
+      }
+      break
+    }
+
     case "PAYMENT": {
       const productId = data.productId as string | undefined
       if (productId) {

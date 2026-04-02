@@ -35,13 +35,11 @@ async function resumeFlowFromPayment(
     select: { botId: true, tgChatId: true, paymentNodeId: true },
   })
 
-  // Only resume if the sale was created from a bot flow (has context)
   if (!sale?.botId || !sale.tgChatId || !sale.paymentNodeId) return
 
   const chatId = parseInt(sale.tgChatId, 10)
   if (isNaN(chatId)) return
 
-  // Find the edge leaving the PAYMENT node via the appropriate handle
   const edge = await prisma.flowEdge.findFirst({
     where: {
       botId: sale.botId,
@@ -52,23 +50,73 @@ async function resumeFlowFromPayment(
 
   if (!edge) return
 
-  // Resume the flow from the target node
   await executeFlow(sale.botId, chatId, edge.targetNodeId)
 }
 
 // ─── Subscription lifecycle helpers ──────────────────────────────────────────
 
 /**
- * Called when a recurring charge is confirmed.
- * - If subscription is ACTIVE: extends currentPeriodEnd by 30 days (monthly)
- * - If subscription is REMARKETING or KICKED: lift ban, send invite link, mark ACTIVE
+ * Creates a Subscription record when a recurring product's first payment is confirmed.
+ * Called only for card payments on recurring products.
  */
-async function handleSubscriptionRenewal(gatewayChargeId: string): Promise<void> {
+async function createSubscriptionRecord(
+  sale: {
+    id: string
+    botId: string | null
+    productId: string
+    leadId: string | null
+    tgChatId: string | null
+    gatewayId: string | null
+  },
+  asaasSubscriptionId: string | null
+): Promise<void> {
+  if (!sale.botId || !sale.leadId || !sale.tgChatId) return
+
+  // Check if subscription already exists for this sale
+  const existing = await prisma.subscription.findFirst({
+    where: { botId: sale.botId, leadId: sale.leadId, productId: sale.productId },
+  })
+  if (existing) return
+
+  const bot = await prisma.bot.findUnique({ where: { id: sale.botId } })
+  if (!bot?.channelId) return
+
+  const now = new Date()
+  const periodEnd = addCalendarDays(now, 30) // default 30 days for monthly
+
+  await prisma.subscription.create({
+    data: {
+      botId: sale.botId,
+      leadId: sale.leadId,
+      productId: sale.productId,
+      groupTgChatId: bot.channelId,
+      tgUserId: sale.tgChatId,
+      status: "ACTIVE",
+      currentPeriodEnd: periodEnd,
+      gatewayChargeId: asaasSubscriptionId ?? sale.gatewayId,
+    },
+  })
+
+  console.log(`[subscription] created for sale=${sale.id} lead=${sale.leadId}`)
+}
+
+/**
+ * Called when a recurring charge is confirmed (renewal).
+ * Uses the Asaas subscription ID to find our Subscription record.
+ */
+async function handleSubscriptionRenewal(
+  asaasSubscriptionId: string,
+  asaasPaymentId: string
+): Promise<void> {
+  // Find subscription by the Asaas subscription ID stored in gatewayChargeId
   const subscription = await prisma.subscription.findFirst({
-    where: { gatewayChargeId },
+    where: { gatewayChargeId: asaasSubscriptionId },
     include: { bot: true },
   })
-  if (!subscription) return
+  if (!subscription) {
+    console.warn(`[subscription] renewal: no subscription found for asaas sub ${asaasSubscriptionId}`)
+    return
+  }
 
   const newPeriodEnd = new Date(subscription.currentPeriodEnd)
   newPeriodEnd.setMonth(newPeriodEnd.getMonth() + 1)
@@ -76,7 +124,6 @@ async function handleSubscriptionRenewal(gatewayChargeId: string): Promise<void>
   const token = decryptToken(subscription.bot.tokenEncrypted)
 
   if (subscription.status === "KICKED") {
-    // User was banned — lift ban and send fresh invite link
     try {
       await TelegramService.unbanChatMember(token, subscription.groupTgChatId, subscription.tgUserId)
       const inviteLink = await TelegramService.createChatInviteLink(token, subscription.groupTgChatId)
@@ -96,19 +143,19 @@ async function handleSubscriptionRenewal(gatewayChargeId: string): Promise<void>
       status: "ACTIVE",
       currentPeriodEnd: newPeriodEnd,
       remarketingStart: null,
+      gatewayChargeId: asaasSubscriptionId, // keep consistent
     },
   })
 
-  console.log(`[subscription] renewed ${subscription.id} → new period end ${newPeriodEnd.toISOString()}`)
+  console.log(`[subscription] renewed ${subscription.id} via payment ${asaasPaymentId} → new period end ${newPeriodEnd.toISOString()}`)
 }
 
 /**
  * Called when a recurring charge is refused.
- * Marks subscription as REMARKETING (worker handles the grace period kick).
  */
-async function handleSubscriptionRefused(gatewayChargeId: string): Promise<void> {
+async function handleSubscriptionRefused(asaasSubscriptionId: string): Promise<void> {
   const subscription = await prisma.subscription.findFirst({
-    where: { gatewayChargeId, status: "ACTIVE" },
+    where: { gatewayChargeId: asaasSubscriptionId, status: "ACTIVE" },
   })
   if (!subscription) return
 
@@ -123,10 +170,8 @@ async function handleSubscriptionRefused(gatewayChargeId: string): Promise<void>
 // ─── POST /api/webhooks/payment ───────────────────────────────────────────────
 
 export async function POST(req: NextRequest) {
-  // 1. Read raw body (before any parsing)
   const rawBody = await req.text()
 
-  // 2. Validate signature — Asaas sends configured token in `asaas-access-token`
   const signature = req.headers.get("asaas-access-token") ?? ""
 
   let parsed: unknown
@@ -143,7 +188,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Assinatura inválida" }, { status: 401 })
   }
 
-  // Ignore unknown events
   if (event.type === "UNKNOWN" || !event.saleId) {
     return NextResponse.json({ ok: true })
   }
@@ -151,14 +195,23 @@ export async function POST(req: NextRequest) {
   // Find sale by externalReference (= Sale.id)
   const sale = await prisma.sale.findUnique({ where: { id: event.saleId } })
   if (!sale) {
-    // Not our sale — return 200 so Asaas stops retrying
     return NextResponse.json({ ok: true })
   }
 
   const now = new Date()
 
+  // ── Idempotency: skip if already processed ─────────────────────────────
+  if (event.type === "PAYMENT_CONFIRMED" && sale.status === "APPROVED") {
+    return NextResponse.json({ ok: true })
+  }
+  if (event.type === "PAYMENT_REFUSED" && sale.status === "REFUSED") {
+    return NextResponse.json({ ok: true })
+  }
+  if (event.type === "PAYMENT_REFUNDED" && sale.status === "REFUNDED") {
+    return NextResponse.json({ ok: true })
+  }
+
   if (event.type === "PAYMENT_CONFIRMED") {
-    // availableAt: PIX = +1 dia útil / Cartão = +30 dias corridos
     const availableAt =
       event.paymentMethod === "PIX"
         ? addBusinessDays(now, 1)
@@ -175,27 +228,44 @@ export async function POST(req: NextRequest) {
       },
     })
 
-    // Continue bot flow from "approved" handle — fire-and-forget
-    resumeFlowFromPayment(sale.id, "approved").catch(console.error)
+    // Continue bot flow from "approved" handle
+    resumeFlowFromPayment(sale.id, "approved").catch((err) =>
+      console.error("[webhook] resumeFlowFromPayment failed:", err)
+    )
 
-    // If this charge belongs to a recurring subscription, renew it
-    if (event.gatewayId) {
-      handleSubscriptionRenewal(event.gatewayId).catch(console.error)
+    // If this is a recurring product, create or renew Subscription
+    if (event.subscriptionId) {
+      // Check if this is the first payment (create) or renewal
+      const existingSub = await prisma.subscription.findFirst({
+        where: { gatewayChargeId: event.subscriptionId },
+      })
+
+      if (existingSub) {
+        handleSubscriptionRenewal(event.subscriptionId, event.gatewayId).catch(console.error)
+      } else {
+        // First payment — create the Subscription record
+        const fullSale = await prisma.sale.findUnique({
+          where: { id: sale.id },
+          select: { id: true, botId: true, productId: true, leadId: true, tgChatId: true, gatewayId: true },
+        })
+        if (fullSale) {
+          createSubscriptionRecord(fullSale, event.subscriptionId).catch(console.error)
+        }
+      }
     }
-
   } else if (event.type === "PAYMENT_REFUSED") {
     await prisma.sale.update({
       where: { id: sale.id },
       data: { status: "REFUSED", gatewayId: event.gatewayId, gatewayStatus: "REFUSED" },
     })
 
-    resumeFlowFromPayment(sale.id, "refused").catch(console.error)
+    resumeFlowFromPayment(sale.id, "refused").catch((err) =>
+      console.error("[webhook] resumeFlowFromPayment refused:", err)
+    )
 
-    // If this is a recurring subscription charge that was refused, start remarketing
-    if (event.gatewayId) {
-      handleSubscriptionRefused(event.gatewayId).catch(console.error)
+    if (event.subscriptionId) {
+      handleSubscriptionRefused(event.subscriptionId).catch(console.error)
     }
-
   } else if (event.type === "PAYMENT_REFUNDED") {
     await prisma.sale.update({
       where: { id: sale.id },
@@ -207,7 +277,9 @@ export async function POST(req: NextRequest) {
       },
     })
 
-    resumeFlowFromPayment(sale.id, "refunded").catch(console.error)
+    resumeFlowFromPayment(sale.id, "refunded").catch((err) =>
+      console.error("[webhook] resumeFlowFromPayment refunded:", err)
+    )
   }
 
   return NextResponse.json({ ok: true })

@@ -1,9 +1,10 @@
 /**
  * GatewayService — abstração sobre a API REST do Asaas
  *
- * Sandbox: https://sandbox.asaas.com/api/v3  (NODE_ENV !== 'production')
+ * Sandbox: https://sandbox.asaas.com/api/v3
  * Produção: https://api.asaas.com/api/v3
  *
+ * Controle de ambiente: ASAAS_ENVIRONMENT=production|sandbox (default: sandbox)
  * Autenticação: header `access_token: $GATEWAY_API_KEY`
  */
 
@@ -12,9 +13,13 @@ import crypto from "crypto"
 // ─── Base URL ─────────────────────────────────────────────────────────────────
 
 const BASE_URL =
-  process.env.NODE_ENV === "production"
+  process.env.ASAAS_ENVIRONMENT === "production"
     ? "https://api.asaas.com/api/v3"
     : "https://sandbox.asaas.com/api/v3"
+
+// ─── Constants ────────────────────────────────────────────────────────────────
+
+const REQUEST_TIMEOUT = 15_000 // 15 seconds
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -29,6 +34,7 @@ export interface WebhookEvent {
   type: WebhookEventType
   saleId: string         // externalReference do Asaas = Sale.id
   gatewayId: string      // ID do pagamento no Asaas
+  subscriptionId: string | null // ID da assinatura no Asaas (se recorrente)
   paymentMethod: "PIX" | "CREDIT_CARD" | null
 }
 
@@ -43,6 +49,7 @@ interface AsaasPayment {
   externalReference: string
   dueDate: string
   value: number
+  subscription?: string // Asaas subscription ID (present for recurring charges)
 }
 
 interface AsaasSubscription {
@@ -81,6 +88,7 @@ async function asaasRequest<T>(
       access_token: apiKey(),
     },
     ...(body ? { body: JSON.stringify(body) } : {}),
+    signal: AbortSignal.timeout(REQUEST_TIMEOUT),
   })
 
   if (!res.ok) {
@@ -97,8 +105,6 @@ const asaasPost = <T>(path: string, body: unknown) => asaasRequest<T>("POST", pa
 const asaasDelete = (path: string) => asaasRequest<void>("DELETE", path)
 
 // ─── Business day helper ──────────────────────────────────────────────────────
-// Nota: não considera feriados nacionais — apenas fim de semana.
-// Para versão completa, integrar com API de feriados futuramente.
 
 function addBusinessDays(date: Date, days: number): Date {
   const result = new Date(date)
@@ -132,13 +138,13 @@ async function findOrCreateCustomer(params: CustomerParams): Promise<string> {
       {
         method: "GET",
         headers: { "Content-Type": "application/json", access_token: apiKey() },
+        signal: AbortSignal.timeout(REQUEST_TIMEOUT),
       }
     )
     if (res.ok) {
       const search = await res.json() as { data: AsaasCustomer[] }
       if (search.data?.length > 0) return search.data[0].id
     }
-    // 404 = no customers yet, proceed to create
   } catch {
     // network error on search — proceed to create
   }
@@ -192,7 +198,6 @@ export const GatewayService = {
 
   /**
    * Cria cobrança PIX avulsa.
-   * Retorna o código copia-e-cola e a data de expiração.
    */
   async createPixCharge(params: {
     customerName: string
@@ -208,7 +213,6 @@ export const GatewayService = {
       cpfCnpj: params.customerCpfCnpj,
     })
 
-    // Vencimento: próximo dia útil
     const dueDate = addBusinessDays(new Date(), 1).toISOString().slice(0, 10)
 
     const payment = await asaasPost<AsaasPayment>("/payments", {
@@ -220,7 +224,6 @@ export const GatewayService = {
       externalReference: params.externalReference,
     })
 
-    // Busca o QR Code / copia-e-cola
     const qrCode = await asaasGet<AsaasQrCode>(`/payments/${payment.id}/pixQrCode`)
 
     const expiresAt = qrCode.expirationDate
@@ -237,7 +240,6 @@ export const GatewayService = {
 
   /**
    * Cria assinatura recorrente (cartão de crédito).
-   * Retorna o ID da assinatura e o link de pagamento para o cliente.
    */
   async createSubscription(params: {
     customerName: string
@@ -280,27 +282,23 @@ export const GatewayService = {
    * Valida e parseia um evento de webhook do Asaas.
    *
    * Asaas envia o token configurado no header `asaas-access-token`.
-   * Comparamos com GATEWAY_WEBHOOK_SECRET para autenticar a origem.
-   *
-   * @throws Error se a assinatura for inválida
+   * Comparamos com GATEWAY_WEBHOOK_SECRET usando hash SHA-256
+   * para garantir constant-time comparison sem vazar o comprimento.
    */
   parseWebhook(payload: unknown, signature: string): WebhookEvent {
     const secret = process.env.GATEWAY_WEBHOOK_SECRET
     if (!secret) throw new Error("GATEWAY_WEBHOOK_SECRET não configurado")
 
-    // Constant-time comparison para evitar timing attacks
-    const sigBuf = Buffer.from(signature)
-    const secretBuf = Buffer.from(secret)
-    const valid =
-      sigBuf.length === secretBuf.length &&
-      crypto.timingSafeEqual(sigBuf, secretBuf)
+    // Hash both values so timingSafeEqual compares fixed-length digests
+    const hash = (s: string) => crypto.createHash("sha256").update(s).digest()
+    const valid = crypto.timingSafeEqual(hash(signature), hash(secret))
 
     if (!valid) throw new Error("Assinatura de webhook inválida")
 
     const body = payload as AsaasWebhookPayload
 
     const payment = body.payment
-    if (!payment) return { type: "UNKNOWN", saleId: "", gatewayId: "", paymentMethod: null }
+    if (!payment) return { type: "UNKNOWN", saleId: "", gatewayId: "", subscriptionId: null, paymentMethod: null }
 
     const methodMap: Record<string, "PIX" | "CREDIT_CARD"> = {
       PIX: "PIX",
@@ -319,6 +317,7 @@ export const GatewayService = {
       type: typeMap[body.event] ?? "UNKNOWN",
       saleId: payment.externalReference,
       gatewayId: payment.id,
+      subscriptionId: payment.subscription ?? null,
       paymentMethod,
     }
   },

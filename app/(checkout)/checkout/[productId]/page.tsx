@@ -156,13 +156,16 @@ export default function CheckoutPage() {
     setSubmitting(true)
 
     const expiryParts = cardExpiry.split("/")
+    // Normalise year: "25" → "25", "2025" → "25" (API handles both)
+    let expiryYear = expiryParts[1] ?? ""
+    if (expiryYear.length === 4) expiryYear = expiryYear.slice(2)
+
     const body = {
       method: selectedMethod,
       name,
       email,
       cpf: cpf.replace(/\D/g, ""),
       phone: phone.replace(/\D/g, ""),
-      // Telegram context (present when checkout opened from bot)
       ...(tgChatId && { tgChatId }),
       ...(tgBotId && { tgBotId }),
       ...(tgNodeId && { tgNodeId }),
@@ -170,7 +173,7 @@ export default function CheckoutPage() {
         cardHolderName: cardHolder,
         cardNumber: cardNumber.replace(/\s/g, ""),
         cardExpiryMonth: expiryParts[0],
-        cardExpiryYear: expiryParts[1],
+        cardExpiryYear: expiryYear,
         cardCvv,
         cardPostalCode: cardPostalCode.replace(/\D/g, ""),
       }),

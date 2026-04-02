@@ -1,6 +1,33 @@
 import { NextRequest, NextResponse } from "next/server"
+import { z } from "zod"
 import { prisma } from "@/lib/prisma"
 import { GatewayService } from "@/lib/gateway"
+
+// ─── Validation ──────────────────────────────────────────────────────────────
+
+const cpfRegex = /^\d{11}$/
+const cuidRegex = /^c[a-z0-9]{24}$/
+
+const paymentBodySchema = z.object({
+  method: z.enum(["PIX", "CREDIT_CARD"]),
+  name: z.string().min(2, "Nome deve ter ao menos 2 caracteres").max(200),
+  email: z.string().email("E-mail inválido").max(320),
+  cpf: z.string().transform(v => v.replace(/\D/g, "")).pipe(
+    z.string().regex(cpfRegex, "CPF deve ter 11 dígitos")
+  ),
+  phone: z.string().max(20).default(""),
+  // Telegram context (optional)
+  tgChatId: z.string().max(30).optional(),
+  tgBotId: z.string().max(30).optional(),
+  tgNodeId: z.string().max(30).optional(),
+  // Card-only fields (validated conditionally below)
+  cardHolderName: z.string().max(200).optional(),
+  cardNumber: z.string().max(25).optional(),
+  cardExpiryMonth: z.string().max(2).optional(),
+  cardExpiryYear: z.string().max(4).optional(),
+  cardCvv: z.string().max(4).optional(),
+  cardPostalCode: z.string().max(10).optional(),
+})
 
 // ─── POST /api/checkout/[productId]/pay ───────────────────────────────────────
 
@@ -8,6 +35,11 @@ export async function POST(
   req: NextRequest,
   { params }: { params: { productId: string } }
 ) {
+  // ── 0. Validate productId ───────────────────────────────────────────────
+  if (!cuidRegex.test(params.productId)) {
+    return NextResponse.json({ error: "ID de produto inválido" }, { status: 400 })
+  }
+
   // ── 1. Load product + owner ──────────────────────────────────────────────
   const product = await prisma.product.findUnique({
     where: { id: params.productId },
@@ -34,56 +66,46 @@ export async function POST(
     )
   }
 
-  // ── 2. Parse body ────────────────────────────────────────────────────────
-  let body: {
-    method: "PIX" | "CREDIT_CARD"
-    name: string
-    email: string
-    cpf: string
-    phone: string
-    // Telegram context — present when checkout is opened from a bot flow
-    tgChatId?: string
-    tgBotId?: string
-    tgNodeId?: string
-    // Card-only fields
-    cardHolderName?: string
-    cardNumber?: string
-    cardExpiryMonth?: string
-    cardExpiryYear?: string
-    cardCvv?: string
-    cardPostalCode?: string
-  }
-
+  // ── 2. Parse + validate body ─────────────────────────────────────────────
+  let rawBody: unknown
   try {
-    body = await req.json()
+    rawBody = await req.json()
   } catch {
     return NextResponse.json({ error: "Requisição inválida" }, { status: 400 })
   }
 
-  const { method, name, email, cpf, phone, tgChatId, tgBotId, tgNodeId } = body
-
-  if (!method || !name || !email || !cpf) {
-    return NextResponse.json({ error: "Dados obrigatórios ausentes" }, { status: 400 })
+  const parsed = paymentBodySchema.safeParse(rawBody)
+  if (!parsed.success) {
+    return NextResponse.json(
+      { error: parsed.error.issues[0]?.message ?? "Dados inválidos" },
+      { status: 422 }
+    )
   }
+
+  const { method, name, email, cpf, phone, tgChatId, tgBotId, tgNodeId } = parsed.data
 
   if (!product.paymentMethods.includes(method)) {
     return NextResponse.json({ error: "Método de pagamento não aceito" }, { status: 400 })
   }
 
+  // Validate card fields when method is CREDIT_CARD
+  if (method === "CREDIT_CARD") {
+    const { cardHolderName, cardNumber, cardExpiryMonth, cardExpiryYear, cardCvv, cardPostalCode } = parsed.data
+    if (!cardHolderName || !cardNumber || !cardExpiryMonth || !cardExpiryYear || !cardCvv || !cardPostalCode) {
+      return NextResponse.json({ error: "Dados do cartão incompletos" }, { status: 400 })
+    }
+  }
+
   // ── 3. Find or create Lead ───────────────────────────────────────────────
-  // When coming from the bot, tgBotId + tgChatId identify the lead precisely.
-  // When coming from a direct web checkout, fall back to email as placeholder.
   let lead = null
 
   if (tgBotId && tgChatId) {
-    // Real Telegram lead: upsert by botId + telegramId (chatId)
     lead = await prisma.lead.upsert({
       where: { botId_telegramId: { botId: tgBotId, telegramId: tgChatId } },
       create: { botId: tgBotId, telegramId: tgChatId, name, email, phone: phone || null },
       update: { name, email: email || undefined, phone: phone || null },
     })
   } else {
-    // Web checkout: search by email across the seller's bots
     lead = await prisma.lead.findFirst({
       where: { bot: { userId: product.userId }, email },
     })
@@ -104,7 +126,7 @@ export async function POST(
   const feePercent = Number(product.user.platformFeePercent)
   const feeFixed = product.user.platformFeeCents
   const feeAmountCents = Math.round((product.priceInCents * feePercent) / 100) + feeFixed
-  const netAmountCents = product.priceInCents - feeAmountCents
+  const netAmountCents = Math.max(product.priceInCents - feeAmountCents, 0)
 
   // ── 5. Create Sale (PENDING) ─────────────────────────────────────────────
   const sale = await prisma.sale.create({
@@ -112,7 +134,6 @@ export async function POST(
       userId: product.userId,
       productId: product.id,
       leadId: lead?.id ?? null,
-      // Telegram context (only when coming from bot)
       botId: tgBotId ?? null,
       tgChatId: tgChatId ?? null,
       paymentNodeId: tgNodeId ?? null,
@@ -130,7 +151,7 @@ export async function POST(
       const charge = await GatewayService.createPixCharge({
         customerName: name,
         customerEmail: email,
-        customerCpfCnpj: cpf.replace(/\D/g, ""),
+        customerCpfCnpj: cpf,
         amountCents: product.priceInCents,
         description: product.name,
         externalReference: sale.id,
@@ -150,23 +171,24 @@ export async function POST(
     }
 
     if (method === "CREDIT_CARD") {
-      const { cardHolderName, cardNumber, cardExpiryMonth, cardExpiryYear, cardCvv, cardPostalCode } = body
+      const { cardHolderName, cardNumber, cardExpiryMonth, cardExpiryYear, cardCvv, cardPostalCode } = parsed.data
 
-      if (!cardHolderName || !cardNumber || !cardExpiryMonth || !cardExpiryYear || !cardCvv || !cardPostalCode) {
-        await prisma.sale.delete({ where: { id: sale.id } })
-        return NextResponse.json({ error: "Dados do cartão incompletos" }, { status: 400 })
+      // Normalise year to 4-digit for Asaas
+      let expiryYear = cardExpiryYear!
+      if (expiryYear.length === 2) {
+        expiryYear = `20${expiryYear}`
       }
 
       const cardToken = await GatewayService.tokenizeCard({
-        holderName: cardHolderName,
-        number: cardNumber,
-        expiryMonth: cardExpiryMonth,
-        expiryYear: cardExpiryYear,
-        ccv: cardCvv,
+        holderName: cardHolderName!,
+        number: cardNumber!,
+        expiryMonth: cardExpiryMonth!,
+        expiryYear: expiryYear,
+        ccv: cardCvv!,
         customerName: name,
         customerEmail: email,
-        customerCpfCnpj: cpf.replace(/\D/g, ""),
-        postalCode: cardPostalCode,
+        customerCpfCnpj: cpf,
+        postalCode: cardPostalCode!,
         phone: phone?.replace(/\D/g, "") ?? "",
       })
 
@@ -175,7 +197,7 @@ export async function POST(
       const subscription = await GatewayService.createSubscription({
         customerName: name,
         customerEmail: email,
-        customerCpfCnpj: cpf.replace(/\D/g, ""),
+        customerCpfCnpj: cpf,
         amountCents: product.priceInCents,
         billingType,
         description: product.name,
