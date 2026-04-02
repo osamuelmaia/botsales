@@ -125,11 +125,23 @@ interface CustomerParams {
 
 async function findOrCreateCustomer(params: CustomerParams): Promise<string> {
   // Search by CPF/CNPJ first (avoid duplicates in Asaas)
-  const search = await asaasGet<{ data: AsaasCustomer[] }>(
-    `/customers?cpfCnpj=${encodeURIComponent(params.cpfCnpj)}&limit=1`
-  )
-
-  if (search.data?.length > 0) return search.data[0].id
+  // Asaas may return 404 when no customers exist yet — treat as empty result
+  try {
+    const res = await fetch(
+      `${BASE_URL}/customers?cpfCnpj=${encodeURIComponent(params.cpfCnpj)}&limit=1`,
+      {
+        method: "GET",
+        headers: { "Content-Type": "application/json", access_token: apiKey() },
+      }
+    )
+    if (res.ok) {
+      const search = await res.json() as { data: AsaasCustomer[] }
+      if (search.data?.length > 0) return search.data[0].id
+    }
+    // 404 = no customers yet, proceed to create
+  } catch {
+    // network error on search — proceed to create
+  }
 
   const customer = await asaasPost<AsaasCustomer>("/customers", {
     name: params.name,
