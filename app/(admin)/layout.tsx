@@ -1,5 +1,8 @@
-import { auth } from "@/lib/auth"
 import { redirect } from "next/navigation"
+import { auth } from "@/lib/auth"
+import { AdminSidebar } from "@/components/admin/AdminSidebar"
+import { AdminTopBar } from "@/components/admin/AdminTopBar"
+import { SWRProvider } from "@/components/providers/SWRProvider"
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const session = await auth()
@@ -10,15 +13,14 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <header className="bg-gray-900 text-white px-6 py-3 flex items-center gap-4">
-        <span className="text-sm font-bold tracking-widest uppercase text-gray-400">Admin</span>
-        <span className="text-white font-semibold">Painel Administrativo</span>
-        <a href="/dashboard" className="ml-auto text-xs text-gray-400 hover:text-white transition-colors">
-          ← Voltar ao dashboard
-        </a>
-      </header>
-      <main className="p-6">{children}</main>
+    <div className="flex min-h-screen bg-gray-50">
+      <AdminSidebar />
+      <div className="flex flex-col flex-1 min-w-0">
+        <AdminTopBar />
+        <SWRProvider fallback={{}}>
+          <main className="flex-1 p-6">{children}</main>
+        </SWRProvider>
+      </div>
     </div>
   )
 }
