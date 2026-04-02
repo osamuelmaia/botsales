@@ -28,7 +28,7 @@ function addCalendarDays(date: Date, days: number): Date {
 
 async function resumeFlowFromPayment(
   saleId: string,
-  handle: "approved" | "refused" | "refunded"
+  handle: "approved" | "refused" | "refunded" | "pending"
 ): Promise<void> {
   const sale = await prisma.sale.findUnique({
     where: { id: saleId },
@@ -259,12 +259,27 @@ export async function POST(req: NextRequest) {
       data: { status: "REFUSED", gatewayId: event.gatewayId, gatewayStatus: "REFUSED" },
     })
 
-    resumeFlowFromPayment(sale.id, "refused").catch((err) =>
-      console.error("[webhook] resumeFlowFromPayment refused:", err)
-    )
+    // Skip refused flow if lead already has a newer PENDING or APPROVED sale
+    // (user tried to pay again — don't spam them with refused remarketing)
+    const shouldFireRefused = !sale.leadId ? true : !(await prisma.sale.findFirst({
+      where: {
+        leadId: sale.leadId,
+        productId: sale.productId,
+        status: { in: ["PENDING", "APPROVED"] },
+        createdAt: { gt: sale.createdAt },
+      },
+      select: { id: true },
+    }))
 
-    if (event.subscriptionId) {
-      handleSubscriptionRefused(event.subscriptionId).catch(console.error)
+    if (shouldFireRefused) {
+      resumeFlowFromPayment(sale.id, "refused").catch((err) =>
+        console.error("[webhook] resumeFlowFromPayment refused:", err)
+      )
+      if (event.subscriptionId) {
+        handleSubscriptionRefused(event.subscriptionId).catch(console.error)
+      }
+    } else {
+      console.log(`[webhook] skipping refused flow for sale ${sale.id} — lead has newer sale`)
     }
   } else if (event.type === "PAYMENT_REFUNDED") {
     await prisma.sale.update({

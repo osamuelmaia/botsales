@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
 import { prisma } from "@/lib/prisma"
 import { GatewayService } from "@/lib/gateway"
+import { TelegramService } from "@/lib/telegram"
+import { decryptToken } from "@/lib/utils"
 
 // ─── Validation ──────────────────────────────────────────────────────────────
 
@@ -161,6 +163,33 @@ export async function POST(
         where: { id: sale.id },
         data: { gatewayId: charge.id, gatewayStatus: "PENDING" },
       })
+
+      // Send QR code + copia-e-cola to Telegram chat (fire-and-forget)
+      if (tgBotId && tgChatId) {
+        prisma.bot.findUnique({ where: { id: tgBotId }, select: { tokenEncrypted: true } })
+          .then((bot) => {
+            if (!bot) return
+            const token = decryptToken(bot.tokenEncrypted)
+            const chatIdNum = parseInt(tgChatId, 10)
+            if (isNaN(chatIdNum)) return
+
+            const brl = (product.priceInCents / 100).toLocaleString("pt-BR", {
+              style: "currency", currency: "BRL",
+            })
+            const caption = `*PIX gerado com sucesso!* 💰\n\nValor: *${brl}*\n\nEscaneie o QR code ou use o código abaixo para pagar.`
+
+            // Send QR code image
+            TelegramService.sendPhotoBuffer(token, chatIdNum, charge.pixQrCodeBase64, caption)
+              .then(() => {
+                // Send copia-e-cola as separate message for easy copy
+                return TelegramService.sendMessage(token, chatIdNum,
+                  `*PIX Copia e Cola:*\n\`${charge.pixCode}\``
+                )
+              })
+              .catch((err) => console.error("[checkout/pay] telegram pix send failed:", err))
+          })
+          .catch(() => {})
+      }
 
       return NextResponse.json({
         saleId: sale.id,

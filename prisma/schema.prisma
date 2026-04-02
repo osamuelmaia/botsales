@@ -226,12 +226,13 @@ model Sale {
   grossAmountCents Int
   feeAmountCents   Int
   netAmountCents   Int
-  gatewayId        String?
-  gatewayStatus    String?
-  paidAt           DateTime?
-  availableAt      DateTime?
-  refundedAt       DateTime?
-  createdAt        DateTime      @default(now())
+  gatewayId           String?
+  gatewayStatus       String?
+  paidAt              DateTime?
+  availableAt         DateTime?
+  refundedAt          DateTime?
+  pendingFlowFiredAt  DateTime?   // set when the "pending" flow branch is triggered
+  createdAt           DateTime      @default(now())
   updatedAt        DateTime      @updatedAt
 
   user    User    @relation(fields: [userId], references: [id])

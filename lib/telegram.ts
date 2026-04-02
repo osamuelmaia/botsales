@@ -48,6 +48,23 @@ export class TelegramService {
   }
 
   /**
+   * Send a photo from a base64-encoded buffer (e.g. PIX QR code from Asaas).
+   */
+  static async sendPhotoBuffer(
+    token: string,
+    chatId: number,
+    base64Image: string,
+    caption?: string
+  ): Promise<void> {
+    const { InputFile } = await import("grammy")
+    const bot = new Bot(token)
+    const buffer = Buffer.from(base64Image, "base64")
+    await bot.api.sendPhoto(chatId, new InputFile(buffer, "qrcode.png"), {
+      ...(caption ? { caption, parse_mode: "Markdown" } : {}),
+    })
+  }
+
+  /**
    * Send a message with an inline keyboard.
    */
   static async sendInlineKeyboard(
