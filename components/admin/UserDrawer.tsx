@@ -3,11 +3,17 @@
 import { useState, useEffect } from "react"
 import * as Dialog from "@radix-ui/react-dialog"
 import { toast } from "sonner"
-import { Loader2, Bot, ShoppingBag, TrendingUp, Wallet, Shield } from "lucide-react"
+import { Loader2, Bot, ShoppingBag, TrendingUp, Wallet, Shield, Receipt } from "lucide-react"
 import useSWR from "swr"
 import { fetcher } from "@/lib/fetcher"
 
 // ─── Types ────────────────────────────────────────────────────────────────────
+
+interface SalesAggregate {
+  approved: number; pending: number; refused: number; refunded: number; chargeback: number
+  gmv: number; fee: number; net: number
+  pixCount: number; pixGmv: number; cardCount: number; cardGmv: number
+}
 
 interface UserDetail {
   id: string; name: string; email: string; phone: string | null
@@ -15,6 +21,7 @@ interface UserDetail {
   registrationStep: number; role: string
   platformFeePercent: number; platformFeeCents: number; withdrawalDays: number
   city: string | null; state: string | null; createdAt: string
+  salesAggregate: SalesAggregate
   bots: Array<{ id: string; name: string; isActive: boolean; _count: { leads: number } }>
   products: Array<{ id: string; name: string; priceInCents: number; isRecurring: boolean }>
   sales: Array<{
@@ -37,12 +44,12 @@ function fmtDate(iso: string) {
   return new Date(iso).toLocaleDateString("pt-BR")
 }
 
-const SALE_STATUS: Record<string, string> = {
-  APPROVED:   "bg-green-100 text-green-700",
-  PENDING:    "bg-yellow-100 text-yellow-700",
-  REFUSED:    "bg-red-100 text-red-600",
-  REFUNDED:   "bg-orange-100 text-orange-700",
-  CHARGEBACK: "bg-purple-100 text-purple-700",
+const SALE_STATUS: Record<string, { cls: string; label: string }> = {
+  APPROVED:   { cls: "bg-green-100 text-green-700",   label: "Aprovado" },
+  PENDING:    { cls: "bg-yellow-100 text-yellow-700", label: "Pendente" },
+  REFUSED:    { cls: "bg-red-100 text-red-600",       label: "Recusado" },
+  REFUNDED:   { cls: "bg-orange-100 text-orange-700", label: "Reembolsado" },
+  CHARGEBACK: { cls: "bg-purple-100 text-purple-700", label: "Chargeback" },
 }
 
 const WITHDRAWAL_STATUS: Record<string, string> = {
@@ -243,6 +250,41 @@ function DrawerContent({ userId, onSaved }: { userId: string; onSaved: () => voi
         />
       </Section>
 
+      {/* Transactions breakdown */}
+      <Section icon={TrendingUp} title="Transações">
+        {/* Status cards */}
+        <div className="grid grid-cols-3 gap-2 mb-3">
+          {([
+            { label: "Aprovadas",    val: user.salesAggregate.approved,   cls: "text-green-700 bg-green-50" },
+            { label: "Pendentes",    val: user.salesAggregate.pending,    cls: "text-yellow-700 bg-yellow-50" },
+            { label: "Recusadas",    val: user.salesAggregate.refused,    cls: "text-red-700 bg-red-50" },
+            { label: "Reembolsadas", val: user.salesAggregate.refunded,   cls: "text-orange-700 bg-orange-50" },
+            { label: "Chargeback",   val: user.salesAggregate.chargeback, cls: "text-purple-700 bg-purple-50" },
+            { label: "Total",        val: user.salesAggregate.approved + user.salesAggregate.pending + user.salesAggregate.refused + user.salesAggregate.refunded + user.salesAggregate.chargeback, cls: "text-gray-700 bg-gray-100" },
+          ] as const).map(({ label, val, cls }) => (
+            <div key={label} className={`rounded-xl p-2.5 text-center ${cls}`}>
+              <p className="text-base font-bold leading-tight">{val}</p>
+              <p className="text-[10px] font-medium mt-0.5 opacity-80">{label}</p>
+            </div>
+          ))}
+        </div>
+        {/* Volume by method */}
+        <div className="bg-gray-50 rounded-xl px-4 divide-y divide-gray-100 text-xs">
+          {[
+            ["Receita bruta (aprovadas)", brl(user.salesAggregate.gmv)],
+            ["Taxa plataforma",           brl(user.salesAggregate.fee)],
+            ["Receita líquida",           brl(user.salesAggregate.net)],
+            ["PIX aprovados",             `${user.salesAggregate.pixCount}× — ${brl(user.salesAggregate.pixGmv)}`],
+            ["Cartão aprovados",          `${user.salesAggregate.cardCount}× — ${brl(user.salesAggregate.cardGmv)}`],
+          ].map(([label, val]) => (
+            <div key={label} className="flex items-center justify-between py-2.5">
+              <span className="text-gray-400">{label}</span>
+              <span className="text-gray-700 font-medium">{val}</span>
+            </div>
+          ))}
+        </div>
+      </Section>
+
       {/* Bots */}
       <Section icon={Bot} title={`Bots (${user.bots.length})`}>
         {user.bots.length === 0 ? (
@@ -279,7 +321,7 @@ function DrawerContent({ userId, onSaved }: { userId: string; onSaved: () => voi
       </Section>
 
       {/* Recent sales */}
-      <Section icon={TrendingUp} title="Últimas vendas">
+      <Section icon={Receipt} title="Últimas transações">
         {user.sales.length === 0 ? (
           <p className="text-xs text-gray-400 py-2">Nenhuma venda</p>
         ) : (
@@ -289,8 +331,8 @@ function DrawerContent({ userId, onSaved }: { userId: string; onSaved: () => voi
                 <span className="text-gray-500 shrink-0">{fmtDate(s.createdAt)}</span>
                 <span className="text-gray-700 font-medium truncate flex-1">{s.product?.name ?? "—"}</span>
                 <span className="font-semibold text-gray-900 shrink-0">{brl(s.grossAmountCents)}</span>
-                <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-medium shrink-0 ${SALE_STATUS[s.status] ?? "bg-gray-100 text-gray-600"}`}>
-                  {s.status}
+                <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-medium shrink-0 ${SALE_STATUS[s.status]?.cls ?? "bg-gray-100 text-gray-600"}`}>
+                  {SALE_STATUS[s.status]?.label ?? s.status}
                 </span>
               </div>
             ))}

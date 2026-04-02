@@ -8,6 +8,14 @@ import { fetcher } from "@/lib/fetcher"
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
+interface SalesStats {
+  total: number
+  approved: number
+  gmv: number
+  pix: number
+  card: number
+}
+
 interface UserRow {
   id: string
   name: string
@@ -18,7 +26,8 @@ interface UserRow {
   platformFeePercent: number
   platformFeeCents: number
   createdAt: string
-  _count: { bots: number; products: number; sales: number }
+  _count: { bots: number; products: number }
+  salesStats: SalesStats
 }
 
 interface ApiResponse {
@@ -132,7 +141,8 @@ export function UsersClient({
                   <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</th>
                   <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Taxa</th>
                   <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Bots</th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Vendas</th>
+                  <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Aprovadas</th>
+                  <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Receita</th>
                   <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Cadastro</th>
                   <th className="px-4 py-3" />
                 </tr>
@@ -142,7 +152,7 @@ export function UsersClient({
                   Array.from({ length: 8 }).map((_, i) => <SkeletonRow key={i} />)
                 ) : users.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="text-center py-16 text-gray-400">
+                    <td colSpan={9} className="text-center py-16 text-gray-400">
                       <Users className="h-8 w-8 mx-auto mb-2 text-gray-200" />
                       <p className="text-sm">Nenhum usuário encontrado</p>
                     </td>
@@ -198,9 +208,17 @@ export function UsersClient({
                         {u._count.bots}
                       </td>
 
-                      {/* Sales */}
-                      <td className="px-4 py-3 text-gray-600 text-center">
-                        {u._count.sales}
+                      {/* Aprovadas */}
+                      <td className="px-4 py-3 text-right">
+                        <span className="text-xs font-medium text-gray-900">{u.salesStats.approved}</span>
+                        {u.salesStats.total > u.salesStats.approved && (
+                          <span className="text-[10px] text-gray-400 ml-1">/ {u.salesStats.total}</span>
+                        )}
+                      </td>
+
+                      {/* Receita */}
+                      <td className="px-4 py-3 text-right text-xs font-medium text-gray-700 whitespace-nowrap">
+                        {u.salesStats.gmv > 0 ? brl(u.salesStats.gmv) : <span className="text-gray-300">—</span>}
                       </td>
 
                       {/* Date */}

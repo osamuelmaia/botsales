@@ -29,7 +29,14 @@ export async function GET(
     return NextResponse.json({ error: "ID inválido" }, { status: 400 })
   }
 
-  const user = await prisma.user.findUnique({
+  type AggRow = {
+    approved: bigint; pending: bigint; refused: bigint; refunded: bigint; chargeback: bigint
+    gmv: bigint; fee: bigint; net: bigint
+    pixcount: bigint; pixgmv: bigint; cardcount: bigint; cardgmv: bigint
+  }
+
+  const [user, aggRows] = await Promise.all([
+  prisma.user.findUnique({
     where: { id: params.id },
     select: {
       id: true, name: true, email: true, document: true, phone: true,
@@ -72,10 +79,47 @@ export async function GET(
     },
   })
 
+    }),
+    prisma.$queryRaw<AggRow[]>`
+      SELECT
+        COUNT(*) FILTER (WHERE status = 'APPROVED')::bigint                              AS approved,
+        COUNT(*) FILTER (WHERE status = 'PENDING')::bigint                               AS pending,
+        COUNT(*) FILTER (WHERE status = 'REFUSED')::bigint                               AS refused,
+        COUNT(*) FILTER (WHERE status = 'REFUNDED')::bigint                              AS refunded,
+        COUNT(*) FILTER (WHERE status = 'CHARGEBACK')::bigint                            AS chargeback,
+        COALESCE(SUM("grossAmountCents") FILTER (WHERE status = 'APPROVED'), 0)::bigint  AS gmv,
+        COALESCE(SUM("feeAmountCents")   FILTER (WHERE status = 'APPROVED'), 0)::bigint  AS fee,
+        COALESCE(SUM("netAmountCents")   FILTER (WHERE status = 'APPROVED'), 0)::bigint  AS net,
+        COUNT(*) FILTER (WHERE status = 'APPROVED' AND "paymentMethod" = 'PIX')::bigint  AS pixcount,
+        COALESCE(SUM("grossAmountCents") FILTER (WHERE status = 'APPROVED' AND "paymentMethod" = 'PIX'), 0)::bigint AS pixgmv,
+        COUNT(*) FILTER (WHERE status = 'APPROVED' AND "paymentMethod" = 'CREDIT_CARD')::bigint AS cardcount,
+        COALESCE(SUM("grossAmountCents") FILTER (WHERE status = 'APPROVED' AND "paymentMethod" = 'CREDIT_CARD'), 0)::bigint AS cardgmv
+      FROM "Sale"
+      WHERE "userId" = ${params.id}
+    `,
+  ])
+
   if (!user) return NextResponse.json({ error: "Usuário não encontrado" }, { status: 404 })
+
+  const r = aggRows[0]
+  const salesAggregate = r ? {
+    approved:   Number(r.approved),
+    pending:    Number(r.pending),
+    refused:    Number(r.refused),
+    refunded:   Number(r.refunded),
+    chargeback: Number(r.chargeback),
+    gmv:        Number(r.gmv),
+    fee:        Number(r.fee),
+    net:        Number(r.net),
+    pixCount:   Number(r.pixcount),
+    pixGmv:     Number(r.pixgmv),
+    cardCount:  Number(r.cardcount),
+    cardGmv:    Number(r.cardgmv),
+  } : { approved: 0, pending: 0, refused: 0, refunded: 0, chargeback: 0, gmv: 0, fee: 0, net: 0, pixCount: 0, pixGmv: 0, cardCount: 0, cardGmv: 0 }
 
   return NextResponse.json({
     ...user,
+    salesAggregate,
     platformFeePercent: Number(user.platformFeePercent),
     createdAt: user.createdAt.toISOString(),
     updatedAt: user.updatedAt.toISOString(),
