@@ -77,8 +77,6 @@ export async function GET(
         },
       },
     },
-  })
-
     }),
     prisma.$queryRaw<AggRow[]>`
       SELECT

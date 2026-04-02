@@ -249,6 +249,7 @@ export async function POST(req: NextRequest) {
         if (!fullSale?.lead?.email) return
 
         const { lead, product } = fullSale
+        const leadEmail = lead.email as string
         const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://botsales.app"
 
         if (!lead.portalPasswordHash) {
@@ -257,11 +258,11 @@ export async function POST(req: NextRequest) {
           const hash     = await bcrypt.hash(password, 12)
           await prisma.lead.update({ where: { id: lead.id }, data: { portalPasswordHash: hash } })
           await sendEmail({
-            to:      lead.email,
+            to:      leadEmail,
             subject: `Acesso liberado — ${product?.name ?? "seu produto"}`,
             html:    buildPortalAccessEmail({
               customerName: lead.name ?? "Cliente",
-              email:        lead.email,
+              email:        leadEmail,
               password,
               productName:  product?.name ?? "produto",
               appUrl,
@@ -270,7 +271,7 @@ export async function POST(req: NextRequest) {
         } else {
           // Returning customer: just confirm the payment
           await sendEmail({
-            to:      lead.email,
+            to:      leadEmail,
             subject: `Pagamento confirmado — ${product?.name ?? "seu produto"}`,
             html:    buildPurchaseConfirmationEmail({
               customerName: lead.name ?? "Cliente",
