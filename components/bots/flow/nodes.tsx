@@ -3,7 +3,7 @@
 import { memo, useState, useRef, useLayoutEffect } from "react"
 import {
   Handle, Position, NodeProps, useReactFlow, BaseEdge, EdgeLabelRenderer,
-  getBezierPath, EdgeProps,
+  getBezierPath, EdgeProps, useEdges, useNodes,
 } from "@xyflow/react"
 import {
   Zap, Type, Image as ImageIcon, Film, Music, FileText, MoreHorizontal,
@@ -470,6 +470,12 @@ export const PaymentNode = memo(function PaymentNode({ id, data, selected }: Nod
   const ctaText = d.ctaText || "Pagar agora"
   const { containerRef, rowRefs, tops } = useRowHandleTops(3)
 
+  const edges = useEdges()
+  const allNodes = useNodes()
+  const approvedEdge = edges.find((e) => e.source === id && e.sourceHandle === "approved")
+  const approvedTarget = approvedEdge ? allNodes.find((n) => n.id === approvedEdge.target) : null
+  const showGrantHint = approvedTarget?.type !== "grant_access"
+
   return (
     <div ref={containerRef} className={`group relative bg-white rounded-xl border-2 shadow-md min-w-[200px] max-w-[260px] transition-colors ${selected ? "border-violet-500" : "border-violet-200"}`}>
       <DeleteButton nodeId={id} />
@@ -498,6 +504,16 @@ export const PaymentNode = memo(function PaymentNode({ id, data, selected }: Nod
           </>
         )}
       </div>
+
+      {/* Hint: suggest grant_access when "Aprovado" doesn't lead to one */}
+      {showGrantHint && (
+        <div className="mx-3 mb-2 flex items-start gap-1.5 bg-amber-50 border border-amber-100 rounded-lg px-2 py-1.5">
+          <AlertCircle className="h-3 w-3 text-amber-500 shrink-0 mt-0.5" />
+          <p className="text-[10px] text-amber-700 leading-tight">
+            Conecte <strong>Aprovado</strong> ao nó <strong>Liberar acesso ao canal</strong> para enviar o link do grupo automaticamente
+          </p>
+        </div>
+      )}
 
       {/* Output paths footer — Handle is the visible dot, no duplicate inner dot */}
       <div className="border-t border-violet-100">

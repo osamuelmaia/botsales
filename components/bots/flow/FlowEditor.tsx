@@ -809,21 +809,41 @@ function FlowEditorInner({ botId, botName, products, mode = "main" }: FlowEditor
           )}
 
           {/* Node picker popup (ManyChat style) */}
-          {nodePicker && (
-            <div
-              className="absolute z-50 bg-white rounded-xl border border-gray-200 shadow-xl p-2 w-48 max-h-80 overflow-y-auto"
-              style={{ left: nodePicker.screenX - (reactFlowWrapper.current?.getBoundingClientRect().left ?? 0), top: nodePicker.screenY - (reactFlowWrapper.current?.getBoundingClientRect().top ?? 0) }}
-            >
-              <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider px-2 py-1">Adicionar nó</p>
-              {(isRemarketing ? NODE_PICKER_ITEMS_REMARKETING : NODE_PICKER_ITEMS_MAIN).map((item) => (
-                <button key={item.type} onClick={() => handlePickerSelect(item.type)}
-                  className="flex items-center gap-2 w-full px-2 py-1.5 rounded-lg text-sm text-gray-700 hover:bg-gray-100 transition-colors">
-                  <span className={`w-5 h-5 rounded flex items-center justify-center text-white text-[10px] ${item.color}`}>{item.icon}</span>
-                  {item.label}
-                </button>
-              ))}
-            </div>
-          )}
+          {nodePicker && (() => {
+            const sourceNode = nodes.find((n) => n.id === nodePicker.sourceNodeId)
+            const isFromPaymentApproved =
+              sourceNode?.type === "payment" && nodePicker.sourceHandle === "approved"
+            const pickerItems = isRemarketing ? NODE_PICKER_ITEMS_REMARKETING : NODE_PICKER_ITEMS_MAIN
+            const grantItem = pickerItems.find((i) => i.type === "grant_access")
+            const otherItems = pickerItems.filter((i) => i.type !== "grant_access")
+            return (
+              <div
+                className="absolute z-50 bg-white rounded-xl border border-gray-200 shadow-xl p-2 w-52 max-h-80 overflow-y-auto"
+                style={{ left: nodePicker.screenX - (reactFlowWrapper.current?.getBoundingClientRect().left ?? 0), top: nodePicker.screenY - (reactFlowWrapper.current?.getBoundingClientRect().top ?? 0) }}
+              >
+                <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider px-2 py-1">Adicionar nó</p>
+                {/* Recommended: grant_access when coming from payment "approved" handle */}
+                {isFromPaymentApproved && grantItem && (
+                  <>
+                    <button onClick={() => handlePickerSelect(grantItem.type as NodeType)}
+                      className="flex items-center gap-2 w-full px-2 py-1.5 rounded-lg text-sm text-emerald-800 bg-emerald-50 hover:bg-emerald-100 transition-colors mb-0.5">
+                      <span className={`w-5 h-5 rounded flex items-center justify-center text-white text-[10px] ${grantItem.color}`}>{grantItem.icon}</span>
+                      <span className="flex-1 truncate">{grantItem.label}</span>
+                      <span className="text-[9px] font-semibold text-emerald-600 bg-emerald-100 px-1.5 py-0.5 rounded-full shrink-0">Recomendado</span>
+                    </button>
+                    <div className="border-t border-gray-100 my-1" />
+                  </>
+                )}
+                {otherItems.map((item) => (
+                  <button key={item.type} onClick={() => handlePickerSelect(item.type as NodeType)}
+                    className="flex items-center gap-2 w-full px-2 py-1.5 rounded-lg text-sm text-gray-700 hover:bg-gray-100 transition-colors">
+                    <span className={`w-5 h-5 rounded flex items-center justify-center text-white text-[10px] ${item.color}`}>{item.icon}</span>
+                    {item.label}
+                  </button>
+                ))}
+              </div>
+            )
+          })()}
         </div>
 
         {/* Config panel */}
