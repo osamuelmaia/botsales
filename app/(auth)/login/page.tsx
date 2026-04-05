@@ -11,7 +11,8 @@ import { loginSchema, type LoginInput } from "@/lib/validations/auth"
 
 export default function LoginPage() {
   const router = useRouter()
-  const [error, setError] = useState("")
+  const [error,       setError]       = useState("")
+  const [redirecting, setRedirecting] = useState(false)
 
   const {
     register,
@@ -34,6 +35,7 @@ export default function LoginPage() {
       return
     }
 
+    setRedirecting(true)
     router.push("/dashboard")
     router.refresh()
   }
@@ -104,11 +106,11 @@ export default function LoginPage() {
 
             <button
               type="submit"
-              disabled={isSubmitting}
+              disabled={isSubmitting || redirecting}
               className="w-full h-10 bg-gray-900 text-white rounded-md text-sm font-medium hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 transition-colors"
             >
-              {isSubmitting && <Loader2 className="h-4 w-4 animate-spin" />}
-              {isSubmitting ? "Entrando..." : "Entrar"}
+              {(isSubmitting || redirecting) && <Loader2 className="h-4 w-4 animate-spin" />}
+              {redirecting ? "Redirecionando..." : isSubmitting ? "Verificando..." : "Entrar"}
             </button>
           </form>
 
