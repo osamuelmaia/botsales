@@ -178,15 +178,15 @@ export async function POST(request: Request, { params }: Params) {
   const nodeIds = new Set(nodes.map((n) => n.id))
   const validEdges = edges.filter((e) => nodeIds.has(e.source) && nodeIds.has(e.target))
 
-  // Full replace inside a sequential transaction + sync channelId to bot
-  await prisma.$transaction(async (tx) => {
-    await tx.bot.update({
+  // Full replace inside a batch transaction (compatible with Neon's PgBouncer pooler)
+  await prisma.$transaction([
+    prisma.bot.update({
       where: { id: params.id },
       data: { channelId: grantChannelId },
-    })
-    await tx.flowEdge.deleteMany({ where: { botId: params.id } })
-    await tx.flowNode.deleteMany({ where: { botId: params.id } })
-    await tx.flowNode.createMany({
+    }),
+    prisma.flowEdge.deleteMany({ where: { botId: params.id } }),
+    prisma.flowNode.deleteMany({ where: { botId: params.id } }),
+    prisma.flowNode.createMany({
       data: nodes.map((n) => ({
         id: n.id,
         botId: params.id,
@@ -195,8 +195,8 @@ export async function POST(request: Request, { params }: Params) {
         posY: n.position.y,
         data: n.data as Prisma.InputJsonValue,
       })),
-    })
-    await tx.flowEdge.createMany({
+    }),
+    prisma.flowEdge.createMany({
       data: validEdges.map((e) => ({
         id: e.id,
         botId: params.id,
@@ -205,8 +205,8 @@ export async function POST(request: Request, { params }: Params) {
         sourceHandle: e.sourceHandle ?? null,
         label: e.label,
       })),
-    })
-  })
+    }),
+  ])
 
   return NextResponse.json({ ok: true })
 }
