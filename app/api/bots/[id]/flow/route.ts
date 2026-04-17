@@ -85,7 +85,7 @@ export async function GET(_req: Request, { params }: Params) {
     return NextResponse.json({
       nodes: [
         {
-          id: "start-default",
+          id: `start-${params.id}`,
           type: "start",
           position: { x: 250, y: 100 },
           data: { label: "/start" },
@@ -146,7 +146,20 @@ export async function POST(request: Request, { params }: Params) {
     )
   }
 
-  const { nodes, edges } = parsed.data
+  const { nodes: rawNodes, edges: rawEdges } = parsed.data
+
+  // Remap legacy "start-default" id to a bot-specific id to avoid unique constraint conflicts
+  const defaultStartId = `start-${params.id}`
+  const idRemap = new Map<string, string>()
+  const nodes = rawNodes.map((n) => {
+    if (n.id === "start-default") { idRemap.set("start-default", defaultStartId); return { ...n, id: defaultStartId } }
+    return n
+  })
+  const edges = rawEdges.map((e) => ({
+    ...e,
+    source: idRemap.get(e.source) ?? e.source,
+    target: idRemap.get(e.target) ?? e.target,
+  }))
 
   // Ensure exactly one start node
   const startNodes = nodes.filter((n) => n.type === "start")
