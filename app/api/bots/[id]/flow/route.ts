@@ -176,17 +176,6 @@ export async function POST(request: Request, { params }: Params) {
     ? ((grantNode.data as Record<string, unknown>).channelId as string | undefined)?.trim() ?? null
     : null
 
-  // Block save if there's an unconfigured grant_access node
-  const hasUnconfiguredGrant = nodes.some(
-    (n) => n.type === "grant_access" && !((n.data as Record<string, unknown>).channelId as string | undefined)?.trim()
-  )
-  if (hasUnconfiguredGrant) {
-    return NextResponse.json(
-      { error: "Configure o ID do grupo/canal no nó 'Liberar acesso ao canal' antes de salvar" },
-      { status: 422 }
-    )
-  }
-
   // Filter edges to only include those where both source and target exist in nodes
   const nodeIds = new Set(nodes.map((n) => n.id))
   const validEdges = edges.filter((e) => nodeIds.has(e.source) && nodeIds.has(e.target))
