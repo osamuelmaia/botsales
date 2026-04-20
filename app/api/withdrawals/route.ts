@@ -50,19 +50,18 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Conta bancária não encontrada" }, { status: 404 })
   }
 
-  // Duplicate detection — block identical request within 60 seconds
+  // Duplicate detection — block any REQUESTED withdrawal for this user in the last 5 minutes
+  // (broad window guards against race conditions from double-clicks / concurrent requests)
   const recentDuplicate = await prisma.withdrawal.findFirst({
     where: {
       userId,
-      bankAccountId,
-      amountCents,
       status: "REQUESTED",
-      requestedAt: { gte: new Date(Date.now() - 60_000) },
+      requestedAt: { gte: new Date(Date.now() - 5 * 60_000) },
     },
   })
   if (recentDuplicate) {
     return NextResponse.json(
-      { error: "Solicitação duplicada. Aguarde antes de tentar novamente." },
+      { error: "Você já tem um saque pendente. Aguarde ele ser processado antes de solicitar outro." },
       { status: 429 },
     )
   }
