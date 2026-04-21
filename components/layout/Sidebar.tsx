@@ -27,7 +27,7 @@ function NavContent({ onClose }: { onClose?: () => void }) {
   return (
     <nav className="flex flex-col gap-1 p-4 h-full">
       <div className="mb-6 px-2 pt-1">
-        <span className="text-xl font-bold text-gray-900">BotSales</span>
+        <span className="text-xl font-bold text-gray-900">BotFlows</span>
       </div>
       {navItems.map(({ href, label, icon: Icon }) => {
         const isActive =

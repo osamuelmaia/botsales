@@ -56,7 +56,7 @@ export default function RegisterPage() {
     <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">BotSales</h1>
+          <h1 className="text-3xl font-bold text-gray-900">BotFlows</h1>
           <p className="text-gray-500 mt-1">Plataforma de vendas no Telegram</p>
         </div>
 

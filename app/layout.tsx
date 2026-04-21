@@ -15,7 +15,7 @@ const geistMono = localFont({
 });
 
 export const metadata: Metadata = {
-  title: "BotSales",
+  title: "BotFlows",
   description: "Plataforma de bots de vendas no Telegram",
 };
 

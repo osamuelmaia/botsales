@@ -466,7 +466,7 @@ export default function CheckoutPage() {
         </button>
 
         <p className="text-xs text-gray-400 text-center">
-          Pagamento processado com segurança pela BotSales.
+          Pagamento processado com segurança pela BotFlows.
           Seus dados são criptografados.
         </p>
       </form>

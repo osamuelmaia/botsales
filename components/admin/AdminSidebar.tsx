@@ -40,7 +40,7 @@ export function AdminSidebar() {
           <Bot className="h-4 w-4 text-gray-300" />
         </div>
         <div>
-          <p className="text-sm font-semibold text-white leading-none">BotSales</p>
+          <p className="text-sm font-semibold text-white leading-none">BotFlows</p>
           <p className="text-[10px] text-gray-500 mt-0.5">Painel Admin</p>
         </div>
       </div>

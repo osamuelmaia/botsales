@@ -4,7 +4,7 @@ export default function CheckoutLayout({ children }: { children: React.ReactNode
       {/* Logo */}
       <header className="bg-white border-b border-gray-100">
         <div className="max-w-lg mx-auto px-4 h-14 flex items-center">
-          <span className="text-lg font-bold text-gray-900 tracking-tight">BotSales</span>
+          <span className="text-lg font-bold text-gray-900 tracking-tight">BotFlows</span>
         </div>
       </header>
       <main className="max-w-lg mx-auto px-4 py-8">{children}</main>
