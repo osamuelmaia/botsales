@@ -11,7 +11,7 @@ interface SendEmailOptions {
 
 export async function sendEmail(opts: SendEmailOptions): Promise<void> {
   const key = process.env.RESEND_API_KEY
-  const from = process.env.EMAIL_FROM ?? "noreply@botsales.app"
+  const from = process.env.EMAIL_FROM ?? "noreply@botflows.com.br"
 
   if (!key) {
     console.log(`[email] RESEND_API_KEY not set — would send to ${opts.to}: ${opts.subject}`)

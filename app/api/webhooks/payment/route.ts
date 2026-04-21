@@ -260,7 +260,7 @@ export async function POST(req: NextRequest) {
 
         const { lead, product } = fullSale
         const leadEmail = lead.email as string
-        const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://botsales.app"
+        const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://botflows.com.br"
 
         if (!lead.portalPasswordHash) {
           // First time: generate password, save hashed, send credentials email
