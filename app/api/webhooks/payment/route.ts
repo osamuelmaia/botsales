@@ -215,10 +215,20 @@ export async function POST(req: NextRequest) {
   }
 
   if (event.type === "PAYMENT_CONFIRMED") {
+    // For card payments, use the seller's configured withdrawalDays (default 30)
+    let cardDays = 30
+    if (event.paymentMethod === "CREDIT_CARD") {
+      const seller = await prisma.user.findUnique({
+        where: { id: sale.userId },
+        select: { withdrawalDays: true },
+      })
+      cardDays = seller?.withdrawalDays ?? 30
+    }
+
     const availableAt =
       event.paymentMethod === "PIX"
         ? addBusinessDays(now, 1)
-        : addCalendarDays(now, 30)
+        : addCalendarDays(now, cardDays)
 
     await prisma.sale.update({
       where: { id: sale.id },
