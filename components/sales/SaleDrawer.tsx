@@ -1,6 +1,7 @@
 "use client"
 
 import * as Dialog from "@radix-ui/react-dialog"
+import { X } from "lucide-react"
 import type { SaleRow } from "./SalesTable"
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -20,15 +21,15 @@ function formatDateTime(iso: string | null | undefined) {
 // ─── Status badge ─────────────────────────────────────────────────────────────
 
 const STATUS_CONFIG = {
-  APPROVED:   { label: "Aprovado",    cls: "bg-green-100 text-green-700" },
-  PENDING:    { label: "Pendente",    cls: "bg-yellow-100 text-yellow-700" },
-  REFUSED:    { label: "Recusado",    cls: "bg-red-100 text-red-700" },
-  REFUNDED:   { label: "Reembolsado", cls: "bg-orange-100 text-orange-700" },
-  CHARGEBACK: { label: "Chargeback",  cls: "bg-purple-100 text-purple-700" },
+  APPROVED:   { label: "Aprovado",    cls: "bg-emerald-50 text-emerald-700 border border-emerald-200" },
+  PENDING:    { label: "Pendente",    cls: "bg-amber-50 text-amber-700 border border-amber-200" },
+  REFUSED:    { label: "Recusado",    cls: "bg-red-50 text-red-700 border border-red-200" },
+  REFUNDED:   { label: "Reembolsado", cls: "bg-orange-50 text-orange-700 border border-orange-200" },
+  CHARGEBACK: { label: "Chargeback",  cls: "bg-purple-50 text-purple-700 border border-purple-200" },
 } as const
 
 function StatusBadge({ status }: { status: SaleRow["status"] }) {
-  const c = STATUS_CONFIG[status] ?? { label: status, cls: "bg-gray-100 text-gray-700" }
+  const c = STATUS_CONFIG[status] ?? { label: status, cls: "bg-gray-50 text-gray-700 border border-gray-200" }
   return (
     <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${c.cls}`}>
       {c.label}
@@ -36,13 +37,24 @@ function StatusBadge({ status }: { status: SaleRow["status"] }) {
   )
 }
 
-// ─── Detail row ───────────────────────────────────────────────────────────────
+// ─── Section ──────────────────────────────────────────────────────────────────
+
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <section>
+      <h3 className="text-xs font-semibold text-blue-600 uppercase tracking-wider mb-2">{title}</h3>
+      <div className="bg-gray-50 rounded-xl border border-gray-100 px-4 divide-y divide-gray-100">
+        {children}
+      </div>
+    </section>
+  )
+}
 
 function Row({ label, value }: { label: string; value: React.ReactNode }) {
   return (
-    <div className="flex items-start justify-between gap-4 py-3 border-b border-gray-100 last:border-0">
+    <div className="flex items-start justify-between gap-4 py-3">
       <span className="text-xs font-medium text-gray-500 shrink-0">{label}</span>
-      <span className="text-sm text-gray-900 text-right">{value ?? "—"}</span>
+      <span className="text-sm text-gray-900 text-right tabular-nums">{value ?? "—"}</span>
     </div>
   )
 }
@@ -73,8 +85,8 @@ export function SaleDrawer({ sale, onClose }: Props) {
                 </Dialog.Description>
               )}
             </div>
-            <Dialog.Close className="h-8 w-8 flex items-center justify-center rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors text-xl leading-none">
-              ×
+            <Dialog.Close className="h-8 w-8 flex items-center justify-center rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors">
+              <X className="h-4 w-4" />
             </Dialog.Close>
           </div>
 
@@ -83,59 +95,60 @@ export function SaleDrawer({ sale, onClose }: Props) {
             <div className="flex-1 overflow-y-auto px-6 py-5 space-y-6">
 
               {/* Status + método */}
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <StatusBadge status={sale.status} />
-                <span className="text-xs bg-gray-100 text-gray-600 px-2.5 py-1 rounded-full font-medium">
+                <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200">
                   {sale.paymentMethod === "PIX" ? "PIX" : "Cartão de crédito"}
                 </span>
               </div>
 
               {/* Cliente */}
-              <section>
-                <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Cliente</h3>
-                <div className="bg-gray-50 rounded-xl px-4 divide-y divide-gray-100">
-                  <Row label="Nome"     value={sale.lead?.name} />
-                  <Row label="E-mail"   value={sale.lead?.email} />
-                  <Row label="Telefone" value={sale.lead?.phone || "—"} />
-                </div>
-              </section>
+              <Section title="Cliente">
+                <Row label="Nome"     value={<span className="font-medium">{sale.lead?.name ?? "—"}</span>} />
+                <Row label="E-mail"   value={<span className="font-mono text-xs">{sale.lead?.email ?? "—"}</span>} />
+                <Row label="Telefone" value={sale.lead?.phone || "—"} />
+              </Section>
 
               {/* Produto */}
-              <section>
-                <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Produto</h3>
-                <div className="bg-gray-50 rounded-xl px-4 divide-y divide-gray-100">
-                  <Row label="Produto" value={sale.product?.name} />
-                </div>
-              </section>
+              <Section title="Produto">
+                <Row label="Produto" value={sale.product?.name} />
+              </Section>
 
               {/* Financeiro */}
-              <section>
-                <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Financeiro</h3>
-                <div className="bg-gray-50 rounded-xl px-4 divide-y divide-gray-100">
-                  <Row label="Valor bruto"   value={formatBRL(sale.grossAmountCents)} />
-                  <Row label="Taxa"          value={<span className="text-gray-500">{formatBRL(sale.feeAmountCents)}</span>} />
-                  <Row label="Valor líquido" value={<span className="font-semibold">{formatBRL(sale.netAmountCents)}</span>} />
-                </div>
-              </section>
+              <Section title="Financeiro">
+                <Row
+                  label="Valor bruto"
+                  value={<span className="text-gray-700">{formatBRL(sale.grossAmountCents)}</span>}
+                />
+                <Row
+                  label="Taxa"
+                  value={<span className="text-gray-400">{formatBRL(sale.feeAmountCents)}</span>}
+                />
+                <Row
+                  label="Valor líquido"
+                  value={
+                    <span className="font-semibold text-emerald-700 text-base">
+                      {formatBRL(sale.netAmountCents)}
+                    </span>
+                  }
+                />
+              </Section>
 
               {/* Datas */}
-              <section>
-                <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Datas</h3>
-                <div className="bg-gray-50 rounded-xl px-4 divide-y divide-gray-100">
-                  <Row label="Criado em"     value={formatDateTime(sale.createdAt)} />
-                  <Row label="Pago em"       value={formatDateTime(sale.paidAt)} />
-                  <Row label="Disponível em" value={formatDateTime(sale.availableAt)} />
-                </div>
-              </section>
+              <Section title="Datas">
+                <Row label="Criado em"     value={formatDateTime(sale.createdAt)} />
+                <Row label="Pago em"       value={formatDateTime(sale.paidAt)} />
+                <Row label="Disponível em" value={formatDateTime(sale.availableAt)} />
+              </Section>
 
               {/* Gateway */}
               {sale.gatewayId && (
-                <section>
-                  <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Gateway</h3>
-                  <div className="bg-gray-50 rounded-xl px-4 divide-y divide-gray-100">
-                    <Row label="ID Asaas" value={<span className="font-mono text-xs break-all">{sale.gatewayId}</span>} />
-                  </div>
-                </section>
+                <Section title="Gateway">
+                  <Row
+                    label="ID Asaas"
+                    value={<span className="font-mono text-xs break-all">{sale.gatewayId}</span>}
+                  />
+                </Section>
               )}
 
             </div>
