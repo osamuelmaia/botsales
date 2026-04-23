@@ -10,7 +10,7 @@ export default auth((req) => {
   const { nextUrl } = req
   const hostname = req.headers.get("host") ?? ""
 
-  // ─── Domain routing (production only) ──────────────────────────────
+  // ─── Domain routing (produção apenas) ──────────────────────────────
   const isLocal = hostname.includes("localhost") || hostname.includes("127.0.0.1")
 
   if (!isLocal) {
@@ -19,14 +19,18 @@ export default auth((req) => {
 
     // dashboard.botflows.com.br/ → /login
     if (isDash && nextUrl.pathname === "/") {
-      return Response.redirect(new URL("/login", nextUrl))
+      return Response.redirect(
+        new URL(`https://${DASH_HOST}/login`),
+        302,
+      )
     }
 
     // botflows.com.br/<qualquer rota exceto /> → dashboard subdomain
     if (isRoot && nextUrl.pathname !== "/") {
-      const target = new URL(nextUrl.href)
-      target.host = DASH_HOST
-      return Response.redirect(target)
+      return Response.redirect(
+        new URL(`https://${DASH_HOST}${nextUrl.pathname}${nextUrl.search}`),
+        302,
+      )
     }
   }
 
@@ -52,5 +56,6 @@ export default auth((req) => {
 })
 
 export const config = {
-  matcher: ["/((?!api|_next/static|_next/image|fonts|favicon\\.ico|.*\\..*).*)" ],
+  // Exclui: api, internals do Next (_next), arquivos estáticos com extensão
+  matcher: ["/((?!api|_next|fonts|favicon\\.ico|.*\\.[a-zA-Z]{2,4}$).*)"],
 }
