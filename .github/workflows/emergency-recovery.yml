@@ -18,14 +18,20 @@ jobs:
             echo "=== Estado atual do PM2 ==="
             pm2 list
 
-            echo "=== Deletando e recriando nextjs ==="
+            echo "=== Matando processos zumbis na porta 3000 ==="
             pm2 delete nextjs 2>/dev/null || true
+            sleep 2
+            fuser -k 3000/tcp 2>/dev/null && echo "✓ Porta 3000 liberada" || echo "Porta 3000 já estava livre"
+            pkill -f "next start" 2>/dev/null || true
+            sleep 2
+
+            echo "=== Iniciando nextjs fresh ==="
             pm2 start npm --name nextjs -- start
             pm2 save
 
-            sleep 5
-            echo "=== Logs do nextjs (últimas 40 linhas) ==="
-            pm2 logs nextjs --lines 40 --nostream
+            sleep 8
+            echo "=== Logs do nextjs (últimas 50 linhas) ==="
+            pm2 logs nextjs --lines 50 --nostream
 
             echo "=== PM2 status final ==="
             pm2 list
