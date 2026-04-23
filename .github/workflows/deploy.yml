@@ -16,7 +16,7 @@ jobs:
           key: ${{ secrets.VPS_SSH_KEY }}
           script: |
             set -e
-            cd ~/botsales
+            cd /var/www/botsales
             git pull origin main
             npm ci --legacy-peer-deps
             npm run build
