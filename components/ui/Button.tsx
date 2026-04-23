@@ -23,9 +23,9 @@ const sizeCls: Record<Size, string> = {
 }
 
 const iconSizeCls: Record<Size, string> = {
-  sm: "h-3.5 w-3.5",
-  md: "h-4 w-4",
-  lg: "h-4 w-4",
+  sm: "[&>svg]:h-3.5 [&>svg]:w-3.5",
+  md: "[&>svg]:h-4 [&>svg]:w-4",
+  lg: "[&>svg]:h-4 [&>svg]:w-4",
 }
 
 export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
