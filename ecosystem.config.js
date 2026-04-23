@@ -22,8 +22,8 @@ module.exports = {
   apps: [
     {
       name: "nextjs",
-      script: "node_modules/.bin/next",
-      args: "start --hostname 0.0.0.0",
+      script: "npm",
+      args: "start",
       cwd: "/var/www/botsales",
       env: appEnv,
     },
