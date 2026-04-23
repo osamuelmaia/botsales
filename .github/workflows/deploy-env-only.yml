@@ -1,0 +1,67 @@
+name: Fast Deploy (env only)
+
+# Dispara manualmente — atualiza só o .env + restart do PM2, sem build
+# Use pra iterar em problemas de variável de ambiente
+
+on:
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Prepare .env
+        env:
+          APP_DATABASE_URL:          ${{ secrets.APP_DATABASE_URL }}
+          APP_REDIS_URL:             ${{ secrets.APP_REDIS_URL }}
+          APP_NEXTAUTH_SECRET:       ${{ secrets.APP_NEXTAUTH_SECRET }}
+          APP_NEXTAUTH_URL:          ${{ secrets.APP_NEXTAUTH_URL }}
+          APP_GATEWAY_API_KEY:       ${{ secrets.APP_GATEWAY_API_KEY }}
+          APP_GATEWAY_WEBHOOK_SECRET: ${{ secrets.APP_GATEWAY_WEBHOOK_SECRET }}
+          APP_ENCRYPTION_KEY:        ${{ secrets.APP_ENCRYPTION_KEY }}
+          APP_NEXT_PUBLIC_APP_URL:   ${{ secrets.APP_NEXT_PUBLIC_APP_URL }}
+          APP_ASAAS_ENVIRONMENT:     ${{ secrets.APP_ASAAS_ENVIRONMENT }}
+          APP_BLOB_READ_WRITE_TOKEN: ${{ secrets.APP_BLOB_READ_WRITE_TOKEN }}
+        run: |
+          escape() { printf '%s' "$1" | sed 's/\$/\\$/g'; }
+          {
+            printf "DATABASE_URL='%s'\n"             "$APP_DATABASE_URL"
+            printf "REDIS_URL='%s'\n"                "$APP_REDIS_URL"
+            printf "NEXTAUTH_SECRET='%s'\n"          "$APP_NEXTAUTH_SECRET"
+            printf "NEXTAUTH_URL='%s'\n"             "$APP_NEXTAUTH_URL"
+            printf "AUTH_TRUST_HOST=1\n"
+            printf "GATEWAY_API_KEY=%s\n"            "$(escape "$APP_GATEWAY_API_KEY")"
+            printf "GATEWAY_WEBHOOK_SECRET=%s\n"     "$(escape "$APP_GATEWAY_WEBHOOK_SECRET")"
+            printf "ENCRYPTION_KEY=%s\n"             "$(escape "$APP_ENCRYPTION_KEY")"
+            printf "NEXT_PUBLIC_APP_URL='%s'\n"      "$APP_NEXT_PUBLIC_APP_URL"
+            printf "ASAAS_ENVIRONMENT='%s'\n"        "$APP_ASAAS_ENVIRONMENT"
+            printf "BLOB_READ_WRITE_TOKEN=%s\n"      "$(escape "$APP_BLOB_READ_WRITE_TOKEN")"
+          } > /tmp/app.env
+          echo "ENV_B64=$(base64 -w0 /tmp/app.env)" >> "$GITHUB_ENV"
+
+      - name: Update env + restart PM2
+        uses: appleboy/ssh-action@v1.0.3
+        env:
+          ENV_B64: ${{ env.ENV_B64 }}
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          envs: ENV_B64
+          script: |
+            set -e
+            cd /var/www/botsales
+
+            echo "$ENV_B64" | base64 -d > .env
+            echo "✓ .env atualizado"
+
+            # Mostra quais chaves estão no .env (só nomes, sem valores)
+            echo "Chaves no .env:"
+            grep -oE '^[A-Z_]+=' .env | sed 's/=$//' | sort
+
+            # Restart (não reload) garante pickup do env
+            pm2 restart nextjs --update-env
+            pm2 restart bot-worker --update-env || echo "⚠ bot-worker restart falhou"
+
+            echo "✓ Restart concluído em $(date)"
+            pm2 list

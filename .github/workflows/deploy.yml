@@ -81,6 +81,7 @@ jobs:
             source .env
             set +a
 
-            pm2 reload nextjs --update-env
-            pm2 reload bot-worker --update-env
+            # restart (não reload) garante que o env novo entra — reload tem bug conhecido
+            pm2 restart nextjs --update-env
+            pm2 restart bot-worker --update-env
             echo "Deploy concluído em $(date)"
