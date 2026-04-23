@@ -3,9 +3,10 @@
 import useSWR from "swr"
 import Link from "next/link"
 import { useState, useMemo } from "react"
-import { TrendingUp, DollarSign, Users, Bot, Wallet, ArrowRight, Building2, Calendar } from "lucide-react"
+import { TrendingUp, DollarSign, Users, Bot, Wallet, ArrowRight, Building2 } from "lucide-react"
 import { AdminStatCard } from "@/components/admin/AdminStatCard"
 import { AdminRevenueChart } from "@/components/admin/AdminRevenueChart"
+import { DateRangePicker } from "@/components/ui/DateRangePicker"
 import { fetcher } from "@/lib/fetcher"
 
 type Period = "today" | "7d" | "30d" | "month" | "all" | "custom"
@@ -65,25 +66,20 @@ function StatSkeleton() {
 }
 
 export function AdminDashboardClient() {
-  const [period, setPeriod]         = useState<Period>("30d")
-  const [customFrom, setCustomFrom] = useState("")
-  const [customTo,   setCustomTo]   = useState("")
+  const [period, setPeriod]           = useState<Period>("30d")
+  const [customRange, setCustomRange] = useState<{ from: string; to: string } | null>(null)
 
-  // useMemo prevents new Date() from changing on every render → fixes infinite SWR refetch
   const range = useMemo<{ from: string; to: string } | null>(() => {
-    if (period === "custom") {
-      if (!customFrom || !customTo) return null
-      return { from: customFrom, to: customTo }
-    }
+    if (period === "custom") return customRange
     return getPresetRange(period)
-  }, [period, customFrom, customTo])
+  }, [period, customRange])
 
   const key = range ? `/api/admin/stats?from=${range.from}&to=${range.to}` : null
   const { data, isLoading } = useSWR<Stats>(key, fetcher, { refreshInterval: 60_000 })
 
   const periodLabel =
     period === "custom"
-      ? customFrom && customTo ? `${customFrom} → ${customTo}` : ""
+      ? customRange ? `${customRange.from} → ${customRange.to}` : ""
       : PRESETS.find((p) => p.value === period)?.label ?? ""
 
   return (
@@ -108,48 +104,13 @@ export function AdminDashboardClient() {
               {p.label}
             </button>
           ))}
-          <button
-            onClick={() => setPeriod("custom")}
-            className={`h-8 px-3.5 rounded-full text-xs font-medium inline-flex items-center gap-1.5 transition-colors ${
-              period === "custom"
-                ? "bg-blue-600 text-white shadow-sm"
-                : "bg-white border border-gray-200 text-gray-600 hover:border-blue-300 hover:text-blue-600"
-            }`}
-          >
-            <Calendar className="h-3 w-3" />
-            Personalizado
-          </button>
+          <DateRangePicker
+            value={period === "custom" ? customRange : null}
+            onChange={(r) => { setCustomRange(r); setPeriod("custom") }}
+            placeholder="Personalizado"
+          />
         </div>
       </div>
-
-      {/* Custom date inputs */}
-      {period === "custom" && (
-        <div className="flex items-center gap-3 flex-wrap bg-blue-50/50 border border-blue-100 rounded-xl px-4 py-3">
-          <div className="flex items-center gap-2">
-            <label className="text-xs text-gray-500 whitespace-nowrap">De:</label>
-            <input
-              type="date"
-              value={customFrom}
-              max={customTo || undefined}
-              onChange={(e) => setCustomFrom(e.target.value)}
-              className="h-8 px-2.5 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500"
-            />
-          </div>
-          <div className="flex items-center gap-2">
-            <label className="text-xs text-gray-500 whitespace-nowrap">Até:</label>
-            <input
-              type="date"
-              value={customTo}
-              min={customFrom || undefined}
-              onChange={(e) => setCustomTo(e.target.value)}
-              className="h-8 px-2.5 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500"
-            />
-          </div>
-          {(!customFrom || !customTo) && (
-            <p className="text-xs text-gray-400">Selecione as duas datas para ver os dados.</p>
-          )}
-        </div>
-      )}
 
       {/* Row 1 — 4 main KPIs */}
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
