@@ -2,7 +2,7 @@
 
 import useSWR from "swr"
 import { useState } from "react"
-import { Plus, Pencil, Trash2, X, Link2, Check, Package, Repeat } from "lucide-react"
+import { Plus, Pencil, Trash2, X, Link2, Check, Package } from "lucide-react"
 import * as Dialog from "@radix-ui/react-dialog"
 import * as AlertDialog from "@radix-ui/react-alert-dialog"
 import { toast } from "sonner"
@@ -19,6 +19,17 @@ function formatPrice(cents: number) {
 
 const methodLabel: Record<string, string> = { PIX: "PIX", CREDIT_CARD: "Cartão" }
 
+function getBillingDescription(product: ProductData): string {
+  if (!product.isRecurring) return "Pagamento único"
+  const cycles = product.billingCycles ?? 1
+  if (product.billingType === "MONTHLY") {
+    if (cycles <= 1) return "Assinatura mensal"
+    return `Mensal · ${cycles} meses`
+  }
+  if (cycles <= 1) return "Assinatura anual"
+  return `Anual · ${cycles} anos`
+}
+
 function CopyCheckoutLink({ productId, shortId }: { productId: string; shortId?: string | null }) {
   const [copied, setCopied] = useState(false)
   const slug = shortId ?? productId
@@ -31,11 +42,11 @@ function CopyCheckoutLink({ productId, shortId }: { productId: string; shortId?:
   return (
     <button
       onClick={copy}
-      title="Copiar link de checkout"
-      className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded-lg border border-gray-200 text-xs font-medium text-gray-500 hover:border-blue-300 hover:text-blue-600 hover:bg-blue-50 transition-colors"
+      title="Copiar link de venda"
+      className="w-full inline-flex items-center justify-center gap-2 h-9 px-3 rounded-lg border border-gray-200 text-sm font-medium text-gray-600 hover:border-blue-300 hover:text-blue-600 hover:bg-blue-50 transition-colors"
     >
-      {copied ? <Check className="h-3 w-3 text-emerald-600" /> : <Link2 className="h-3 w-3" />}
-      {copied ? "Copiado!" : "Link"}
+      {copied ? <Check className="h-3.5 w-3.5 text-emerald-600" /> : <Link2 className="h-3.5 w-3.5" />}
+      {copied ? "Link copiado!" : "Copiar link de venda"}
     </button>
   )
 }
@@ -99,65 +110,63 @@ export function ProductsClient() {
           {products.map((product) => (
             <div
               key={product.id}
-              className="group bg-white rounded-xl border border-gray-200 p-5 shadow-sm hover:shadow-md hover:border-gray-300 transition-all flex flex-col gap-4"
+              className="bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md hover:border-gray-300 transition-all flex flex-col overflow-hidden"
             >
-              {/* Header */}
-              <div className="flex items-start justify-between gap-2">
-                <div className="min-w-0 flex-1">
-                  <h3 className="font-semibold text-gray-900 text-[15px] leading-snug truncate">
-                    {product.name}
-                  </h3>
-                  {product.description && (
-                    <p className="text-xs text-gray-500 mt-1 line-clamp-2 leading-relaxed">
-                      {product.description}
-                    </p>
-                  )}
+              {/* Card body */}
+              <div className="flex-1 p-5">
+                {/* Header */}
+                <div className="flex items-start gap-3 mb-4">
+                  <div className="w-10 h-10 rounded-lg bg-blue-50 border border-blue-100 flex items-center justify-center shrink-0">
+                    <Package className="h-5 w-5 text-blue-600" strokeWidth={1.75} />
+                  </div>
+                  <div className="flex-1 min-w-0 pt-0.5">
+                    <h3 className="font-semibold text-gray-900 text-[15px] leading-snug truncate">
+                      {product.name}
+                    </h3>
+                    {product.description && (
+                      <p className="text-xs text-gray-500 mt-0.5 line-clamp-2 leading-relaxed">
+                        {product.description}
+                      </p>
+                    )}
+                  </div>
+                  <div className="flex gap-0.5 shrink-0 -mt-0.5">
+                    <button
+                      onClick={() => openEdit(product)}
+                      className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-colors"
+                      title="Editar"
+                    >
+                      <Pencil className="h-3.5 w-3.5" />
+                    </button>
+                    <button
+                      onClick={() => setDeletingProduct(product)}
+                      className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors"
+                      title="Excluir"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
                 </div>
-                <div className="flex gap-0.5 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <button
-                    onClick={() => openEdit(product)}
-                    className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-colors"
-                    title="Editar"
-                  >
-                    <Pencil className="h-3.5 w-3.5" />
-                  </button>
-                  <button
-                    onClick={() => setDeletingProduct(product)}
-                    className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors"
-                    title="Deletar"
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </button>
+
+                {/* Price + billing */}
+                <div className="mb-4">
+                  <p className="text-2xl font-bold text-gray-900 tabular-nums leading-none">
+                    {formatPrice(product.priceInCents)}
+                  </p>
+                  <p className="text-xs text-gray-500 mt-1">{getBillingDescription(product)}</p>
                 </div>
-              </div>
 
-              {/* Price */}
-              <div>
-                <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1">
-                  Preço
-                </p>
-                <p className="text-2xl font-bold text-gray-900 leading-none tabular-nums">
-                  {formatPrice(product.priceInCents)}
-                </p>
-              </div>
-
-              {/* Badges */}
-              <div className="flex flex-wrap gap-1.5">
-                {product.paymentMethods.map((m) => (
-                  <Badge key={m} variant="neutral" size="sm">
-                    {methodLabel[m] ?? m}
-                  </Badge>
-                ))}
-                {product.isRecurring && (
-                  <Badge variant="info" size="sm" leftIcon={<Repeat className="h-2.5 w-2.5" />}>
-                    {product.billingType === "MONTHLY" ? "Mensal" : "Anual"}
-                    {product.billingCycles ? ` · ${product.billingCycles}x` : ""}
-                  </Badge>
-                )}
+                {/* Payment methods */}
+                <div className="flex flex-wrap gap-1.5">
+                  {product.paymentMethods.map((m) => (
+                    <Badge key={m} variant="neutral" size="sm">
+                      {methodLabel[m] ?? m}
+                    </Badge>
+                  ))}
+                </div>
               </div>
 
               {/* Footer */}
-              <div className="flex items-center justify-end pt-3 border-t border-gray-100">
+              <div className="px-5 py-3 border-t border-gray-100 bg-gray-50/50">
                 <CopyCheckoutLink productId={product.id} shortId={product.shortId} />
               </div>
             </div>
