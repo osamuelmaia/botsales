@@ -59,9 +59,10 @@ jobs:
             echo "Chaves no .env:"
             grep -oE '^[A-Z_]+=' .env | sed 's/=$//' | sort
 
-            # Restart (não reload) garante pickup do env
-            pm2 restart nextjs --update-env
+            # Usa ecosystem.config.js que lê o .env diretamente — bypassa estado corrompido do PM2
+            pm2 reload ecosystem.config.js --update-env
             pm2 restart bot-worker --update-env || echo "⚠ bot-worker restart falhou"
+            pm2 save
 
             echo "✓ Restart concluído em $(date)"
             pm2 list

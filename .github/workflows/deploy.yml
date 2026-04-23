@@ -76,12 +76,10 @@ jobs:
 
             npm run build
 
-            # ── Carrega .env no shell para pm2 --update-env pegar ────────────────
-            set -a
-            source .env
-            set +a
-
-            # restart (não reload) garante que o env novo entra — reload tem bug conhecido
-            pm2 restart nextjs --update-env
-            pm2 restart bot-worker --update-env
+            # ── Reinicia nextjs via ecosystem.config.js (bypassa estado corrompido do PM2) ──
+            # ecosystem.config.js lê o .env diretamente e injeta as vars explicitamente,
+            # ignorando qualquer valor vazio que PM2 tenha guardado de deploys anteriores
+            pm2 reload ecosystem.config.js --update-env
+            pm2 restart bot-worker --update-env || echo "⚠ bot-worker restart falhou"
+            pm2 save
             echo "Deploy concluído em $(date)"

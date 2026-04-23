@@ -74,7 +74,8 @@ interface AsaasWebhookPayload {
 // ─── HTTP helpers ─────────────────────────────────────────────────────────────
 
 function apiKey(): string {
-  const key = process.env.GATEWAY_API_KEY
+  // APP_GATEWAY_API_KEY is a fallback for envs where PM2 has corrupted GATEWAY_API_KEY=""
+  const key = process.env.GATEWAY_API_KEY || process.env.APP_GATEWAY_API_KEY
   if (!key) throw new Error("GATEWAY_API_KEY não configurado")
   return key
 }
@@ -314,7 +315,7 @@ export const GatewayService = {
    * para garantir constant-time comparison sem vazar o comprimento.
    */
   parseWebhook(payload: unknown, signature: string): WebhookEvent {
-    const secret = process.env.GATEWAY_WEBHOOK_SECRET
+    const secret = process.env.GATEWAY_WEBHOOK_SECRET || process.env.APP_GATEWAY_WEBHOOK_SECRET
     if (!secret) throw new Error("GATEWAY_WEBHOOK_SECRET não configurado")
 
     // Hash both values so timingSafeEqual compares fixed-length digests
