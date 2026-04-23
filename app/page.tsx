@@ -34,7 +34,7 @@ const STEPS = [
     icon: Zap,
     step: 3,
     title: "Vendas no automático",
-    desc: "O bot cobra, envia link de acesso ao grupo e faz remarketing para inadimplentes.",
+    desc: "O bot cobra, libera acesso ao grupo, faz remarketing e remove membros que não renovaram a assinatura.",
   },
   {
     icon: Wallet,
@@ -57,8 +57,8 @@ const FEATURES = [
   },
   {
     icon: Users,
-    title: "Controle de grupos",
-    desc: "Acesso liberado após pagamento. Remoção automática de inadimplentes pelo bot.",
+    title: "Gestão do grupo/canal",
+    desc: "Acesso liberado automaticamente após pagamento. Membros que não renovam a assinatura são removidos pelo bot — sem intervenção manual.",
   },
   {
     icon: RefreshCw,
@@ -78,8 +78,8 @@ const FEATURES = [
 ]
 
 const FEES = [
-  { label: "Taxa percentual",   value: "4,99% por venda" },
-  { label: "Taxa fixa",         value: "R$0,49 por venda" },
+  { label: "Taxa percentual",   value: "5,99% por venda" },
+  { label: "Taxa fixa",         value: "R$1,00 por venda" },
   { label: "Taxa de saque",     value: "Grátis" },
   { label: "Mensalidade",       value: "R$0,00" },
 ]
@@ -214,7 +214,7 @@ export default function LandingPage() {
 
           {/* Description */}
           <p className="text-lg md:text-xl text-zinc-400 max-w-2xl mx-auto leading-relaxed mb-10">
-            Conecte um bot, configure seus produtos e deixe a BotFlows cobrar seus clientes, gerenciar acessos e recuperar inadimplentes — sem você precisar mover um dedo.
+            Conecte um bot, configure seus produtos e deixe a BotFlows cobrar clientes, liberar e remover acessos do grupo automaticamente, e recuperar inadimplentes — sem você precisar mover um dedo.
           </p>
 
           {/* CTAs */}
@@ -230,7 +230,7 @@ export default function LandingPage() {
           </div>
 
           {/* Pills */}
-          <div className="flex flex-wrap items-center justify-center gap-x-8 gap-y-2 mb-20">
+          <div className="flex flex-wrap items-center justify-center gap-x-8 gap-y-2 pb-24">
             {[
               "Sem mensalidade",
               "Setup em 5 minutos",
@@ -244,9 +244,6 @@ export default function LandingPage() {
             ))}
           </div>
         </div>
-
-        {/* bottom fade */}
-        <div className="h-20 bg-gradient-to-b from-transparent to-white" />
       </section>
 
       {/* ─── COMO FUNCIONA ────────────────────────────────────────────── */}
@@ -372,7 +369,7 @@ export default function LandingPage() {
 
                 <div className="mt-auto bg-blue-50 border border-blue-100 rounded-xl p-4">
                   <p className="text-sm text-blue-700 leading-relaxed">
-                    <span className="font-semibold">Exemplo:</span> venda de R$100,00 via cartão → taxa de R$5,48 → você recebe R$94,52 líquidos.
+                    <span className="font-semibold">Exemplo:</span> venda de R$100,00 via cartão → taxa de R$6,99 → você recebe R$93,01 líquidos.
                   </p>
                 </div>
               </div>
