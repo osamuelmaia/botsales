@@ -145,6 +145,10 @@ ALTER TABLE "Sale" ADD COLUMN IF NOT EXISTS "pendingFlowFiredAt" TIMESTAMP(3);
 ALTER TABLE "Lead" ADD COLUMN IF NOT EXISTS "portalPasswordHash" TEXT;
 CREATE INDEX IF NOT EXISTS "Lead_email_idx" ON "Lead"("email");
 
+-- Product: short checkout ID (7-8 char alphanumeric, e.g. /checkout/aB3kR9mZ)
+ALTER TABLE "Product" ADD COLUMN IF NOT EXISTS "shortId" TEXT;
+CREATE UNIQUE INDEX IF NOT EXISTS "Product_shortId_key" ON "Product"("shortId");
+
 -- Grant admin role to samuelcoprod@gmail.com
 UPDATE "User" SET role = 'ADMIN' WHERE email = 'samuelcoprod@gmail.com';
 

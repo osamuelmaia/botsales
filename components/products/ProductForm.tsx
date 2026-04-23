@@ -41,6 +41,7 @@ type FormValues = z.infer<typeof formSchema>
 
 export interface ProductData {
   id: string
+  shortId?: string | null
   name: string
   description?: string | null
   priceInCents: number

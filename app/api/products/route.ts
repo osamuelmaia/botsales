@@ -1,7 +1,19 @@
 import { NextResponse } from "next/server"
+import { randomBytes } from "crypto"
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { productSchema } from "@/lib/validations/product"
+
+function generateShortId(): string {
+  const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
+  const bytes = randomBytes(16)
+  let id = ""
+  for (let i = 0; i < bytes.length && id.length < 8; i++) {
+    const b = bytes[i]
+    if (b < 186) id += chars[b % 62] // 186 = 62*3, uniform distribution
+  }
+  return id.padEnd(8, "A")
+}
 
 export async function GET() {
   const session = await auth()
@@ -34,6 +46,7 @@ export async function POST(request: Request) {
   const product = await prisma.product.create({
     data: {
       ...rest,
+      shortId: generateShortId(),
       userId: session.user.id,
       isRecurring,
       billingType: isRecurring ? (billingType ?? null) : null,

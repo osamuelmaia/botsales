@@ -10,24 +10,59 @@ jobs:
     steps:
       - name: Deploy via SSH
         uses: appleboy/ssh-action@v1.0.3
+        env:
+          APP_DATABASE_URL: ${{ secrets.APP_DATABASE_URL }}
+          APP_REDIS_URL: ${{ secrets.APP_REDIS_URL }}
+          APP_NEXTAUTH_SECRET: ${{ secrets.APP_NEXTAUTH_SECRET }}
+          APP_NEXTAUTH_URL: ${{ secrets.APP_NEXTAUTH_URL }}
+          APP_GATEWAY_API_KEY: ${{ secrets.APP_GATEWAY_API_KEY }}
+          APP_GATEWAY_WEBHOOK_SECRET: ${{ secrets.APP_GATEWAY_WEBHOOK_SECRET }}
+          APP_ENCRYPTION_KEY: ${{ secrets.APP_ENCRYPTION_KEY }}
+          APP_NEXT_PUBLIC_APP_URL: ${{ secrets.APP_NEXT_PUBLIC_APP_URL }}
+          APP_ASAAS_ENVIRONMENT: ${{ secrets.APP_ASAAS_ENVIRONMENT }}
+          APP_BLOB_READ_WRITE_TOKEN: ${{ secrets.APP_BLOB_READ_WRITE_TOKEN }}
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
+          envs: APP_DATABASE_URL,APP_REDIS_URL,APP_NEXTAUTH_SECRET,APP_NEXTAUTH_URL,APP_GATEWAY_API_KEY,APP_GATEWAY_WEBHOOK_SECRET,APP_ENCRYPTION_KEY,APP_NEXT_PUBLIC_APP_URL,APP_ASAAS_ENVIRONMENT,APP_BLOB_READ_WRITE_TOKEN
           script: |
             set -e
             cd /var/www/botsales
 
+            # ── Escreve .env a partir dos GitHub Secrets ─────────────────────────
+            if [ -n "$APP_DATABASE_URL" ]; then
+              {
+                printf 'DATABASE_URL=%s\n'              "$APP_DATABASE_URL"
+                printf 'REDIS_URL=%s\n'                 "$APP_REDIS_URL"
+                printf 'NEXTAUTH_SECRET=%s\n'           "$APP_NEXTAUTH_SECRET"
+                printf 'NEXTAUTH_URL=%s\n'              "$APP_NEXTAUTH_URL"
+                printf 'AUTH_TRUST_HOST=1\n'
+                printf 'GATEWAY_API_KEY=%s\n'           "$APP_GATEWAY_API_KEY"
+                printf 'GATEWAY_WEBHOOK_SECRET=%s\n'    "$APP_GATEWAY_WEBHOOK_SECRET"
+                printf 'ENCRYPTION_KEY=%s\n'            "$APP_ENCRYPTION_KEY"
+                printf 'NEXT_PUBLIC_APP_URL=%s\n'       "$APP_NEXT_PUBLIC_APP_URL"
+                printf 'ASAAS_ENVIRONMENT=%s\n'         "$APP_ASAAS_ENVIRONMENT"
+                printf 'BLOB_READ_WRITE_TOKEN=%s\n'     "$APP_BLOB_READ_WRITE_TOKEN"
+              } > .env
+              echo "✓ .env atualizado"
+            else
+              echo "⚠ APP_DATABASE_URL não configurado — adicione os secrets no GitHub"
+            fi
+
             git fetch origin main
             git reset --hard origin/main
 
-            # Reinstala dependências só se package.json mudou
+            # ── Reinstala dependências só se package.json mudou ──────────────────
             if git diff HEAD~1 HEAD -- package.json package-lock.json | grep -q .; then
               echo "Dependências mudaram, reinstalando..."
               npm ci --legacy-peer-deps
             else
               echo "Dependências iguais, pulando npm ci"
             fi
+
+            # ── Sincroniza schema com o banco (aplica novas colunas/tabelas) ─────
+            npx prisma db push --skip-generate 2>&1 | tail -3
 
             npm run build
             pm2 reload nextjs --update-env

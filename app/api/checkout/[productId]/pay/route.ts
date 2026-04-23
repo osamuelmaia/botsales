@@ -8,7 +8,6 @@ import { decryptToken } from "@/lib/utils"
 // ─── Validation ──────────────────────────────────────────────────────────────
 
 const cpfRegex = /^\d{11}$/
-const cuidRegex = /^c[a-z0-9]{24}$/
 
 const paymentBodySchema = z.object({
   method: z.enum(["PIX", "CREDIT_CARD"]),
@@ -38,13 +37,13 @@ export async function POST(
   { params }: { params: { productId: string } }
 ) {
   // ── 0. Validate productId ───────────────────────────────────────────────
-  if (!cuidRegex.test(params.productId)) {
+  if (!/^[A-Za-z0-9]{7,30}$/.test(params.productId)) {
     return NextResponse.json({ error: "ID de produto inválido" }, { status: 400 })
   }
 
   // ── 1. Load product + owner ──────────────────────────────────────────────
-  const product = await prisma.product.findUnique({
-    where: { id: params.productId },
+  const product = await prisma.product.findFirst({
+    where: { OR: [{ id: params.productId }, { shortId: params.productId }] },
     include: {
       user: {
         select: {

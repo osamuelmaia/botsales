@@ -135,6 +135,7 @@ model Bot {
 model Product {
   id             String          @id @default(cuid())
   userId         String
+  shortId        String?         @unique
   name           String
   description    String?
   priceInCents   Int

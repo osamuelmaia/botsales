@@ -1,20 +1,18 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 
-const cuidRegex = /^c[a-z0-9]{24}$/
-
 // ─── GET /api/checkout/[productId] — dados públicos do produto ────────────────
 
 export async function GET(
   _req: NextRequest,
   { params }: { params: { productId: string } }
 ) {
-  if (!cuidRegex.test(params.productId)) {
+  if (!/^[A-Za-z0-9]{7,30}$/.test(params.productId)) {
     return NextResponse.json({ error: "ID inválido" }, { status: 400 })
   }
 
-  const product = await prisma.product.findUnique({
-    where: { id: params.productId },
+  const product = await prisma.product.findFirst({
+    where: { OR: [{ id: params.productId }, { shortId: params.productId }] },
     select: {
       id: true,
       name: true,

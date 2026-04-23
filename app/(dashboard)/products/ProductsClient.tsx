@@ -19,9 +19,10 @@ function formatPrice(cents: number) {
 
 const methodLabel: Record<string, string> = { PIX: "PIX", CREDIT_CARD: "Cartão" }
 
-function CopyCheckoutLink({ productId }: { productId: string }) {
+function CopyCheckoutLink({ productId, shortId }: { productId: string; shortId?: string | null }) {
   const [copied, setCopied] = useState(false)
-  const url = `${process.env.NEXT_PUBLIC_APP_URL ?? window.location.origin}/checkout/${productId}`
+  const slug = shortId ?? productId
+  const url = `${process.env.NEXT_PUBLIC_APP_URL ?? window.location.origin}/checkout/${slug}`
   function copy() {
     navigator.clipboard.writeText(url)
     setCopied(true)
@@ -157,7 +158,7 @@ export function ProductsClient() {
 
               {/* Footer */}
               <div className="flex items-center justify-end pt-3 border-t border-gray-100">
-                <CopyCheckoutLink productId={product.id!} />
+                <CopyCheckoutLink productId={product.id} shortId={product.shortId} />
               </div>
             </div>
           ))}
