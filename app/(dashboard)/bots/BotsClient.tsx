@@ -141,11 +141,11 @@ function BotCard({ bot, onDelete, onUpdated }: { bot: BotListItem; onDelete: (id
         )}
 
         {/* Actions */}
-        <div className="flex items-center gap-2 pt-1 border-t border-gray-100">
+        <div className="flex items-center gap-2">
           <Button variant="secondary" size="sm" onClick={() => setConfigOpen(true)} leftIcon={<Settings />}>
             Configurar
           </Button>
-          <Button variant="secondary" size="sm" onClick={() => router.push(`/dashboard/bots/${bot.id}/flow`)} leftIcon={<GitBranch />}>
+          <Button variant="secondary" size="sm" onClick={() => router.push(`/bots/${bot.id}/flow`)} leftIcon={<GitBranch />}>
             Fluxo
           </Button>
           <AlertDialog.Root open={deleteOpen} onOpenChange={setDeleteOpen}>
