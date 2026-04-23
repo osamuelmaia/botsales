@@ -1,0 +1,31 @@
+name: Emergency Recovery
+
+on:
+  workflow_dispatch:
+
+jobs:
+  recover:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Restart nextjs via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          script: |
+            cd /var/www/botsales
+            echo "=== Estado atual do PM2 ==="
+            pm2 list
+
+            echo "=== Deletando e recriando nextjs ==="
+            pm2 delete nextjs 2>/dev/null || true
+            pm2 start npm --name nextjs -- start
+            pm2 save
+
+            sleep 5
+            echo "=== Logs do nextjs (últimas 40 linhas) ==="
+            pm2 logs nextjs --lines 40 --nostream
+
+            echo "=== PM2 status final ==="
+            pm2 list
