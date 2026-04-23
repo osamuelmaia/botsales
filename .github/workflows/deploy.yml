@@ -8,47 +8,52 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
+      # ── 1. Build .env safely on the runner (secrets are proper bash vars here)
+      - name: Prepare .env
+        env:
+          APP_DATABASE_URL:         ${{ secrets.APP_DATABASE_URL }}
+          APP_REDIS_URL:            ${{ secrets.APP_REDIS_URL }}
+          APP_NEXTAUTH_SECRET:      ${{ secrets.APP_NEXTAUTH_SECRET }}
+          APP_NEXTAUTH_URL:         ${{ secrets.APP_NEXTAUTH_URL }}
+          APP_GATEWAY_API_KEY:      ${{ secrets.APP_GATEWAY_API_KEY }}
+          APP_GATEWAY_WEBHOOK_SECRET: ${{ secrets.APP_GATEWAY_WEBHOOK_SECRET }}
+          APP_ENCRYPTION_KEY:       ${{ secrets.APP_ENCRYPTION_KEY }}
+          APP_NEXT_PUBLIC_APP_URL:  ${{ secrets.APP_NEXT_PUBLIC_APP_URL }}
+          APP_ASAAS_ENVIRONMENT:    ${{ secrets.APP_ASAAS_ENVIRONMENT }}
+          APP_BLOB_READ_WRITE_TOKEN: ${{ secrets.APP_BLOB_READ_WRITE_TOKEN }}
+        run: |
+          {
+            printf "DATABASE_URL='%s'\n"             "$APP_DATABASE_URL"
+            printf "REDIS_URL='%s'\n"                "$APP_REDIS_URL"
+            printf "NEXTAUTH_SECRET='%s'\n"          "$APP_NEXTAUTH_SECRET"
+            printf "NEXTAUTH_URL='%s'\n"             "$APP_NEXTAUTH_URL"
+            printf "AUTH_TRUST_HOST=1\n"
+            printf "GATEWAY_API_KEY='%s'\n"          "$APP_GATEWAY_API_KEY"
+            printf "GATEWAY_WEBHOOK_SECRET='%s'\n"   "$APP_GATEWAY_WEBHOOK_SECRET"
+            printf "ENCRYPTION_KEY='%s'\n"           "$APP_ENCRYPTION_KEY"
+            printf "NEXT_PUBLIC_APP_URL='%s'\n"      "$APP_NEXT_PUBLIC_APP_URL"
+            printf "ASAAS_ENVIRONMENT='%s'\n"        "$APP_ASAAS_ENVIRONMENT"
+            printf "BLOB_READ_WRITE_TOKEN='%s'\n"    "$APP_BLOB_READ_WRITE_TOKEN"
+          } > /tmp/app.env
+          echo "ENV_B64=$(base64 -w0 /tmp/app.env)" >> "$GITHUB_ENV"
+
+      # ── 2. Deploy via SSH — ENV_B64 é base64 puro (sem chars especiais)
       - name: Deploy via SSH
         uses: appleboy/ssh-action@v1.0.3
         env:
-          APP_DATABASE_URL: ${{ secrets.APP_DATABASE_URL }}
-          APP_REDIS_URL: ${{ secrets.APP_REDIS_URL }}
-          APP_NEXTAUTH_SECRET: ${{ secrets.APP_NEXTAUTH_SECRET }}
-          APP_NEXTAUTH_URL: ${{ secrets.APP_NEXTAUTH_URL }}
-          APP_GATEWAY_API_KEY: ${{ secrets.APP_GATEWAY_API_KEY }}
-          APP_GATEWAY_WEBHOOK_SECRET: ${{ secrets.APP_GATEWAY_WEBHOOK_SECRET }}
-          APP_ENCRYPTION_KEY: ${{ secrets.APP_ENCRYPTION_KEY }}
-          APP_NEXT_PUBLIC_APP_URL: ${{ secrets.APP_NEXT_PUBLIC_APP_URL }}
-          APP_ASAAS_ENVIRONMENT: ${{ secrets.APP_ASAAS_ENVIRONMENT }}
-          APP_BLOB_READ_WRITE_TOKEN: ${{ secrets.APP_BLOB_READ_WRITE_TOKEN }}
+          ENV_B64: ${{ env.ENV_B64 }}
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
-          envs: APP_DATABASE_URL,APP_REDIS_URL,APP_NEXTAUTH_SECRET,APP_NEXTAUTH_URL,APP_GATEWAY_API_KEY,APP_GATEWAY_WEBHOOK_SECRET,APP_ENCRYPTION_KEY,APP_NEXT_PUBLIC_APP_URL,APP_ASAAS_ENVIRONMENT,APP_BLOB_READ_WRITE_TOKEN
+          envs: ENV_B64
           script: |
             set -e
             cd /var/www/botsales
 
-            # ── Escreve .env a partir dos GitHub Secrets ─────────────────────────
-            if [ -n "$APP_DATABASE_URL" ]; then
-              {
-                printf "DATABASE_URL='%s'\n"           "$APP_DATABASE_URL"
-                printf "REDIS_URL='%s'\n"               "$APP_REDIS_URL"
-                printf "NEXTAUTH_SECRET='%s'\n"         "$APP_NEXTAUTH_SECRET"
-                printf "NEXTAUTH_URL='%s'\n"            "$APP_NEXTAUTH_URL"
-                printf "AUTH_TRUST_HOST=1\n"
-                printf "GATEWAY_API_KEY='%s'\n"         "$APP_GATEWAY_API_KEY"
-                printf "GATEWAY_WEBHOOK_SECRET='%s'\n"  "$APP_GATEWAY_WEBHOOK_SECRET"
-                printf "ENCRYPTION_KEY='%s'\n"          "$APP_ENCRYPTION_KEY"
-                printf "NEXT_PUBLIC_APP_URL='%s'\n"     "$APP_NEXT_PUBLIC_APP_URL"
-                printf "ASAAS_ENVIRONMENT='%s'\n"       "$APP_ASAAS_ENVIRONMENT"
-                printf "BLOB_READ_WRITE_TOKEN='%s'\n"   "$APP_BLOB_READ_WRITE_TOKEN"
-              } > .env
-              echo "✓ .env atualizado"
-            else
-              echo "⚠ APP_DATABASE_URL não configurado — adicione os secrets no GitHub"
-            fi
+            # ── Decodifica e escreve .env ────────────────────────────────────────
+            echo "$ENV_B64" | base64 -d > .env
+            echo "✓ .env atualizado"
 
             git fetch origin main
             git reset --hard origin/main
@@ -61,26 +66,18 @@ jobs:
               echo "Dependências iguais, pulando npm ci"
             fi
 
-            # ── Regenera cliente Prisma (sempre, independente do npm ci) ─────────
+            # ── Regenera cliente Prisma ──────────────────────────────────────────
             npx prisma generate
 
-            # ── Sincroniza schema com o banco (aplica novas colunas/tabelas) ─────
-            npx prisma db push --skip-generate --accept-data-loss 2>&1 | tail -3 || echo "⚠ prisma db push falhou — verifique APP_DATABASE_URL"
+            # ── Sincroniza schema com o banco ────────────────────────────────────
+            npx prisma db push --skip-generate --accept-data-loss 2>&1 | tail -3 || echo "⚠ prisma db push falhou"
 
             npm run build
 
-            # ── Exporta vars pro shell antes do reload (bypassa dotenv-expand) ──
-            export DATABASE_URL="$APP_DATABASE_URL"
-            export REDIS_URL="$APP_REDIS_URL"
-            export NEXTAUTH_SECRET="$APP_NEXTAUTH_SECRET"
-            export NEXTAUTH_URL="$APP_NEXTAUTH_URL"
-            export AUTH_TRUST_HOST=1
-            export GATEWAY_API_KEY="$APP_GATEWAY_API_KEY"
-            export GATEWAY_WEBHOOK_SECRET="$APP_GATEWAY_WEBHOOK_SECRET"
-            export ENCRYPTION_KEY="$APP_ENCRYPTION_KEY"
-            export NEXT_PUBLIC_APP_URL="$APP_NEXT_PUBLIC_APP_URL"
-            export ASAAS_ENVIRONMENT="$APP_ASAAS_ENVIRONMENT"
-            export BLOB_READ_WRITE_TOKEN="$APP_BLOB_READ_WRITE_TOKEN"
+            # ── Carrega .env no shell para pm2 --update-env pegar ────────────────
+            set -a
+            source .env
+            set +a
 
             pm2 reload nextjs --update-env
             pm2 reload bot-worker --update-env
