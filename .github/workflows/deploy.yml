@@ -16,8 +16,8 @@ jobs:
           key: ${{ secrets.VPS_SSH_KEY }}
           script: |
             set -e
-            export PATH="/root/.local/share/fnm:$PATH"
-            eval "$(fnm env --use-on-cd)"
+            export PATH="/root/.local/share/fnm/node-versions/v20.20.2/installation/bin:/root/.local/share/fnm:$PATH"
+            eval "$(fnm env --use-on-cd 2>/dev/null || true)"
             cd /var/www/botsales
             git fetch origin main
             git reset --hard origin/main
