@@ -2,7 +2,6 @@ import { auth, signOut } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { LogOut } from "lucide-react"
 
-// all values in cents (R$)
 const LEVELS = [
   { name: "Iniciante",    min: 0,           max: 1_000_000   },
   { name: "Vendedor",     min: 1_000_000,   max: 5_000_000   },
@@ -58,29 +57,26 @@ export async function TopBar() {
   }
 
   return (
-    <header className="h-16 border-b border-white/[0.06] bg-[#0d1526] flex items-center px-6 shrink-0 gap-4">
+    <header className="h-16 border-b border-gray-200 bg-white flex items-center px-6 shrink-0 gap-4">
       {/* Gamification widget */}
-      <div className="hidden sm:flex items-center gap-2.5 shrink-0 rounded-xl border border-white/[0.08] bg-white/[0.04] px-3 py-2">
-        {/* Roman numeral badge */}
+      <div className="hidden sm:flex items-center gap-2.5 shrink-0 rounded-xl border border-gray-200 bg-gray-50 px-3 py-2">
         <div className="w-7 h-7 rounded-full bg-blue-600 flex items-center justify-center shrink-0">
           <span className="text-white text-[10px] font-bold leading-none">{ROMAN[lvl.idx]}</span>
         </div>
-        {/* Name + bar + range */}
         <div className="flex flex-col gap-1.5 w-28">
-          <p className="text-xs font-semibold text-white leading-none truncate">{lvl.name}</p>
-          <div className="relative h-[3px] w-full bg-white/10 rounded-full overflow-hidden">
+          <p className="text-xs font-semibold text-gray-900 leading-none truncate">{lvl.name}</p>
+          <div className="relative h-[3px] w-full bg-gray-200 rounded-full overflow-hidden">
             <div
               className="absolute inset-y-0 left-0 bg-blue-500 rounded-full transition-all duration-700"
               style={{ width: `${lvl.progress}%` }}
             />
           </div>
           <div className="flex justify-between">
-            <span className="text-[9px] text-zinc-500 tabular-nums leading-none">{lvl.minLabel}</span>
-            <span className="text-[9px] text-zinc-500 tabular-nums leading-none">{lvl.maxLabel}</span>
+            <span className="text-[9px] text-gray-400 tabular-nums leading-none">{lvl.minLabel}</span>
+            <span className="text-[9px] text-gray-400 tabular-nums leading-none">{lvl.maxLabel}</span>
           </div>
         </div>
-        {/* Progress % */}
-        <span className="text-[10px] font-medium text-zinc-500 leading-none shrink-0 tabular-nums">
+        <span className="text-[10px] font-medium text-gray-400 leading-none shrink-0 tabular-nums">
           {Math.round(lvl.progress)}%
         </span>
       </div>
@@ -88,8 +84,8 @@ export async function TopBar() {
       <div className="flex-1" />
 
       <div className="text-right hidden sm:block">
-        <p className="text-sm font-medium text-white leading-tight">{user?.name}</p>
-        <p className="text-xs text-zinc-500 leading-tight">{user?.email}</p>
+        <p className="text-sm font-medium text-gray-900 leading-tight">{user?.name}</p>
+        <p className="text-xs text-gray-500 leading-tight">{user?.email}</p>
       </div>
       <div className="h-8 w-8 rounded-full bg-blue-600 flex items-center justify-center text-white text-sm font-semibold shrink-0">
         {user?.name?.[0]?.toUpperCase() ?? "U"}
@@ -98,7 +94,7 @@ export async function TopBar() {
         <button
           type="submit"
           title="Sair"
-          className="p-2 text-zinc-500 hover:text-white transition-colors rounded-lg hover:bg-white/[0.06]"
+          className="p-2 text-gray-400 hover:text-gray-700 transition-colors rounded-lg hover:bg-gray-100"
         >
           <LogOut className="h-4 w-4" />
         </button>
