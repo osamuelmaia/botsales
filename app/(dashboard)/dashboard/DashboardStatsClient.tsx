@@ -107,35 +107,31 @@ function SplitCard({
 }) {
   return (
     <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm hover:shadow-md transition-all">
-      <div className="flex items-start justify-between gap-3 mb-3">
-        <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">{label}</p>
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">{label}</p>
+          {loading ? (
+            <div className="h-7 w-28 bg-gray-100 rounded-md mt-2 animate-pulse" />
+          ) : (
+            <div className="mt-2 grid grid-cols-2 gap-3">
+              <div className="min-w-0">
+                <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">{primary.label}</p>
+                <p className="text-base font-bold text-gray-900 tabular-nums leading-tight truncate mt-0.5">{primary.value}</p>
+              </div>
+              <div className="min-w-0">
+                <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">{secondary.label}</p>
+                <p className="text-base font-bold text-gray-900 tabular-nums leading-tight truncate mt-0.5">{secondary.value}</p>
+              </div>
+            </div>
+          )}
+          <p className="text-xs text-gray-400 mt-1">
+            {primary.sub} · {secondary.sub}
+          </p>
+        </div>
         <div className="w-9 h-9 rounded-lg bg-blue-50 border border-blue-100 flex items-center justify-center shrink-0">
           <Icon className="h-4 w-4 text-blue-600" strokeWidth={2} />
         </div>
       </div>
-      {loading ? (
-        <div className="space-y-2">
-          <div className="h-5 bg-gray-100 rounded animate-pulse" />
-          <div className="h-5 bg-gray-100 rounded animate-pulse" />
-        </div>
-      ) : (
-        <div className="space-y-2">
-          <div className="flex items-baseline justify-between gap-2">
-            <span className="text-xs text-gray-500">{primary.label}</span>
-            <div className="text-right">
-              <p className="text-sm font-bold text-gray-900 tabular-nums">{primary.value}</p>
-              <p className="text-[10px] text-gray-400">{primary.sub}</p>
-            </div>
-          </div>
-          <div className="flex items-baseline justify-between gap-2 pt-2 border-t border-gray-100">
-            <span className="text-xs text-gray-500">{secondary.label}</span>
-            <div className="text-right">
-              <p className="text-sm font-bold text-gray-900 tabular-nums">{secondary.value}</p>
-              <p className="text-[10px] text-gray-400">{secondary.sub}</p>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   )
 }
