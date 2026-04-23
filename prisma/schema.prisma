@@ -322,6 +322,7 @@ model Subscription {
   lead    Lead    @relation(fields: [leadId], references: [id])
   product Product @relation(fields: [productId], references: [id])
 
+  @@unique([botId, leadId, productId])
   @@index([botId])
   @@index([leadId])
   @@index([status])

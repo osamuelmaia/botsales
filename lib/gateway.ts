@@ -219,7 +219,7 @@ export const GatewayService = {
       cpfCnpj: params.customerCpfCnpj,
     })
 
-    const dueDate = addBusinessDays(new Date(), 1).toISOString().slice(0, 10)
+    const dueDate = todayDateString()
 
     const payment = await asaasPost<AsaasPayment>("/payments", {
       customer: customerId,

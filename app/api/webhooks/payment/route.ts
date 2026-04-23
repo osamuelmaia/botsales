@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { GatewayService } from "@/lib/gateway"
 import { prisma } from "@/lib/prisma"
-import { executeFlow } from "@/lib/bot-runner"
+import { executeFlow, executeRemarketingFlow } from "@/lib/bot-runner"
 import { TelegramService } from "@/lib/telegram"
 import { decryptToken } from "@/lib/utils"
 import { sendEmail, buildPortalAccessEmail, buildPurchaseConfirmationEmail } from "@/lib/email"
@@ -61,6 +61,7 @@ async function resumeFlowFromPayment(
 /**
  * Creates a Subscription record when a recurring product's first payment is confirmed.
  * Called only for card payments on recurring products.
+ * Uses a serializable transaction to prevent duplicate subscriptions from concurrent webhooks.
  */
 async function createSubscriptionRecord(
   sale: {
@@ -75,32 +76,38 @@ async function createSubscriptionRecord(
 ): Promise<void> {
   if (!sale.botId || !sale.leadId || !sale.tgChatId) return
 
-  // Check if subscription already exists for this sale
-  const existing = await prisma.subscription.findFirst({
-    where: { botId: sale.botId, leadId: sale.leadId, productId: sale.productId },
-  })
-  if (existing) return
-
   const bot = await prisma.bot.findUnique({ where: { id: sale.botId } })
   if (!bot?.channelId) return
 
   const now = new Date()
-  const periodEnd = addCalendarDays(now, 30) // default 30 days for monthly
+  const periodEnd = addCalendarDays(now, 30)
 
-  await prisma.subscription.create({
-    data: {
-      botId: sale.botId,
-      leadId: sale.leadId,
-      productId: sale.productId,
-      groupTgChatId: bot.channelId,
-      tgUserId: sale.tgChatId,
-      status: "ACTIVE",
-      currentPeriodEnd: periodEnd,
-      gatewayChargeId: asaasSubscriptionId ?? sale.gatewayId,
-    },
-  })
+  try {
+    await prisma.$transaction(async (tx) => {
+      const existing = await tx.subscription.findFirst({
+        where: { botId: sale.botId!, leadId: sale.leadId!, productId: sale.productId },
+      })
+      if (existing) return
 
-  console.log(`[subscription] created for sale=${sale.id} lead=${sale.leadId}`)
+      await tx.subscription.create({
+        data: {
+          botId: sale.botId!,
+          leadId: sale.leadId!,
+          productId: sale.productId,
+          groupTgChatId: bot.channelId!,
+          tgUserId: sale.tgChatId!,
+          status: "ACTIVE",
+          currentPeriodEnd: periodEnd,
+          gatewayChargeId: asaasSubscriptionId ?? sale.gatewayId,
+        },
+      })
+
+      console.log(`[subscription] created for sale=${sale.id} lead=${sale.leadId}`)
+    }, { isolationLevel: "Serializable" })
+  } catch (err) {
+    // Serialization failure means another request already created it — safe to ignore
+    console.warn(`[subscription] create skipped (race condition): ${err}`)
+  }
 }
 
 /**
@@ -155,6 +162,8 @@ async function handleSubscriptionRenewal(
 
 /**
  * Called when a recurring charge is refused.
+ * Marks subscription as REMARKETING and immediately fires the remarketing flow
+ * so the subscriber receives the configured messages without waiting for the next cron run.
  */
 async function handleSubscriptionRefused(asaasSubscriptionId: string): Promise<void> {
   const subscription = await prisma.subscription.findFirst({
@@ -167,7 +176,15 @@ async function handleSubscriptionRefused(asaasSubscriptionId: string): Promise<v
     data: { status: "REMARKETING", remarketingStart: new Date() },
   })
 
-  console.log(`[subscription] refused ${subscription.id} → REMARKETING`)
+  // Fire remarketing flow immediately — don't wait for the next cron run
+  const chatId = parseInt(subscription.tgUserId, 10)
+  if (!isNaN(chatId)) {
+    executeRemarketingFlow(subscription.botId, chatId).catch((err) =>
+      console.error("[handleSubscriptionRefused] remarketing flow error:", err)
+    )
+  }
+
+  console.log(`[subscription] refused ${subscription.id} → REMARKETING, flow fired for user ${subscription.tgUserId}`)
 }
 
 // ─── POST /api/webhooks/payment ───────────────────────────────────────────────
@@ -264,7 +281,7 @@ export async function POST(req: NextRequest) {
 
         if (!lead.portalPasswordHash) {
           // First time: generate password, save hashed, send credentials email
-          const password = crypto.randomBytes(5).toString("base64url").substring(0, 8)
+          const password = crypto.randomBytes(8).toString("base64url").slice(0, 11)
           const hash     = await bcrypt.hash(password, 12)
           await prisma.lead.update({ where: { id: lead.id }, data: { portalPasswordHash: hash } })
           await sendEmail({

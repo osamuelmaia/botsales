@@ -17,7 +17,7 @@ import IORedis from "ioredis"
 import { PrismaClient } from "@prisma/client"
 import { TelegramService } from "../lib/telegram"
 import { GatewayService } from "../lib/gateway"
-import { executeFlow, executeRemarketingFlow, registerWebhook } from "../lib/bot-runner"
+import { executeFlow, executeRemarketingFlow, resumeFlowFromButton, registerWebhook } from "../lib/bot-runner"
 import { decryptToken } from "../lib/utils"
 
 // ─── Redis connection ─────────────────────────────────────────────────────────
@@ -379,7 +379,7 @@ async function handleCheckRenewals(): Promise<void> {
 
   const now = new Date()
 
-  // Find ACTIVE subscriptions past their period end — start remarketing
+  // Find ACTIVE subscriptions past their period end
   const expiredActive = await prisma.subscription.findMany({
     where: { status: "ACTIVE", currentPeriodEnd: { lt: now } },
     include: { bot: true },
@@ -390,26 +390,35 @@ async function handleCheckRenewals(): Promise<void> {
     gracePeriodEnd.setDate(gracePeriodEnd.getDate() + sub.bot.gracePeriodDays)
 
     if (now < gracePeriodEnd) {
-      // Within grace period — start remarketing
-      await botQueue.add("process-remarketing", {
-        type: "PROCESS_REMARKETING" as const,
-        botId: sub.botId,
-        subscriptionId: sub.id,
-        tgUserId: sub.tgUserId,
+      // Within grace period — transition to REMARKETING and fire remarketing flow.
+      // Status must be updated BEFORE enqueuing so handleProcessRemarketing
+      // doesn't skip the job (it requires status === "REMARKETING").
+      await prisma.subscription.update({
+        where: { id: sub.id },
+        data: { status: "REMARKETING", remarketingStart: new Date() },
       })
+      // jobId prevents duplicate jobs if cron fires again before job is processed
+      await botQueue.add(
+        "process-remarketing",
+        { type: "PROCESS_REMARKETING" as const, botId: sub.botId, subscriptionId: sub.id, tgUserId: sub.tgUserId },
+        { jobId: `remarketing-${sub.id}` }
+      )
     } else {
-      // Grace period also expired — kick immediately
-      await botQueue.add("kick-member", {
-        type: "KICK_MEMBER" as const,
-        botId: sub.botId,
-        subscriptionId: sub.id,
-        tgUserId: sub.tgUserId,
-        groupChatId: sub.groupTgChatId,
+      // Grace period also expired — transition to REMARKETING then kick.
+      // Status must be REMARKETING for handleKickMember to execute the ban.
+      await prisma.subscription.update({
+        where: { id: sub.id },
+        data: { status: "REMARKETING", remarketingStart: sub.remarketingStart ?? new Date() },
       })
+      await botQueue.add(
+        "kick-member",
+        { type: "KICK_MEMBER" as const, botId: sub.botId, subscriptionId: sub.id, tgUserId: sub.tgUserId, groupChatId: sub.groupTgChatId },
+        { jobId: `kick-${sub.id}` }
+      )
     }
   }
 
-  // Find REMARKETING subscriptions past grace period — kick them
+  // Find REMARKETING subscriptions whose grace period expired — kick them
   const expiredRemarketing = await prisma.subscription.findMany({
     where: { status: "REMARKETING" },
     include: { bot: true },
@@ -420,13 +429,12 @@ async function handleCheckRenewals(): Promise<void> {
     gracePeriodEnd.setDate(gracePeriodEnd.getDate() + sub.bot.gracePeriodDays)
 
     if (now >= gracePeriodEnd) {
-      await botQueue.add("kick-member", {
-        type: "KICK_MEMBER" as const,
-        botId: sub.botId,
-        subscriptionId: sub.id,
-        tgUserId: sub.tgUserId,
-        groupChatId: sub.groupTgChatId,
-      })
+      // jobId prevents enqueuing the same kick multiple times across cron runs
+      await botQueue.add(
+        "kick-member",
+        { type: "KICK_MEMBER" as const, botId: sub.botId, subscriptionId: sub.id, tgUserId: sub.tgUserId, groupChatId: sub.groupTgChatId },
+        { jobId: `kick-${sub.id}` }
+      )
     }
   }
 
@@ -491,32 +499,43 @@ async function startActiveBots(): Promise<void> {
   for (const bot of bots) {
     try {
       const token = decryptToken(bot.tokenEncrypted)
-      TelegramService.startPolling(token, bot.id, async (ctx) => {
-        const chatId = ctx.from?.id
-        if (!chatId) return
+      TelegramService.startPolling(
+        token,
+        bot.id,
+        async (ctx) => {
+          const chatId = ctx.from?.id
+          if (!chatId) return
 
-        // Upsert Lead
-        await prisma.lead.upsert({
-          where: { botId_telegramId: { botId: bot.id, telegramId: String(chatId) } },
-          create: {
+          // Upsert Lead
+          await prisma.lead.upsert({
+            where: { botId_telegramId: { botId: bot.id, telegramId: String(chatId) } },
+            create: {
+              botId: bot.id,
+              telegramId: String(chatId),
+              name: [ctx.from?.first_name, ctx.from?.last_name].filter(Boolean).join(" ") || null,
+              username: ctx.from?.username ?? null,
+            },
+            update: {
+              name: [ctx.from?.first_name, ctx.from?.last_name].filter(Boolean).join(" ") || undefined,
+              username: ctx.from?.username ?? undefined,
+            },
+          })
+
+          // Enqueue PROCESS_FLOW job
+          await botQueue.add("process-flow", {
+            type: "PROCESS_FLOW" as const,
             botId: bot.id,
-            telegramId: String(chatId),
-            name: [ctx.from?.first_name, ctx.from?.last_name].filter(Boolean).join(" ") || null,
-            username: ctx.from?.username ?? null,
-          },
-          update: {
-            name: [ctx.from?.first_name, ctx.from?.last_name].filter(Boolean).join(" ") || undefined,
-            username: ctx.from?.username ?? undefined,
-          },
-        })
-
-        // Enqueue PROCESS_FLOW job
-        await botQueue.add("process-flow", {
-          type: "PROCESS_FLOW" as const,
-          botId: bot.id,
-          chatId,
-        })
-      })
+            chatId,
+          })
+        },
+        // callback_query: resume flow-mode button presses in polling mode
+        async (ctx, data) => {
+          const chatId = ctx.from?.id
+          if (chatId && data.startsWith("flow:")) {
+            await resumeFlowFromButton(bot.id, chatId, data)
+          }
+        }
+      )
     } catch (err) {
       console.error(`[worker] failed to start polling for bot ${bot.id}:`, err)
     }

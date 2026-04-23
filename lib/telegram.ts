@@ -87,13 +87,14 @@ export class TelegramService {
 
   /**
    * Start grammy long-polling for a bot.
-   * Registers the /start command handler before polling begins.
+   * Registers the /start command and callback_query handlers before polling begins.
    * Safe to call multiple times — stops any existing instance first.
    */
   static startPolling(
     token: string,
     botId: string,
-    onStart: (ctx: Context) => Promise<void>
+    onStart: (ctx: Context) => Promise<void>,
+    onCallbackQuery?: (ctx: Context, data: string) => Promise<void>
   ): Bot {
     // Stop existing instance if any
     TelegramService.stopPolling(botId)
@@ -108,11 +109,17 @@ export class TelegramService {
       }
     })
 
-    // Handle callback_query for flow buttons (inline keyboard)
+    // Handle callback_query for flow-mode inline buttons
     bot.on("callback_query:data", async (ctx) => {
       await ctx.answerCallbackQuery()
-      // Actual flow resumption is handled by the PROCESS_BUTTON job
-      // enqueued via the webhook route or directly here
+      const data = ctx.callbackQuery.data
+      if (data && onCallbackQuery) {
+        try {
+          await onCallbackQuery(ctx, data)
+        } catch (err) {
+          console.error(`[bot:${botId}] callback_query error:`, err)
+        }
+      }
     })
 
     bot.catch((err) => {
