@@ -6,7 +6,7 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import { signIn } from "next-auth/react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
-import { Loader2, Bot, Eye, EyeOff, Mail, Lock } from "lucide-react"
+import { Loader2, Eye, EyeOff, Mail, Lock } from "lucide-react"
 import { loginSchema, type LoginInput } from "@/lib/validations/auth"
 
 export default function LoginPage() {
@@ -42,10 +42,10 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[#0a0a0f] px-4 relative overflow-hidden">
+    <div className="min-h-screen flex items-center justify-center bg-[#0a0f1e] px-4 relative overflow-hidden">
       {/* Background glows */}
-      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[400px] bg-violet-600/20 rounded-full blur-[120px] pointer-events-none" />
-      <div className="absolute bottom-0 right-1/4 w-[400px] h-[300px] bg-indigo-600/15 rounded-full blur-[100px] pointer-events-none" />
+      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[400px] bg-blue-600/20 rounded-full blur-[120px] pointer-events-none" />
+      <div className="absolute bottom-0 right-1/4 w-[400px] h-[300px] bg-sky-600/15 rounded-full blur-[100px] pointer-events-none" />
 
       {/* Dot grid */}
       <div
@@ -59,9 +59,6 @@ export default function LoginPage() {
       <div className="w-full max-w-sm relative z-10">
         {/* Brand */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-gradient-to-br from-violet-500 to-indigo-600 shadow-lg shadow-violet-500/30 mb-4">
-            <Bot className="w-7 h-7 text-white" strokeWidth={1.5} />
-          </div>
           <h1 className="text-2xl font-bold text-white tracking-tight">BotFlows</h1>
           <p className="text-sm text-zinc-400 mt-1">Vendas automatizadas no Telegram</p>
         </div>
@@ -84,7 +81,7 @@ export default function LoginPage() {
                   type="email"
                   autoComplete="email"
                   placeholder="seu@email.com"
-                  className="w-full h-11 rounded-xl bg-white/[0.06] border border-white/[0.1] pl-10 pr-4 text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:border-violet-500/60 focus:bg-white/[0.08] focus:ring-1 focus:ring-violet-500/30 transition-all"
+                  className="w-full h-11 rounded-xl bg-white/[0.06] border border-white/[0.1] pl-10 pr-4 text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:border-blue-500/60 focus:bg-white/[0.08] focus:ring-1 focus:ring-blue-500/30 transition-all"
                 />
               </div>
               {errors.email && (
@@ -105,7 +102,7 @@ export default function LoginPage() {
                   type={showPassword ? "text" : "password"}
                   autoComplete="current-password"
                   placeholder="••••••••"
-                  className="w-full h-11 rounded-xl bg-white/[0.06] border border-white/[0.1] pl-10 pr-11 text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:border-violet-500/60 focus:bg-white/[0.08] focus:ring-1 focus:ring-violet-500/30 transition-all"
+                  className="w-full h-11 rounded-xl bg-white/[0.06] border border-white/[0.1] pl-10 pr-11 text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:border-blue-500/60 focus:bg-white/[0.08] focus:ring-1 focus:ring-blue-500/30 transition-all"
                 />
                 <button
                   type="button"
@@ -126,7 +123,7 @@ export default function LoginPage() {
                 {...register("remember")}
                 id="remember"
                 type="checkbox"
-                className="h-4 w-4 rounded border-white/20 bg-white/10 text-violet-500 focus:ring-violet-500/30 focus:ring-offset-0"
+                className="h-4 w-4 rounded border-white/20 bg-white/10 text-blue-500 focus:ring-blue-500/30 focus:ring-offset-0"
               />
               <label htmlFor="remember" className="text-sm text-zinc-400">
                 Lembrar de mim
@@ -145,7 +142,7 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={isSubmitting || redirecting}
-              className="w-full h-11 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 text-white text-sm font-semibold hover:from-violet-500 hover:to-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 transition-all shadow-lg shadow-violet-500/25 hover:shadow-violet-500/40 mt-2"
+              className="w-full h-11 rounded-xl bg-gradient-to-r from-blue-600 to-sky-500 text-white text-sm font-semibold hover:from-blue-500 hover:to-sky-400 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 transition-all shadow-lg shadow-blue-500/25 hover:shadow-blue-500/40 mt-2"
             >
               {(isSubmitting || redirecting) && <Loader2 className="h-4 w-4 animate-spin" />}
               {redirecting ? "Redirecionando..." : isSubmitting ? "Verificando..." : "Entrar"}
@@ -154,7 +151,7 @@ export default function LoginPage() {
 
           <p className="text-center text-sm text-zinc-500 mt-6">
             Não tem conta?{" "}
-            <Link href="/register" className="text-violet-400 font-medium hover:text-violet-300 transition-colors">
+            <Link href="/register" className="text-blue-400 font-medium hover:text-blue-300 transition-colors">
               Cadastre-se grátis
             </Link>
           </p>
