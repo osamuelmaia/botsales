@@ -17,7 +17,8 @@ jobs:
           script: |
             set -e
             cd /var/www/botsales
-            git pull origin main
+            git fetch origin main
+            git reset --hard origin/main
             npm ci --legacy-peer-deps
             npm run build
             pm2 restart nextjs
