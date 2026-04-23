@@ -22,18 +22,20 @@ jobs:
           APP_ASAAS_ENVIRONMENT:    ${{ secrets.APP_ASAAS_ENVIRONMENT }}
           APP_BLOB_READ_WRITE_TOKEN: ${{ secrets.APP_BLOB_READ_WRITE_TOKEN }}
         run: |
+          # Escape $ so dotenv-expand won't treat them as variable references
+          escape() { printf '%s' "$1" | sed 's/\$/\\$/g'; }
           {
             printf "DATABASE_URL='%s'\n"             "$APP_DATABASE_URL"
             printf "REDIS_URL='%s'\n"                "$APP_REDIS_URL"
             printf "NEXTAUTH_SECRET='%s'\n"          "$APP_NEXTAUTH_SECRET"
             printf "NEXTAUTH_URL='%s'\n"             "$APP_NEXTAUTH_URL"
             printf "AUTH_TRUST_HOST=1\n"
-            printf "GATEWAY_API_KEY='%s'\n"          "$APP_GATEWAY_API_KEY"
-            printf "GATEWAY_WEBHOOK_SECRET='%s'\n"   "$APP_GATEWAY_WEBHOOK_SECRET"
-            printf "ENCRYPTION_KEY='%s'\n"           "$APP_ENCRYPTION_KEY"
+            printf "GATEWAY_API_KEY=%s\n"            "$(escape "$APP_GATEWAY_API_KEY")"
+            printf "GATEWAY_WEBHOOK_SECRET=%s\n"     "$(escape "$APP_GATEWAY_WEBHOOK_SECRET")"
+            printf "ENCRYPTION_KEY=%s\n"             "$(escape "$APP_ENCRYPTION_KEY")"
             printf "NEXT_PUBLIC_APP_URL='%s'\n"      "$APP_NEXT_PUBLIC_APP_URL"
             printf "ASAAS_ENVIRONMENT='%s'\n"        "$APP_ASAAS_ENVIRONMENT"
-            printf "BLOB_READ_WRITE_TOKEN='%s'\n"    "$APP_BLOB_READ_WRITE_TOKEN"
+            printf "BLOB_READ_WRITE_TOKEN=%s\n"      "$(escape "$APP_BLOB_READ_WRITE_TOKEN")"
           } > /tmp/app.env
           echo "ENV_B64=$(base64 -w0 /tmp/app.env)" >> "$GITHUB_ENV"
 
