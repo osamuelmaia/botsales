@@ -360,6 +360,18 @@ export async function POST(req: NextRequest) {
     } else {
       console.log(`[webhook] skipping refused flow for sale ${sale.id} — lead has newer sale`)
     }
+  } else if (event.type === "PAYMENT_OVERDUE") {
+    // PIX venceu sem pagamento — notifica o usuário e retoma pelo handle "refused"
+    if (sale.status === "PENDING") {
+      await prisma.sale.update({
+        where: { id: sale.id },
+        data: { status: "REFUSED", gatewayId: event.gatewayId, gatewayStatus: "OVERDUE" },
+      })
+
+      resumeFlowFromPayment(sale.id, "refused").catch((err) =>
+        console.error("[webhook] resumeFlowFromPayment overdue:", err)
+      )
+    }
   } else if (event.type === "PAYMENT_REFUNDED") {
     await prisma.sale.update({
       where: { id: sale.id },

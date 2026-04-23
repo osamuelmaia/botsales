@@ -309,10 +309,24 @@ async function executeNode(
 
 // ─── Flow traversal ──────────────────────────────────────────────────────────
 
+/**
+ * Options for remarketing flow execution:
+ * - subscriptionId: if provided, flow aborts when subscription leaves REMARKETING state
+ *   (e.g. user renews mid-flow)
+ * - scheduleResume: if provided, DELAY/SMART_DELAY nodes with duration > 30s will call
+ *   this instead of sleeping, allowing the worker to enqueue a BullMQ delayed job.
+ *   Without this callback, delays are capped at 8s (serverless-safe).
+ */
+interface FlowOptions {
+  subscriptionId?: string
+  scheduleResume?: (nextNodeId: string, delayMs: number) => Promise<void>
+}
+
 async function runFlow(
   bot: BotWithFlow,
   chatId: number,
-  startNodeId: string
+  startNodeId: string,
+  options?: FlowOptions
 ) {
   const token = decryptToken(bot.tokenEncrypted)
   const nodeMap = new Map(bot.flowNodes.map((n) => [n.id, n]))
@@ -336,6 +350,35 @@ async function runFlow(
 
     const node = nodeMap.get(currentId)
     if (!node) break
+
+    // Remarketing abort: if user renewed/cancelled, stop sending messages
+    if (options?.subscriptionId) {
+      const sub = await prisma.subscription.findUnique({
+        where: { id: options.subscriptionId },
+        select: { status: true },
+      })
+      if (!sub || sub.status !== "REMARKETING") {
+        console.log(`[runFlow] remarketing aborted — subscription status=${sub?.status ?? "not found"}`)
+        break
+      }
+    }
+
+    // Long-delay interception for remarketing: schedule a BullMQ job instead of sleeping
+    if (options?.scheduleResume && (node.type === "DELAY" || node.type === "SMART_DELAY")) {
+      const data = node.data as Record<string, unknown>
+      const rawMs = node.type === "DELAY"
+        ? toMs((data.amount as number) ?? 1, (data.unit as string) ?? "seconds")
+        : toMs((data.maxAmount as number) ?? 5, (data.unit as string) ?? "seconds")
+
+      if (rawMs > 30_000) {
+        const nextEdges = adj.get(currentId)
+        const nextId = nextEdges?.[0]?.targetNodeId ?? null
+        if (nextId) {
+          await options.scheduleResume(nextId, rawMs)
+          break // flow will resume from the scheduled job
+        }
+      }
+    }
 
     await executeNode(token, bot.id, chatId, node)
 
@@ -400,11 +443,16 @@ export async function executeFlow(botId: string, chatId: number, startNodeId?: s
  * Execute the remarketing flow for a subscriber.
  * Uses Bot.remarketingFlow JSON as the node/edge graph.
  * chatId = the subscriber's Telegram DM chat ID (tgUserId).
+ *
+ * Pass options.subscriptionId so the flow aborts automatically if the user
+ * renews mid-execution. Pass options.scheduleResume so DELAY nodes > 30s are
+ * handled as BullMQ delayed jobs instead of being capped at 8s.
  */
 export async function executeRemarketingFlow(
   botId: string,
   chatId: number,
-  startNodeId?: string
+  startNodeId?: string,
+  options?: FlowOptions
 ): Promise<void> {
   const bot = await loadBotWithRemarketingFlow(botId)
   if (!bot || !bot.isActive) return
@@ -417,7 +465,51 @@ export async function executeRemarketingFlow(
   }
 
   if (!firstNodeId) return
-  await runFlow(bot, chatId, firstNodeId)
+  await runFlow(bot, chatId, firstNodeId, options)
+}
+
+/**
+ * Handles the /start command from a Telegram user.
+ *
+ * If the user has an ACTIVE subscription for this bot, sends a fresh single-use
+ * invite link instead of running the full flow (handles double-click on expired links
+ * and re-entries after being unbanned).
+ *
+ * Falls through to the full flow if no active subscription exists.
+ */
+export async function handleStartCommand(botId: string, chatId: number): Promise<void> {
+  const bot = await loadBot(botId)
+  if (!bot || !bot.isActive) return
+
+  const token = decryptToken(bot.tokenEncrypted)
+
+  const activeSub = await prisma.subscription.findFirst({
+    where: { botId, tgUserId: String(chatId), status: "ACTIVE" },
+  })
+
+  if (activeSub) {
+    let inviteLink: string | null = null
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try {
+        inviteLink = await TelegramService.createChatInviteLink(token, activeSub.groupTgChatId)
+        break
+      } catch {
+        if (attempt < 3) await sleep(1000 * attempt)
+      }
+    }
+
+    if (inviteLink) {
+      await tg(token, "sendMessage", {
+        chat_id: chatId,
+        text: "✅ Você já é assinante! Clique no botão abaixo para acessar o grupo:",
+        reply_markup: { inline_keyboard: [[{ text: "Acessar grupo", url: inviteLink }]] },
+      })
+      return
+    }
+  }
+
+  // No active subscription (or invite link generation failed) — run the full sales flow
+  await executeFlow(botId, chatId)
 }
 
 export async function registerWebhook(

@@ -17,7 +17,7 @@ import IORedis from "ioredis"
 import { PrismaClient } from "@prisma/client"
 import { TelegramService } from "../lib/telegram"
 import { GatewayService } from "../lib/gateway"
-import { executeFlow, executeRemarketingFlow, resumeFlowFromButton, registerWebhook } from "../lib/bot-runner"
+import { handleStartCommand, executeFlow, executeRemarketingFlow, resumeFlowFromButton, registerWebhook } from "../lib/bot-runner"
 import { decryptToken } from "../lib/utils"
 
 // ─── Redis connection ─────────────────────────────────────────────────────────
@@ -223,16 +223,19 @@ async function handleCreatePayment(data: CreatePaymentJob): Promise<void> {
         data: { gatewayId: charge.id, gatewayStatus: "PENDING" },
       })
 
-      // Send PIX code to lead
-      const text = [
-        `💳 *${product.name}*`,
-        `Valor: R$ ${(product.priceInCents / 100).toFixed(2).replace(".", ",")}`,
-        "",
-        "Pague com PIX — copie o código abaixo:",
-        `\`${charge.pixCode}\``,
-      ].join("\n")
-
-      await TelegramService.sendMessage(token, data.chatId, text)
+      // Send QR code image first, then copia-e-cola as separate message for easy copy
+      const brl = (product.priceInCents / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })
+      await TelegramService.sendPhotoBuffer(
+        token,
+        data.chatId,
+        charge.pixQrCodeBase64,
+        `💳 *${product.name}* — ${brl}\n\nEscaneie o QR code ou use o código abaixo para pagar.`
+      )
+      await TelegramService.sendMessage(
+        token,
+        data.chatId,
+        `📋 *PIX Copia e Cola* (toque para copiar):\n\`${charge.pixCode}\``
+      )
       return
     } catch (err) {
       console.error("[CREATE_PAYMENT] gateway error:", err)
@@ -370,7 +373,25 @@ async function handleProcessRemarketing(data: ProcessRemarketingJob): Promise<vo
 
   const chatId = parseInt(data.tgUserId, 10)
   if (!isNaN(chatId)) {
-    await executeRemarketingFlow(data.botId, chatId, data.startNodeId)
+    await executeRemarketingFlow(data.botId, chatId, data.startNodeId, {
+      subscriptionId: data.subscriptionId,
+      // Long DELAY nodes (> 30s) schedule a new BullMQ delayed job so the worker
+      // handles day-long gaps instead of blocking the thread or being capped at 8s.
+      scheduleResume: async (nextNodeId, delayMs) => {
+        await botQueue.add(
+          "process-remarketing",
+          {
+            type: "PROCESS_REMARKETING" as const,
+            botId: data.botId,
+            subscriptionId: data.subscriptionId,
+            tgUserId: data.tgUserId,
+            startNodeId: nextNodeId,
+          },
+          { delay: delayMs, jobId: `remarketing-${data.subscriptionId}-${nextNodeId}` }
+        )
+        console.log(`[PROCESS_REMARKETING] scheduled resume at node ${nextNodeId} in ${Math.round(delayMs / 3600000 * 10) / 10}h`)
+      },
+    })
   }
 }
 
@@ -521,12 +542,8 @@ async function startActiveBots(): Promise<void> {
             },
           })
 
-          // Enqueue PROCESS_FLOW job
-          await botQueue.add("process-flow", {
-            type: "PROCESS_FLOW" as const,
-            botId: bot.id,
-            chatId,
-          })
+          // Run /start logic: sends fresh invite if already subscribed, else full flow
+          await handleStartCommand(bot.id, chatId)
         },
         // callback_query: resume flow-mode button presses in polling mode
         async (ctx, data) => {

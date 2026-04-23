@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { decryptToken } from "@/lib/utils"
-import { executeFlow, resumeFlowFromButton } from "@/lib/bot-runner"
+import { handleStartCommand, resumeFlowFromButton } from "@/lib/bot-runner"
 
 type Params = { params: { botId: string } }
 
@@ -51,7 +51,7 @@ export async function POST(request: Request, { params }: Params) {
       update: { name: firstName, username },
     })
 
-    await executeFlow(bot.id, chatId)
+    await handleStartCommand(bot.id, chatId)
   }
 
   // ── callback_query (inline button press) ──────────────────────────────────
