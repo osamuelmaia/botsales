@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
-import { gatewayService } from "@/lib/gateway"
+import { GatewayService } from "@/lib/gateway"
 
 export async function POST(_req: Request, { params }: { params: { id: string } }) {
   const session = await auth()
@@ -18,7 +18,7 @@ export async function POST(_req: Request, { params }: { params: { id: string } }
   if (!sale.gatewayId)
     return NextResponse.json({ error: "Sem ID de gateway para reembolso" }, { status: 400 })
 
-  await gatewayService.refundPayment(sale.gatewayId)
+  await GatewayService.refundPayment(sale.gatewayId)
 
   await prisma.sale.update({
     where: { id: sale.id },
