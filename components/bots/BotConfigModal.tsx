@@ -3,13 +3,14 @@
 import { useEffect, useState } from "react"
 import { toast } from "sonner"
 import {
-  Eye, EyeOff, CheckCircle2, XCircle, Loader2, Check,
+  Eye, EyeOff, CheckCircle2, XCircle, Loader2, Check, X, AlertCircle,
 } from "lucide-react"
 import * as Dialog from "@radix-ui/react-dialog"
 import * as Checkbox from "@radix-ui/react-checkbox"
 import { useRouter } from "next/navigation"
-
-// ─── Types ────────────────────────────────────────────────────────────────────
+import { Input } from "@/components/ui/Input"
+import { Button } from "@/components/ui/Button"
+import { cn } from "@/lib/cn"
 
 interface BotDetail {
   id: string
@@ -39,8 +40,6 @@ function formatPrice(cents: number) {
   })
 }
 
-// ─── BotConfigModal ───────────────────────────────────────────────────────────
-
 interface Props {
   botId: string
   open: boolean
@@ -54,7 +53,6 @@ export function BotConfigModal({ botId, open, onOpenChange, onSaved }: Props) {
   const [bot, setBot] = useState<BotDetail | null>(null)
   const [products, setProducts] = useState<ProductItem[]>([])
 
-  // Form state
   const [name, setName] = useState("")
   const [token, setToken] = useState("")
   const [productIds, setProductIds] = useState<string[]>([])
@@ -64,8 +62,6 @@ export function BotConfigModal({ botId, open, onOpenChange, onSaved }: Props) {
   const [showToken, setShowToken] = useState(false)
   const [validation, setValidation] = useState<ValidationState>({ status: "idle" })
   const [saving, setSaving] = useState(false)
-
-  // ─── Load when opened ────────────────────────────────────────────────────────
 
   useEffect(() => {
     if (!open) return
@@ -88,8 +84,6 @@ export function BotConfigModal({ botId, open, onOpenChange, onSaved }: Props) {
       })
       .finally(() => setLoadingData(false))
   }, [open, botId])
-
-  // ─── Handlers ────────────────────────────────────────────────────────────────
 
   function toggleProduct(productId: string) {
     setProductIds((prev) => {
@@ -135,15 +129,10 @@ export function BotConfigModal({ botId, open, onOpenChange, onSaved }: Props) {
     onSaved()
   }
 
-  // ─── Render ──────────────────────────────────────────────────────────────────
-
-  const inputCls =
-    "w-full h-10 rounded-md border border-gray-300 px-3 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent"
-
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
-        <Dialog.Overlay className="fixed inset-0 bg-black/40 z-50 data-[state=open]:animate-fade-in data-[state=closed]:animate-fade-out" />
+        <Dialog.Overlay className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 data-[state=open]:animate-fade-in data-[state=closed]:animate-fade-out" />
         <Dialog.Content className="fixed z-50 right-0 top-0 h-full w-full max-w-md bg-white shadow-xl flex flex-col focus:outline-none data-[state=open]:animate-slide-in-right data-[state=closed]:animate-slide-out-right">
           {/* Header */}
           <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 shrink-0">
@@ -152,13 +141,13 @@ export function BotConfigModal({ botId, open, onOpenChange, onSaved }: Props) {
                 Configurar Bot
               </Dialog.Title>
               {bot && (
-                <Dialog.Description className="text-xs text-gray-400 mt-0.5">
+                <Dialog.Description className="text-xs text-gray-500 mt-0.5">
                   {bot.name}
                 </Dialog.Description>
               )}
             </div>
-            <Dialog.Close className="h-8 w-8 flex items-center justify-center rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors text-xl leading-none">
-              ×
+            <Dialog.Close className="p-2 text-gray-400 hover:text-gray-700 rounded-lg hover:bg-gray-100 transition-colors">
+              <X className="h-5 w-5" />
             </Dialog.Close>
           </div>
 
@@ -171,22 +160,17 @@ export function BotConfigModal({ botId, open, onOpenChange, onSaved }: Props) {
             ) : (
               <form id="bot-config-form" onSubmit={handleSave} className="space-y-5">
                 {/* Nome */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Nome do bot
-                  </label>
-                  <input
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    required
-                    className={inputCls}
-                    placeholder="Nome do bot"
-                  />
-                </div>
+                <Input
+                  label="Nome do bot"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="Nome do bot"
+                  required
+                />
 
                 {/* Token */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">
                     Token do Telegram
                   </label>
                   <div className="relative">
@@ -198,21 +182,22 @@ export function BotConfigModal({ botId, open, onOpenChange, onSaved }: Props) {
                       }}
                       required
                       type={showToken ? "text" : "password"}
-                      className={inputCls + " pr-10 font-mono"}
                       placeholder="1234567890:AAF..."
+                      className="w-full h-10 rounded-lg border border-gray-200 bg-white pl-3 pr-10 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 transition-colors font-mono"
                     />
                     <button
                       type="button"
                       onClick={() => setShowToken((v) => !v)}
-                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-700 transition-colors"
+                      aria-label={showToken ? "Ocultar token" : "Mostrar token"}
                     >
                       {showToken ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                     </button>
                   </div>
                   {validation.status === "valid" && (
                     <div className="flex items-center gap-1.5 mt-1.5">
-                      <CheckCircle2 className="h-3.5 w-3.5 text-green-600" />
-                      <p className="text-xs text-green-600">
+                      <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
+                      <p className="text-xs text-emerald-700">
                         Token válido — bot: <strong>{validation.botName}</strong>
                       </p>
                     </div>
@@ -220,7 +205,7 @@ export function BotConfigModal({ botId, open, onOpenChange, onSaved }: Props) {
                   {validation.status === "invalid" && (
                     <div className="flex items-center gap-1.5 mt-1.5">
                       <XCircle className="h-3.5 w-3.5 text-red-500" />
-                      <p className="text-xs text-red-500">{validation.error}</p>
+                      <p className="text-xs text-red-600">{validation.error}</p>
                     </div>
                   )}
                 </div>
@@ -231,20 +216,24 @@ export function BotConfigModal({ botId, open, onOpenChange, onSaved }: Props) {
                     <label className="text-sm font-medium text-gray-700">
                       Produtos vinculados
                     </label>
-                    <span className="text-xs text-gray-400">{productIds.length}/3</span>
+                    <span className="text-xs font-medium text-gray-500 tabular-nums">
+                      {productIds.length}/3
+                    </span>
                   </div>
 
                   {products.length === 0 ? (
-                    <p className="text-sm text-gray-400 py-3 text-center">
-                      Nenhum produto cadastrado.{" "}
+                    <div className="bg-gray-50 border border-dashed border-gray-200 rounded-lg py-6 px-4 text-center">
+                      <p className="text-sm text-gray-500">
+                        Nenhum produto cadastrado.
+                      </p>
                       <button
                         type="button"
                         onClick={() => router.push("/dashboard/products")}
-                        className="text-gray-700 underline"
+                        className="text-sm font-medium text-blue-600 hover:text-blue-500 mt-1 transition-colors"
                       >
-                        Criar produto
+                        Criar produto →
                       </button>
-                    </p>
+                    </div>
                   ) : (
                     <div className="flex flex-col gap-2">
                       {products.map((product) => {
@@ -253,28 +242,27 @@ export function BotConfigModal({ botId, open, onOpenChange, onSaved }: Props) {
                         return (
                           <label
                             key={product.id}
-                            className={`flex items-center gap-3 p-3 rounded-lg border transition-colors cursor-pointer ${
-                              selected
-                                ? "border-gray-900 bg-gray-50"
-                                : disabled
-                                ? "border-gray-100 opacity-50 cursor-not-allowed"
-                                : "border-gray-200 hover:border-gray-300"
-                            }`}
+                            className={cn(
+                              "flex items-center gap-3 p-3 rounded-lg border transition-colors cursor-pointer",
+                              selected && "border-blue-500 bg-blue-50",
+                              !selected && !disabled && "border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50",
+                              disabled && "border-gray-100 bg-gray-50 opacity-50 cursor-not-allowed",
+                            )}
                           >
                             <Checkbox.Root
                               checked={selected}
                               disabled={disabled}
                               onCheckedChange={() => toggleProduct(product.id)}
-                              className="h-4 w-4 shrink-0 rounded border-2 border-gray-300 data-[state=checked]:bg-gray-900 data-[state=checked]:border-gray-900 flex items-center justify-center disabled:opacity-50"
+                              className="h-[18px] w-[18px] shrink-0 rounded-md border-2 border-gray-300 data-[state=checked]:bg-blue-600 data-[state=checked]:border-blue-600 flex items-center justify-center disabled:opacity-50 transition-colors"
                             >
                               <Checkbox.Indicator>
-                                <Check className="h-3 w-3 text-white" />
+                                <Check className="h-3 w-3 text-white" strokeWidth={3} />
                               </Checkbox.Indicator>
                             </Checkbox.Root>
                             <p className="text-sm font-medium text-gray-900 flex-1 truncate">
                               {product.name}
                             </p>
-                            <span className="text-sm text-gray-500 shrink-0">
+                            <span className="text-sm text-gray-500 shrink-0 tabular-nums">
                               R$ {formatPrice(product.priceInCents)}
                             </span>
                           </label>
@@ -283,18 +271,19 @@ export function BotConfigModal({ botId, open, onOpenChange, onSaved }: Props) {
                     </div>
                   )}
                   {productIds.length >= 3 && (
-                    <p className="text-xs text-amber-600 bg-amber-50 px-3 py-2 rounded-md mt-2">
+                    <div className="flex items-center gap-2 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mt-2">
+                      <AlertCircle className="h-3.5 w-3.5 shrink-0" />
                       Máximo de 3 produtos por bot atingido.
-                    </p>
+                    </div>
                   )}
                 </div>
 
                 {/* Período de carência */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Período de carência (dias)
+                    Período de carência
                   </label>
-                  <p className="text-xs text-gray-400 mb-2">
+                  <p className="text-xs text-gray-500 mb-2 leading-relaxed">
                     Tempo que o bot tenta recuperar o assinante antes de removê-lo do grupo quando uma renovação é recusada.
                   </p>
                   <div className="flex items-center gap-3">
@@ -304,19 +293,19 @@ export function BotConfigModal({ botId, open, onOpenChange, onSaved }: Props) {
                       max={30}
                       value={gracePeriodDays}
                       onChange={(e) => setGracePeriodDays(Math.max(0, Math.min(30, parseInt(e.target.value) || 0)))}
-                      className="w-20 h-10 rounded-md border border-gray-300 px-3 text-sm text-gray-900 text-center focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent"
+                      className="w-20 h-10 rounded-lg border border-gray-200 px-3 text-sm text-gray-900 text-center focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 transition-colors tabular-nums"
                     />
-                    <span className="text-sm text-gray-500">
+                    <span className="text-sm text-gray-600">
                       {gracePeriodDays === 0 ? "Remoção imediata" : `${gracePeriodDays} dia${gracePeriodDays !== 1 ? "s" : ""} de carência`}
                     </span>
                   </div>
                 </div>
 
                 {/* Ativo */}
-                <div className="flex items-center justify-between py-1">
-                  <div>
-                    <p className="text-sm font-medium text-gray-700">Bot ativo</p>
-                    <p className="text-xs text-gray-400">
+                <div className="flex items-center justify-between gap-3 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3">
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-gray-900">Bot ativo</p>
+                    <p className="text-xs text-gray-500 mt-0.5 leading-relaxed">
                       Ative para que o bot responda usuários no Telegram.
                     </p>
                   </div>
@@ -325,14 +314,18 @@ export function BotConfigModal({ botId, open, onOpenChange, onSaved }: Props) {
                     role="switch"
                     aria-checked={isActive}
                     onClick={() => setIsActive((v) => !v)}
-                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-gray-900 focus:ring-offset-1 ${
-                      isActive ? "bg-gray-900" : "bg-gray-200"
-                    }`}
+                    className={cn(
+                      "relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 shrink-0",
+                      isActive
+                        ? "bg-blue-600 focus:ring-blue-500/30"
+                        : "bg-gray-300 focus:ring-gray-400/30",
+                    )}
                   >
                     <span
-                      className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
-                        isActive ? "translate-x-6" : "translate-x-1"
-                      }`}
+                      className={cn(
+                        "inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform",
+                        isActive ? "translate-x-6" : "translate-x-1",
+                      )}
                     />
                   </button>
                 </div>
@@ -344,21 +337,19 @@ export function BotConfigModal({ botId, open, onOpenChange, onSaved }: Props) {
           {/* Footer */}
           {!loadingData && (
             <div className="px-6 py-4 border-t border-gray-100 shrink-0">
-              <button
+              <Button
                 type="submit"
                 form="bot-config-form"
+                fullWidth
+                loading={saving || validation.status === "loading"}
                 disabled={saving || validation.status === "loading"}
-                className="w-full h-10 bg-gray-900 text-white rounded-md text-sm font-medium hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 transition-colors"
               >
-                {(saving || validation.status === "loading") && (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                )}
                 {validation.status === "loading"
                   ? "Validando token..."
                   : saving
                   ? "Salvando..."
                   : "Validar e Salvar"}
-              </button>
+              </Button>
             </div>
           )}
         </Dialog.Content>

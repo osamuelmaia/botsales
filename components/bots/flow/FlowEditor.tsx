@@ -664,10 +664,12 @@ function FlowEditorInner({ botId, botName, channelPermissionError, products, mod
   return (
     <div className="flex flex-col h-screen bg-gray-50">
       {/* Top bar */}
-      <div className="flex items-center gap-3 px-4 py-3 bg-white border-b border-gray-200 shrink-0">
+      <div className="flex items-center gap-3 px-4 h-14 bg-white border-b border-gray-200 shrink-0">
         <button
           onClick={() => isDirty ? setShowLeaveDialog(true) : router.push(`/dashboard/bots`)}
-          className="h-8 w-8 flex items-center justify-center rounded-md text-gray-500 hover:bg-gray-100 transition-colors">
+          className="h-8 w-8 flex items-center justify-center rounded-lg text-gray-500 hover:text-gray-900 hover:bg-gray-100 transition-colors"
+          aria-label="Voltar"
+        >
           <ArrowLeft className="h-4 w-4" />
         </button>
 
@@ -675,10 +677,10 @@ function FlowEditorInner({ botId, botName, channelPermissionError, products, mod
         <div className="flex items-center gap-0.5 bg-gray-100 rounded-lg p-0.5">
           <button
             onClick={() => requestSwitchTab("main")}
-            className={`flex items-center gap-1.5 h-7 px-3 rounded-md text-xs font-medium transition-colors ${
+            className={`flex items-center gap-1.5 h-7 px-3 rounded-md text-xs font-semibold transition-all ${
               activeMode === "main"
                 ? "bg-white text-gray-900 shadow-sm"
-                : "text-gray-500 hover:text-gray-700"
+                : "text-gray-500 hover:text-gray-800"
             }`}
           >
             <GitBranch className="h-3.5 w-3.5" />
@@ -686,10 +688,10 @@ function FlowEditorInner({ botId, botName, channelPermissionError, products, mod
           </button>
           <button
             onClick={() => requestSwitchTab("remarketing")}
-            className={`flex items-center gap-1.5 h-7 px-3 rounded-md text-xs font-medium transition-colors ${
+            className={`flex items-center gap-1.5 h-7 px-3 rounded-md text-xs font-semibold transition-all ${
               activeMode === "remarketing"
                 ? "bg-white text-gray-900 shadow-sm"
-                : "text-gray-500 hover:text-gray-700"
+                : "text-gray-500 hover:text-gray-800"
             }`}
           >
             <RefreshCw className="h-3.5 w-3.5" />
@@ -698,34 +700,36 @@ function FlowEditorInner({ botId, botName, channelPermissionError, products, mod
         </div>
 
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-medium text-gray-500 truncate">{botName}</p>
+          <p className="text-sm font-medium text-gray-700 truncate">{botName}</p>
           {hasUnconfiguredGrant && (
-            <p className="text-xs text-amber-600 flex items-center gap-1">
-              <AlertCircle className="h-3 w-3" />Configure o grupo/canal no nó &quot;Liberar acesso ao canal&quot;
+            <p className="text-xs text-amber-700 flex items-center gap-1 mt-0.5">
+              <AlertCircle className="h-3 w-3" />
+              Configure o grupo/canal no nó &quot;Liberar acesso ao canal&quot;
             </p>
           )}
         </div>
 
         {/* Undo / Redo */}
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-0.5 border-r border-gray-200 pr-3 mr-1">
           <button onClick={undo} disabled={!canUndo} title="Desfazer (Ctrl+Z)"
-            className="h-8 w-8 flex items-center justify-center rounded-md text-gray-500 hover:bg-gray-100 disabled:opacity-30 disabled:hover:bg-transparent transition-colors">
+            className="h-8 w-8 flex items-center justify-center rounded-lg text-gray-500 hover:text-gray-900 hover:bg-gray-100 disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-gray-500 transition-colors">
             <Undo2 className="h-4 w-4" />
           </button>
           <button onClick={redo} disabled={!canRedo} title="Refazer (Ctrl+Shift+Z)"
-            className="h-8 w-8 flex items-center justify-center rounded-md text-gray-500 hover:bg-gray-100 disabled:opacity-30 disabled:hover:bg-transparent transition-colors">
+            className="h-8 w-8 flex items-center justify-center rounded-lg text-gray-500 hover:text-gray-900 hover:bg-gray-100 disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-gray-500 transition-colors">
             <Redo2 className="h-4 w-4" />
           </button>
         </div>
 
         {isDirty && (
-          <span className="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">
+          <span className="inline-flex items-center gap-1.5 text-xs font-medium text-amber-700 bg-amber-50 border border-amber-200 px-2.5 py-1 rounded-full">
+            <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
             Não salvo
           </span>
         )}
 
         <button onClick={handleSave} disabled={saving}
-          className="flex items-center gap-2 h-8 px-4 bg-gray-900 text-white rounded-md text-sm font-medium hover:bg-gray-800 disabled:opacity-50 transition-colors shrink-0">
+          className="inline-flex items-center gap-1.5 h-8 px-4 rounded-lg bg-[#111627] text-white text-xs font-semibold hover:bg-[#1c2434] disabled:opacity-50 transition-colors shrink-0 shadow-sm shadow-black/10">
           {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
           {saving ? "Salvando..." : "Salvar"}
         </button>
