@@ -58,7 +58,10 @@ export function SalesClient({ initialStartDate }: { initialStartDate: string }) 
     return `/api/sales?${params}`
   }, [filters, page])
 
-  const { data, isLoading } = useSWR<SalesData>(key, fetcher, { keepPreviousData: true })
+  const { data, isLoading, mutate } = useSWR<SalesData>(key, fetcher, {
+    keepPreviousData: true,
+    refreshInterval: 15_000,   // auto-refresh a cada 15s para pegar novos pagamentos
+  })
 
   function setFilter<K extends keyof Filters>(k: K, v: Filters[K]) {
     setFilters((p) => ({ ...p, [k]: v }))
@@ -186,7 +189,11 @@ export function SalesClient({ initialStartDate }: { initialStartDate: string }) 
       />
 
       {/* Detail drawer */}
-      <SaleDrawer sale={selectedSale} onClose={() => setSelectedSale(null)} />
+      <SaleDrawer
+        sale={selectedSale}
+        onClose={() => setSelectedSale(null)}
+        onRefund={() => mutate()}
+      />
     </div>
   )
 }

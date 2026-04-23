@@ -308,6 +308,13 @@ export const GatewayService = {
   },
 
   /**
+   * Reembolsa um pagamento avulso no Asaas.
+   */
+  async refundPayment(gatewayId: string): Promise<void> {
+    await asaasRequest("POST", `/payments/${gatewayId}/refund`, {})
+  },
+
+  /**
    * Valida e parseia um evento de webhook do Asaas.
    *
    * Asaas envia o token configurado no header `asaas-access-token`.

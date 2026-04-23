@@ -1,7 +1,9 @@
 "use client"
 
+import { useState } from "react"
 import * as Dialog from "@radix-ui/react-dialog"
-import { X } from "lucide-react"
+import { X, RotateCcw, Loader2 } from "lucide-react"
+import { toast } from "sonner"
 import type { SaleRow } from "./SalesTable"
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -64,9 +66,31 @@ function Row({ label, value }: { label: string; value: React.ReactNode }) {
 interface Props {
   sale: SaleRow | null
   onClose: () => void
+  onRefund?: () => void
 }
 
-export function SaleDrawer({ sale, onClose }: Props) {
+export function SaleDrawer({ sale, onClose, onRefund }: Props) {
+  const [refunding, setRefunding] = useState(false)
+  const [confirming, setConfirming] = useState(false)
+
+  async function handleRefund() {
+    if (!sale) return
+    setRefunding(true)
+    try {
+      const res = await fetch(`/api/sales/${sale.id}/refund`, { method: "POST" })
+      const json = await res.json()
+      if (!res.ok) { toast.error(json.error ?? "Erro ao reembolsar"); return }
+      toast.success("Reembolso solicitado com sucesso")
+      setConfirming(false)
+      onClose()
+      onRefund?.()
+    } catch {
+      toast.error("Erro ao reembolsar")
+    } finally {
+      setRefunding(false)
+    }
+  }
+
   return (
     <Dialog.Root open={!!sale} onOpenChange={(open) => { if (!open) onClose() }}>
       <Dialog.Portal>
@@ -149,6 +173,44 @@ export function SaleDrawer({ sale, onClose }: Props) {
                     value={<span className="font-mono text-xs break-all">{sale.gatewayId}</span>}
                   />
                 </Section>
+              )}
+
+              {/* Refund action */}
+              {sale.status === "APPROVED" && (
+                <div className="pt-2">
+                  {!confirming ? (
+                    <button
+                      onClick={() => setConfirming(true)}
+                      className="w-full h-10 flex items-center justify-center gap-2 rounded-lg border border-red-200 text-red-600 text-sm font-medium hover:bg-red-50 transition-colors"
+                    >
+                      <RotateCcw className="h-4 w-4" />
+                      Reembolsar venda
+                    </button>
+                  ) : (
+                    <div className="rounded-xl border border-red-200 bg-red-50 p-4 space-y-3">
+                      <p className="text-sm font-medium text-red-800">Confirmar reembolso?</p>
+                      <p className="text-xs text-red-600">
+                        O valor será devolvido ao cliente via Asaas. Esta ação não pode ser desfeita.
+                      </p>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => setConfirming(false)}
+                          className="flex-1 h-9 rounded-lg border border-gray-200 text-sm text-gray-600 hover:bg-gray-50 transition-colors"
+                        >
+                          Cancelar
+                        </button>
+                        <button
+                          onClick={handleRefund}
+                          disabled={refunding}
+                          className="flex-1 h-9 rounded-lg bg-red-600 text-white text-sm font-medium hover:bg-red-700 disabled:opacity-50 flex items-center justify-center gap-1.5 transition-colors"
+                        >
+                          {refunding && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                          {refunding ? "Reembolsando..." : "Confirmar"}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
               )}
 
             </div>

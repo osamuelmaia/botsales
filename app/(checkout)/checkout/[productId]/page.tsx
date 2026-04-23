@@ -126,6 +126,25 @@ export default function CheckoutPage() {
       .finally(() => setLoadingProduct(false))
   }, [productId])
 
+  // ── Restore PIX from sessionStorage when ?pid is in URL (Ctrl+R, back) ────
+
+  useEffect(() => {
+    const pid = searchParams.get("pid")
+    if (!pid || step !== "form") return
+    const saved = sessionStorage.getItem(`pix-${productId}`)
+    if (!saved) return
+    try {
+      const data = JSON.parse(saved)
+      if (data.saleId !== pid) return
+      setPixCode(data.pixCode)
+      setPixQrCodeBase64(data.pixQrCodeBase64)
+      setSaleId(data.saleId)
+      setStep("pix-waiting")
+    } catch {}
+  // only run once on mount
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   // ── PIX polling ────────────────────────────────────────────────────────────
 
   useEffect(() => {
@@ -136,10 +155,12 @@ export default function CheckoutPage() {
       const json = await res.json()
       if (json.status === "APPROVED") {
         clearInterval(pollingRef.current!)
+        sessionStorage.removeItem(`pix-${productId}`)
         closeTgWebApp()
         router.push(`/checkout/${productId}/sucesso`)
       } else if (json.status === "REFUSED") {
         clearInterval(pollingRef.current!)
+        sessionStorage.removeItem(`pix-${productId}`)
         setStep("form")
         setError("Pagamento não foi aprovado. Tente novamente.")
       }
@@ -193,6 +214,17 @@ export default function CheckoutPage() {
     }
 
     if (selectedMethod === "PIX") {
+      // Persist PIX data so Ctrl+R keeps the user on the payment screen
+      sessionStorage.setItem(`pix-${productId}`, JSON.stringify({
+        saleId: json.saleId,
+        pixCode: json.pixCode,
+        pixQrCodeBase64: json.pixQrCodeBase64,
+      }))
+      // Update URL so ?pid= survives a full page reload
+      const newUrl = new URL(window.location.href)
+      newUrl.searchParams.set("pid", json.saleId)
+      window.history.replaceState(null, "", newUrl.toString())
+
       setPixCode(json.pixCode)
       setPixQrCodeBase64(json.pixQrCodeBase64)
       setSaleId(json.saleId)

@@ -244,7 +244,7 @@ export async function POST(req: NextRequest) {
 
     const availableAt =
       event.paymentMethod === "PIX"
-        ? addBusinessDays(now, 1)
+        ? now                              // PIX: disponível imediatamente
         : addCalendarDays(now, cardDays)
 
     await prisma.sale.update({
