@@ -17,11 +17,19 @@ jobs:
           script: |
             set -e
             cd /var/www/botsales
+
             git fetch origin main
             git reset --hard origin/main
-            npm ci --legacy-peer-deps
+
+            # Reinstala dependências só se package.json mudou
+            if git diff HEAD~1 HEAD -- package.json package-lock.json | grep -q .; then
+              echo "Dependências mudaram, reinstalando..."
+              npm ci --legacy-peer-deps
+            else
+              echo "Dependências iguais, pulando npm ci"
+            fi
+
             npm run build
-            pm2 restart nextjs
-            pm2 restart bot-worker
-            pm2 save
+            pm2 reload nextjs --update-env
+            pm2 reload bot-worker --update-env
             echo "Deploy concluído em $(date)"
