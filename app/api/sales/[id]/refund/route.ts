@@ -18,7 +18,15 @@ export async function POST(_req: Request, { params }: { params: { id: string } }
   if (!sale.gatewayId)
     return NextResponse.json({ error: "Sem ID de gateway para reembolso" }, { status: 400 })
 
-  await GatewayService.refundPayment(sale.gatewayId)
+  try {
+    await GatewayService.refundPayment(sale.gatewayId)
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : "Erro no gateway"
+    // Extract Asaas error description if available
+    const asaasMatch = msg.match(/\d{3}: (.+)/)
+    const userMsg = asaasMatch ? asaasMatch[1] : msg
+    return NextResponse.json({ error: userMsg }, { status: 502 })
+  }
 
   await prisma.sale.update({
     where: { id: sale.id },

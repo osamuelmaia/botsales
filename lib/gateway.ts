@@ -311,7 +311,7 @@ export const GatewayService = {
    * Reembolsa um pagamento avulso no Asaas.
    */
   async refundPayment(gatewayId: string): Promise<void> {
-    await asaasRequest("POST", `/payments/${gatewayId}/refund`, {})
+    await asaasRequest("POST", `/payments/${gatewayId}/refund`)
   },
 
   /**
