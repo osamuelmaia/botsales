@@ -77,13 +77,11 @@ const BANKS = [
 function applyDocumentMask(raw: string): string {
   const digits = raw.replace(/\D/g, "").slice(0, 14)
   if (digits.length <= 11) {
-    // CPF: 000.000.000-00
     return digits
       .replace(/(\d{3})(\d)/, "$1.$2")
       .replace(/(\d{3})(\d)/, "$1.$2")
       .replace(/(\d{3})(\d{1,2})$/, "$1-$2")
   }
-  // CNPJ: 00.000.000/0000-00
   return digits
     .replace(/(\d{2})(\d)/, "$1.$2")
     .replace(/(\d{3})(\d)/, "$1.$2")
@@ -149,8 +147,9 @@ interface Props {
 }
 
 const inputCls =
-  "w-full h-9 rounded-lg border border-gray-200 bg-white px-3 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent"
-const labelCls = "block text-xs font-medium text-gray-600 mb-1"
+  "w-full h-10 rounded-lg border border-gray-200 bg-white px-3 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 transition-colors"
+const labelCls = "block text-xs font-medium text-gray-600 mb-1.5"
+const errorCls = "text-xs text-red-500 mt-1"
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
@@ -184,9 +183,7 @@ export function BankAccountForm({ onSuccess, onCancel }: Props) {
       })
       const json = await res.json()
       if (!res.ok) {
-        toast.error(
-          typeof json.error === "string" ? json.error : "Erro ao salvar conta"
-        )
+        toast.error(typeof json.error === "string" ? json.error : "Erro ao salvar conta")
         return
       }
       toast.success("Conta bancária cadastrada!")
@@ -199,11 +196,16 @@ export function BankAccountForm({ onSuccess, onCancel }: Props) {
   return (
     <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
       <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
-        <div className="flex items-center gap-2">
-          <Building2 className="h-4 w-4 text-gray-500" />
+        <div className="flex items-center gap-2.5">
+          <div className="w-8 h-8 rounded-lg bg-blue-50 border border-blue-100 flex items-center justify-center">
+            <Building2 className="h-4 w-4 text-blue-500" />
+          </div>
           <h3 className="text-sm font-semibold text-gray-900">Nova conta bancária</h3>
         </div>
-        <button onClick={onCancel} className="text-gray-400 hover:text-gray-600">
+        <button
+          onClick={onCancel}
+          className="h-7 w-7 flex items-center justify-center rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+        >
           <X className="h-4 w-4" />
         </button>
       </div>
@@ -221,35 +223,21 @@ export function BankAccountForm({ onSuccess, onCancel }: Props) {
                 </option>
               ))}
             </select>
-            {errors.bankCode && (
-              <p className="text-xs text-red-500 mt-1">{errors.bankCode.message}</p>
-            )}
+            {errors.bankCode && <p className={errorCls}>{errors.bankCode.message}</p>}
           </div>
 
           {/* Agency */}
           <div>
             <label className={labelCls}>Agência (sem dígito)</label>
-            <input
-              {...register("agency")}
-              placeholder="0001"
-              className={inputCls}
-            />
-            {errors.agency && (
-              <p className="text-xs text-red-500 mt-1">{errors.agency.message}</p>
-            )}
+            <input {...register("agency")} placeholder="0001" className={inputCls} />
+            {errors.agency && <p className={errorCls}>{errors.agency.message}</p>}
           </div>
 
           {/* Account */}
           <div>
             <label className={labelCls}>Conta (com dígito)</label>
-            <input
-              {...register("account")}
-              placeholder="12345-6"
-              className={inputCls}
-            />
-            {errors.account && (
-              <p className="text-xs text-red-500 mt-1">{errors.account.message}</p>
-            )}
+            <input {...register("account")} placeholder="12345-6" className={inputCls} />
+            {errors.account && <p className={errorCls}>{errors.account.message}</p>}
           </div>
 
           {/* Account type */}
@@ -264,17 +252,11 @@ export function BankAccountForm({ onSuccess, onCancel }: Props) {
           {/* Holder name */}
           <div>
             <label className={labelCls}>Nome do titular</label>
-            <input
-              {...register("holderName")}
-              placeholder="Nome completo"
-              className={inputCls}
-            />
-            {errors.holderName && (
-              <p className="text-xs text-red-500 mt-1">{errors.holderName.message}</p>
-            )}
+            <input {...register("holderName")} placeholder="Nome completo" className={inputCls} />
+            {errors.holderName && <p className={errorCls}>{errors.holderName.message}</p>}
           </div>
 
-          {/* Document — CPF/CNPJ with mask */}
+          {/* Document — CPF/CNPJ */}
           <div className="sm:col-span-2">
             <label className={labelCls}>CPF / CNPJ do titular</label>
             <input
@@ -286,11 +268,8 @@ export function BankAccountForm({ onSuccess, onCancel }: Props) {
               maxLength={18}
               className={inputCls}
             />
-            {/* hidden field for RHF */}
             <input type="hidden" {...register("document")} />
-            {errors.document && (
-              <p className="text-xs text-red-500 mt-1">{errors.document.message}</p>
-            )}
+            {errors.document && <p className={errorCls}>{errors.document.message}</p>}
             <p className="text-xs text-gray-400 mt-1">
               Digite CPF (11 dígitos) — a máscara muda automaticamente para CNPJ (14 dígitos)
             </p>
@@ -304,12 +283,9 @@ export function BankAccountForm({ onSuccess, onCancel }: Props) {
               placeholder="CPF, CNPJ, e-mail, celular (+55...) ou chave aleatória"
               className={inputCls}
             />
-            {errors.pixKey && (
-              <p className="text-xs text-red-500 mt-1">{errors.pixKey.message}</p>
-            )}
-            {/* Warning */}
-            <div className="flex items-start gap-2 mt-2 p-3 rounded-lg bg-amber-50 border border-amber-100">
-              <Info className="h-3.5 w-3.5 text-amber-500 flex-shrink-0 mt-0.5" />
+            {errors.pixKey && <p className={errorCls}>{errors.pixKey.message}</p>}
+            <div className="flex items-start gap-2 mt-2 p-3 rounded-lg bg-amber-50 border border-amber-200">
+              <Info className="h-3.5 w-3.5 text-amber-600 flex-shrink-0 mt-0.5" />
               <p className="text-xs text-amber-700 leading-relaxed">
                 A chave PIX informada deve pertencer <strong>exatamente à mesma conta bancária</strong> cadastrada acima. Saques serão processados via PIX para essa chave — chaves de contas diferentes serão recusadas.
               </p>
@@ -318,11 +294,11 @@ export function BankAccountForm({ onSuccess, onCancel }: Props) {
         </div>
 
         {/* Default checkbox */}
-        <label className="flex items-center gap-2 cursor-pointer">
+        <label className="flex items-center gap-2 cursor-pointer select-none">
           <input
             type="checkbox"
             {...register("isDefault")}
-            className="rounded border-gray-300 text-gray-900"
+            className="w-4 h-4 rounded border-gray-300 accent-blue-600"
           />
           <span className="text-sm text-gray-600">Definir como conta principal</span>
         </label>
@@ -331,14 +307,14 @@ export function BankAccountForm({ onSuccess, onCancel }: Props) {
           <button
             type="button"
             onClick={onCancel}
-            className="flex-1 h-9 rounded-lg border border-gray-200 text-sm text-gray-600 hover:bg-gray-50 transition-colors"
+            className="flex-1 h-10 rounded-lg border border-gray-200 text-sm font-medium text-gray-600 hover:bg-gray-50 hover:border-gray-300 transition-colors"
           >
             Cancelar
           </button>
           <button
             type="submit"
             disabled={loading}
-            className="flex-1 h-9 rounded-lg bg-gray-900 text-sm text-white font-medium hover:bg-gray-800 disabled:opacity-50 transition-colors"
+            className="flex-1 h-10 rounded-lg bg-[#111627] text-sm text-white font-medium hover:bg-[#1c2434] disabled:opacity-50 transition-colors shadow-sm shadow-black/10"
           >
             {loading ? "Salvando..." : "Salvar conta"}
           </button>
