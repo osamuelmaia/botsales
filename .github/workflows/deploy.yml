@@ -76,10 +76,9 @@ jobs:
 
             npm run build
 
-            # ── Reinicia nextjs via ecosystem.config.js (bypassa estado corrompido do PM2) ──
-            # ecosystem.config.js lê o .env diretamente e injeta as vars explicitamente,
-            # ignorando qualquer valor vazio que PM2 tenha guardado de deploys anteriores
-            pm2 reload ecosystem.config.js --update-env
+            # ── Reinicia PM2 ─────────────────────────────────────────────────────────
+            # Tenta restart normal; se o processo não existir, cria do zero
+            pm2 restart nextjs || (pm2 delete nextjs 2>/dev/null; cd /var/www/botsales && pm2 start npm --name nextjs -- start)
             pm2 restart bot-worker --update-env || echo "⚠ bot-worker restart falhou"
             pm2 save
             echo "Deploy concluído em $(date)"
