@@ -8,21 +8,37 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
-      # ── 1. Build .env safely on the runner (secrets are proper bash vars here)
+      # ── 1. Checkout ──────────────────────────────────────────────────────────
+      - uses: actions/checkout@v4
+
+      # ── 2. Node + cache de node_modules (via package-lock.json) ─────────────
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      # ── 3. Cache do .next/cache (builds incrementais) ───────────────────────
+      - uses: actions/cache@v4
+        with:
+          path: .next/cache
+          key: nextjs-${{ hashFiles('package-lock.json') }}-${{ hashFiles('**/*.ts','**/*.tsx','**/*.css') }}
+          restore-keys: |
+            nextjs-${{ hashFiles('package-lock.json') }}-
+
+      # ── 4. Monta .env no runner (sem risco de expansão de shell) ────────────
       - name: Prepare .env
         env:
-          APP_DATABASE_URL:         ${{ secrets.APP_DATABASE_URL }}
-          APP_REDIS_URL:            ${{ secrets.APP_REDIS_URL }}
-          APP_NEXTAUTH_SECRET:      ${{ secrets.APP_NEXTAUTH_SECRET }}
-          APP_NEXTAUTH_URL:         ${{ secrets.APP_NEXTAUTH_URL }}
-          APP_GATEWAY_API_KEY:      ${{ secrets.APP_GATEWAY_API_KEY }}
+          APP_DATABASE_URL:          ${{ secrets.APP_DATABASE_URL }}
+          APP_REDIS_URL:             ${{ secrets.APP_REDIS_URL }}
+          APP_NEXTAUTH_SECRET:       ${{ secrets.APP_NEXTAUTH_SECRET }}
+          APP_NEXTAUTH_URL:          ${{ secrets.APP_NEXTAUTH_URL }}
+          APP_GATEWAY_API_KEY:       ${{ secrets.APP_GATEWAY_API_KEY }}
           APP_GATEWAY_WEBHOOK_SECRET: ${{ secrets.APP_GATEWAY_WEBHOOK_SECRET }}
-          APP_ENCRYPTION_KEY:       ${{ secrets.APP_ENCRYPTION_KEY }}
-          APP_NEXT_PUBLIC_APP_URL:  ${{ secrets.APP_NEXT_PUBLIC_APP_URL }}
-          APP_ASAAS_ENVIRONMENT:    ${{ secrets.APP_ASAAS_ENVIRONMENT }}
+          APP_ENCRYPTION_KEY:        ${{ secrets.APP_ENCRYPTION_KEY }}
+          APP_NEXT_PUBLIC_APP_URL:   ${{ secrets.APP_NEXT_PUBLIC_APP_URL }}
+          APP_ASAAS_ENVIRONMENT:     ${{ secrets.APP_ASAAS_ENVIRONMENT }}
           APP_BLOB_READ_WRITE_TOKEN: ${{ secrets.APP_BLOB_READ_WRITE_TOKEN }}
         run: |
-          # Escape $ so dotenv-expand won't treat them as variable references
           escape() { printf '%s' "$1" | sed 's/\$/\\$/g'; }
           {
             printf "DATABASE_URL='%s'\n"             "$APP_DATABASE_URL"
@@ -36,10 +52,36 @@ jobs:
             printf "NEXT_PUBLIC_APP_URL='%s'\n"      "$APP_NEXT_PUBLIC_APP_URL"
             printf "ASAAS_ENVIRONMENT='%s'\n"        "$APP_ASAAS_ENVIRONMENT"
             printf "BLOB_READ_WRITE_TOKEN=%s\n"      "$(escape "$APP_BLOB_READ_WRITE_TOKEN")"
-          } > /tmp/app.env
-          echo "ENV_B64=$(base64 -w0 /tmp/app.env)" >> "$GITHUB_ENV"
+          } > .env
+          echo "ENV_B64=$(base64 -w0 .env)" >> "$GITHUB_ENV"
 
-      # ── 2. Deploy via SSH — ENV_B64 é base64 puro (sem chars especiais)
+      # ── 5. Instala deps (usa cache do npm) ──────────────────────────────────
+      - name: Install dependencies
+        run: npm ci --legacy-peer-deps
+
+      # ── 6. Gera Prisma client ────────────────────────────────────────────────
+      - name: Generate Prisma client
+        run: npx prisma generate
+
+      # ── 7. Build Next.js no runner (hardware melhor + cache incremental) ─────
+      - name: Build
+        run: npm run build
+
+      # ── 8. Empacota apenas os artefatos de runtime (sem .next/cache) ─────────
+      - name: Package build
+        run: tar -czf next-build.tar.gz --exclude='.next/cache' .next/
+
+      # ── 9. Copia artefato para a VPS ─────────────────────────────────────────
+      - name: Upload build to VPS
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          source: "next-build.tar.gz"
+          target: "/tmp/"
+
+      # ── 10. Deploy via SSH (sem build — já foi feito no runner) ──────────────
       - name: Deploy via SSH
         uses: appleboy/ssh-action@v1.0.3
         env:
@@ -53,14 +95,13 @@ jobs:
             set -e
             cd /var/www/botsales
 
-            # ── Decodifica e escreve .env ────────────────────────────────────────
             echo "$ENV_B64" | base64 -d > .env
             echo "✓ .env atualizado"
 
             git fetch origin main
             git reset --hard origin/main
 
-            # ── Reinstala dependências só se package.json mudou ──────────────────
+            # Instala deps só se package.json mudou
             if git diff HEAD~1 HEAD -- package.json package-lock.json | grep -q .; then
               echo "Dependências mudaram, reinstalando..."
               npm ci --legacy-peer-deps
@@ -68,17 +109,18 @@ jobs:
               echo "Dependências iguais, pulando npm ci"
             fi
 
-            # ── Regenera cliente Prisma ──────────────────────────────────────────
+            # Extrai build do runner (sobrescreve .next/ local)
+            tar -xzf /tmp/next-build.tar.gz
+            rm /tmp/next-build.tar.gz
+            echo "✓ Build extraído"
+
+            # Regenera Prisma client para o processo Node local
             npx prisma generate
 
-            # ── Sincroniza schema com o banco ────────────────────────────────────
+            # Sincroniza schema
             npx prisma db push --skip-generate --accept-data-loss 2>&1 | tail -3 || echo "⚠ prisma db push falhou"
 
-            npm run build
-
-            # ── Reinicia PM2 ─────────────────────────────────────────────────────────
-            # Tenta restart normal; se o processo não existir, cria do zero
-            pm2 restart nextjs || (pm2 delete nextjs 2>/dev/null; cd /var/www/botsales && pm2 start npm --name nextjs -- start)
+            pm2 restart nextjs || (pm2 delete nextjs 2>/dev/null; pm2 start npm --name nextjs -- start)
             pm2 restart bot-worker --update-env || echo "⚠ bot-worker restart falhou"
             pm2 save
             echo "Deploy concluído em $(date)"
