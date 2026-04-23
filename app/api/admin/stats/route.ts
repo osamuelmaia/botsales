@@ -7,6 +7,14 @@ function requireAdmin(role?: string) {
   return role === "ADMIN"
 }
 
+function parseDate(str: string | null, fallback: Date, endOfDay = false): Date {
+  if (!str) return fallback
+  if (/^\d{4}-\d{2}-\d{2}$/.test(str)) {
+    return new Date(str + (endOfDay ? "T23:59:59.999Z" : "T00:00:00.000Z"))
+  }
+  return new Date(str)
+}
+
 export async function GET(req: NextRequest) {
   const session = await auth()
   if (!session?.user?.id || !requireAdmin((session.user as { role?: string }).role)) {
@@ -15,8 +23,8 @@ export async function GET(req: NextRequest) {
 
   const { searchParams } = new URL(req.url)
   const now = new Date()
-  const to   = searchParams.get("to")   ? new Date(searchParams.get("to")!)   : now
-  const from = searchParams.get("from") ? new Date(searchParams.get("from")!) : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
+  const from = parseDate(searchParams.get("from"), new Date(Date.now() - 30 * 24 * 60 * 60 * 1000))
+  const to   = parseDate(searchParams.get("to"),   now, true)
 
   const [
     gmvPeriod,
@@ -28,7 +36,7 @@ export async function GET(req: NextRequest) {
     asaasBalance,
   ] = await Promise.all([
     prisma.sale.aggregate({
-      where: { status: "APPROVED", paidAt: { gte: from, lte: to } },
+      where: { status: "APPROVED", createdAt: { gte: from, lte: to } },
       _sum: { grossAmountCents: true, feeAmountCents: true },
     }),
     prisma.user.count(),
@@ -41,14 +49,14 @@ export async function GET(req: NextRequest) {
     }),
     prisma.$queryRaw<Array<{ date: Date; gmvCents: bigint; feesCents: bigint }>>`
       SELECT
-        DATE("paidAt") AS date,
+        DATE("createdAt") AS date,
         SUM("grossAmountCents")::bigint AS "gmvCents",
         SUM("feeAmountCents")::bigint   AS "feesCents"
       FROM "Sale"
       WHERE status = 'APPROVED'
-        AND "paidAt" >= ${from}
-        AND "paidAt" <= ${to}
-      GROUP BY DATE("paidAt")
+        AND "createdAt" >= ${from}
+        AND "createdAt" <= ${to}
+      GROUP BY DATE("createdAt")
       ORDER BY date ASC
     `,
     GatewayService.getPlatformBalance().catch(() => ({ totalCents: 0, availableCents: 0 })),

@@ -2,36 +2,38 @@
 
 import useSWR from "swr"
 import Link from "next/link"
-import { useState } from "react"
-import { TrendingUp, DollarSign, Users, Bot, Wallet, ArrowRight, Building2 } from "lucide-react"
+import { useState, useMemo } from "react"
+import { TrendingUp, DollarSign, Users, Bot, Wallet, ArrowRight, Building2, Calendar } from "lucide-react"
 import { AdminStatCard } from "@/components/admin/AdminStatCard"
 import { AdminRevenueChart } from "@/components/admin/AdminRevenueChart"
 import { fetcher } from "@/lib/fetcher"
 
-type Period = "today" | "7d" | "30d" | "month" | "all"
+type Period = "today" | "7d" | "30d" | "month" | "all" | "custom"
 
-const PERIODS: Array<{ label: string; value: Period }> = [
-  { label: "Hoje",      value: "today" },
-  { label: "7 dias",    value: "7d"    },
-  { label: "30 dias",   value: "30d"   },
-  { label: "Este mês",  value: "month" },
-  { label: "Tudo",      value: "all"   },
+const PRESETS: Array<{ label: string; value: Exclude<Period, "custom"> }> = [
+  { label: "Hoje",     value: "today" },
+  { label: "7 dias",   value: "7d"    },
+  { label: "30 dias",  value: "30d"   },
+  { label: "Este mês", value: "month" },
+  { label: "Tudo",     value: "all"   },
 ]
 
-function getPeriodRange(period: Period): { from: string; to: string } {
-  const now = new Date()
-  const to = now.toISOString()
+function getPresetRange(period: Exclude<Period, "custom">): { from: string; to: string } {
+  const now   = new Date()
+  const today = now.toISOString().slice(0, 10)
   switch (period) {
     case "today":
-      return { from: new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString(), to }
+      return { from: today, to: today }
     case "7d":
-      return { from: new Date(Date.now() - 7  * 24 * 60 * 60 * 1000).toISOString(), to }
+      return { from: new Date(Date.now() - 7  * 86400_000).toISOString().slice(0, 10), to: today }
     case "30d":
-      return { from: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(), to }
-    case "month":
-      return { from: new Date(now.getFullYear(), now.getMonth(), 1).toISOString(), to }
+      return { from: new Date(Date.now() - 30 * 86400_000).toISOString().slice(0, 10), to: today }
+    case "month": {
+      const y = now.getFullYear(), m = String(now.getMonth() + 1).padStart(2, "0")
+      return { from: `${y}-${m}-01`, to: today }
+    }
     case "all":
-      return { from: new Date(2020, 0, 1).toISOString(), to }
+      return { from: "2020-01-01", to: today }
   }
 }
 
@@ -63,13 +65,26 @@ function StatSkeleton() {
 }
 
 export function AdminDashboardClient() {
-  const [period, setPeriod] = useState<Period>("30d")
-  const { from, to } = getPeriodRange(period)
+  const [period, setPeriod]         = useState<Period>("30d")
+  const [customFrom, setCustomFrom] = useState("")
+  const [customTo,   setCustomTo]   = useState("")
 
-  const key = `/api/admin/stats?from=${from}&to=${to}`
+  // useMemo prevents new Date() from changing on every render → fixes infinite SWR refetch
+  const range = useMemo<{ from: string; to: string } | null>(() => {
+    if (period === "custom") {
+      if (!customFrom || !customTo) return null
+      return { from: customFrom, to: customTo }
+    }
+    return getPresetRange(period)
+  }, [period, customFrom, customTo])
+
+  const key = range ? `/api/admin/stats?from=${range.from}&to=${range.to}` : null
   const { data, isLoading } = useSWR<Stats>(key, fetcher, { refreshInterval: 60_000 })
 
-  const periodLabel = PERIODS.find((p) => p.value === period)?.label ?? ""
+  const periodLabel =
+    period === "custom"
+      ? customFrom && customTo ? `${customFrom} → ${customTo}` : ""
+      : PRESETS.find((p) => p.value === period)?.label ?? ""
 
   return (
     <div className="space-y-6">
@@ -80,7 +95,7 @@ export function AdminDashboardClient() {
           <p className="text-sm text-gray-500 mt-0.5">Métricas consolidadas da plataforma</p>
         </div>
         <div className="flex items-center gap-1.5 flex-wrap">
-          {PERIODS.map((p) => (
+          {PRESETS.map((p) => (
             <button
               key={p.value}
               onClick={() => setPeriod(p.value)}
@@ -93,8 +108,48 @@ export function AdminDashboardClient() {
               {p.label}
             </button>
           ))}
+          <button
+            onClick={() => setPeriod("custom")}
+            className={`h-8 px-3.5 rounded-full text-xs font-medium inline-flex items-center gap-1.5 transition-colors ${
+              period === "custom"
+                ? "bg-blue-600 text-white shadow-sm"
+                : "bg-white border border-gray-200 text-gray-600 hover:border-blue-300 hover:text-blue-600"
+            }`}
+          >
+            <Calendar className="h-3 w-3" />
+            Personalizado
+          </button>
         </div>
       </div>
+
+      {/* Custom date inputs */}
+      {period === "custom" && (
+        <div className="flex items-center gap-3 flex-wrap bg-blue-50/50 border border-blue-100 rounded-xl px-4 py-3">
+          <div className="flex items-center gap-2">
+            <label className="text-xs text-gray-500 whitespace-nowrap">De:</label>
+            <input
+              type="date"
+              value={customFrom}
+              max={customTo || undefined}
+              onChange={(e) => setCustomFrom(e.target.value)}
+              className="h-8 px-2.5 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500"
+            />
+          </div>
+          <div className="flex items-center gap-2">
+            <label className="text-xs text-gray-500 whitespace-nowrap">Até:</label>
+            <input
+              type="date"
+              value={customTo}
+              min={customFrom || undefined}
+              onChange={(e) => setCustomTo(e.target.value)}
+              className="h-8 px-2.5 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500"
+            />
+          </div>
+          {(!customFrom || !customTo) && (
+            <p className="text-xs text-gray-400">Selecione as duas datas para ver os dados.</p>
+          )}
+        </div>
+      )}
 
       {/* Row 1 — 4 main KPIs */}
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
