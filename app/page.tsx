@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Link from "next/link"
 import {
   Bot, Package, Zap, Wallet, ArrowRight, Check, Menu, X,
@@ -129,29 +129,40 @@ const FAQS = [
 export default function LandingPage() {
   const [mobileOpen, setMobileOpen] = useState(false)
   const [openFaq, setOpenFaq] = useState<number | null>(null)
+  const [scrolled, setScrolled] = useState(false)
+
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 40)
+    window.addEventListener("scroll", onScroll, { passive: true })
+    return () => window.removeEventListener("scroll", onScroll)
+  }, [])
 
   return (
     <div className="min-h-screen bg-white scroll-smooth">
 
       {/* ─── NAV ──────────────────────────────────────────────────────── */}
-      <header className="sticky top-0 z-50 border-b border-white/10 bg-[#0b1121]/90 backdrop-blur-md">
+      <header className={`sticky top-0 z-50 transition-all duration-300 ${
+        scrolled
+          ? "bg-white border-b border-gray-200 shadow-sm"
+          : "bg-[#0b1121] border-b border-white/10"
+      }`}>
         <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
           <div className="flex items-center gap-1.5">
-            <span className="text-lg font-bold text-white tracking-tight">BotFlows</span>
+            <span className={`text-lg font-bold tracking-tight transition-colors duration-300 ${scrolled ? "text-gray-900" : "text-white"}`}>BotFlows</span>
             <span className="w-2 h-2 rounded-full bg-blue-500 mb-0.5 flex-shrink-0" />
           </div>
 
           <nav className="hidden md:flex items-center gap-7">
             {NAV_LINKS.map((l) => (
               <a key={l.href} href={l.href}
-                className="text-sm text-zinc-400 hover:text-white transition-colors">
+                className={`text-sm transition-colors duration-300 ${scrolled ? "text-gray-600 hover:text-gray-900" : "text-zinc-400 hover:text-white"}`}>
                 {l.label}
               </a>
             ))}
           </nav>
 
           <div className="hidden md:flex items-center gap-3">
-            <Link href="/login" className="text-sm text-zinc-400 hover:text-white transition-colors">
+            <Link href="/login" className={`text-sm transition-colors duration-300 ${scrolled ? "text-gray-600 hover:text-gray-900" : "text-zinc-400 hover:text-white"}`}>
               Entrar
             </Link>
             <Link href="/register"
@@ -161,7 +172,7 @@ export default function LandingPage() {
           </div>
 
           <button
-            className="md:hidden text-zinc-400 hover:text-white transition-colors"
+            className={`md:hidden transition-colors duration-300 ${scrolled ? "text-gray-600 hover:text-gray-900" : "text-zinc-400 hover:text-white"}`}
             onClick={() => setMobileOpen((v) => !v)}
           >
             {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
@@ -169,15 +180,15 @@ export default function LandingPage() {
         </div>
 
         {mobileOpen && (
-          <div className="md:hidden border-t border-white/10 bg-[#0b1121] px-4 py-4 space-y-3">
+          <div className={`md:hidden border-t px-4 py-4 space-y-3 ${scrolled ? "border-gray-200 bg-white" : "border-white/10 bg-[#0b1121]"}`}>
             {NAV_LINKS.map((l) => (
               <a key={l.href} href={l.href} onClick={() => setMobileOpen(false)}
-                className="block text-sm text-zinc-400 hover:text-white py-1 transition-colors">
+                className={`block text-sm py-1 transition-colors ${scrolled ? "text-gray-600 hover:text-gray-900" : "text-zinc-400 hover:text-white"}`}>
                 {l.label}
               </a>
             ))}
-            <div className="pt-3 border-t border-white/10 flex flex-col gap-2">
-              <Link href="/login" className="text-sm text-zinc-400 hover:text-white py-1 transition-colors">
+            <div className={`pt-3 border-t flex flex-col gap-2 ${scrolled ? "border-gray-200" : "border-white/10"}`}>
+              <Link href="/login" className={`text-sm py-1 transition-colors ${scrolled ? "text-gray-600 hover:text-gray-900" : "text-zinc-400 hover:text-white"}`}>
                 Entrar
               </Link>
               <Link href="/register"
