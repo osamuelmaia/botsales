@@ -3,8 +3,6 @@ import { prisma } from "@/lib/prisma"
 import Link from "next/link"
 import { Check, Package, Bot, ShoppingCart } from "lucide-react"
 
-// ─── Page ─────────────────────────────────────────────────────────────────────
-
 export default async function DashboardPage() {
   const session = await auth()
   const userId = session!.user!.id!
@@ -21,16 +19,16 @@ export default async function DashboardPage() {
     select: { id: true },
   })
 
-  const hasProducts = productsCount > 0
-  const hasBots = botsCount > 0
+  const hasProducts  = productsCount > 0
+  const hasBots      = botsCount > 0
   const hasConfigFlow = firstNonStartNode !== null
-  const hasSales = salesCount > 0
+  const hasSales     = salesCount > 0
 
   const steps = [
-    { label: "Criar um produto",        done: hasProducts,   href: "/dashboard/products" },
-    { label: "Criar um bot",            done: hasBots,       href: "/dashboard/bots" },
+    { label: "Criar um produto",          done: hasProducts,   href: "/dashboard/products" },
+    { label: "Criar um bot",              done: hasBots,       href: "/dashboard/bots" },
     { label: "Configurar o fluxo do bot", done: hasConfigFlow, href: "/dashboard/bots" },
-    { label: "Faça sua primeira venda.", done: hasSales,     href: null },
+    { label: "Faça sua primeira venda.",  done: hasSales,      href: null },
   ]
 
   const quickActions = [
@@ -42,8 +40,8 @@ export default async function DashboardPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Olá, {firstName}!</h1>
-        <p className="text-gray-500 mt-1">Aqui está o resumo da sua plataforma.</p>
+        <h1 className="text-2xl font-bold text-white">Olá, {firstName}!</h1>
+        <p className="text-zinc-400 mt-1">Aqui está o resumo da sua plataforma.</p>
       </div>
 
       {/* Stats */}
@@ -54,18 +52,18 @@ export default async function DashboardPage() {
           { label: "Bots criados",         value: botsCount.toString() },
           { label: "Produtos cadastrados", value: productsCount.toString() },
         ].map(({ label, value }) => (
-          <div key={label} className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
-            <p className="text-sm text-gray-500">{label}</p>
-            <p className="text-2xl font-bold text-gray-900 mt-1">{value}</p>
+          <div key={label} className="bg-[#0d1526] rounded-xl border border-white/[0.06] p-5">
+            <p className="text-sm text-zinc-400">{label}</p>
+            <p className="text-2xl font-bold text-white mt-1">{value}</p>
           </div>
         ))}
       </div>
 
       {/* Getting started */}
       {!hasSales && (
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
-          <h2 className="text-base font-semibold text-gray-900 mb-1">Primeiros passos</h2>
-          <p className="text-sm text-gray-500 mb-5">
+        <div className="bg-[#0d1526] rounded-xl border border-white/[0.06] p-6">
+          <h2 className="text-base font-semibold text-white mb-1">Primeiros passos</h2>
+          <p className="text-sm text-zinc-400 mb-5">
             Siga estes passos para começar a vender pelo Telegram.
           </p>
           <ol className="space-y-3">
@@ -73,17 +71,19 @@ export default async function DashboardPage() {
               <li key={i} className="flex items-center gap-3">
                 <span
                   className={`flex items-center justify-center w-6 h-6 rounded-full shrink-0 text-xs font-bold ${
-                    step.done ? "bg-green-100 text-green-600" : "bg-gray-100 text-gray-400"
+                    step.done
+                      ? "bg-blue-600/20 text-blue-400"
+                      : "bg-white/[0.06] text-zinc-500"
                   }`}
                 >
                   {step.done ? <Check className="h-3 w-3" /> : i + 1}
                 </span>
                 {step.href && !step.done ? (
-                  <Link href={step.href} className="text-sm text-gray-700 hover:underline">
+                  <Link href={step.href} className="text-sm text-zinc-300 hover:text-white transition-colors hover:underline">
                     {step.label}
                   </Link>
                 ) : (
-                  <span className={`text-sm ${step.done ? "text-gray-400 line-through" : "text-gray-700"}`}>
+                  <span className={`text-sm ${step.done ? "text-zinc-600 line-through" : "text-zinc-300"}`}>
                     {step.label}
                   </span>
                 )}
@@ -98,18 +98,18 @@ export default async function DashboardPage() {
         {quickActions.map((action) => (
           <div
             key={action.href}
-            className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm flex flex-col gap-3"
+            className="bg-[#0d1526] rounded-xl border border-white/[0.06] p-5 flex flex-col gap-3"
           >
-            <div className="w-9 h-9 rounded-lg bg-gray-100 flex items-center justify-center">
-              <action.icon className="h-4 w-4 text-gray-600" />
+            <div className="w-9 h-9 rounded-lg bg-blue-600/15 flex items-center justify-center">
+              <action.icon className="h-4 w-4 text-blue-400" />
             </div>
             <div>
-              <p className="text-sm font-semibold text-gray-900">{action.title}</p>
-              <p className="text-xs text-gray-500 mt-0.5">{action.desc}</p>
+              <p className="text-sm font-semibold text-white">{action.title}</p>
+              <p className="text-xs text-zinc-500 mt-0.5">{action.desc}</p>
             </div>
             <Link
               href={action.href}
-              className="mt-auto inline-flex items-center h-8 px-3 rounded-md bg-gray-900 text-white text-xs font-medium hover:bg-gray-800 transition-colors w-fit"
+              className="mt-auto inline-flex items-center h-8 px-3 rounded-md bg-blue-600 text-white text-xs font-medium hover:bg-blue-500 transition-colors w-fit"
             >
               {action.cta}
             </Link>
@@ -119,5 +119,3 @@ export default async function DashboardPage() {
     </div>
   )
 }
-
-
