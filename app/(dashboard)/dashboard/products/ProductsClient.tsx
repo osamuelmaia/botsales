@@ -2,14 +2,16 @@
 
 import useSWR from "swr"
 import { useState } from "react"
-import { Plus, Pencil, Trash2, X, Link2, Check } from "lucide-react"
+import { Plus, Pencil, Trash2, X, Link2, Check, Package, Repeat } from "lucide-react"
 import * as Dialog from "@radix-ui/react-dialog"
 import * as AlertDialog from "@radix-ui/react-alert-dialog"
 import { toast } from "sonner"
 import { ProductForm, type ProductData } from "@/components/products/ProductForm"
 import { fetcher } from "@/lib/fetcher"
-
-// ─── Helpers ─────────────────────────────────────────────────────────────────
+import { PageHeader } from "@/components/ui/PageHeader"
+import { Button } from "@/components/ui/Button"
+import { Badge } from "@/components/ui/Badge"
+import { EmptyState } from "@/components/ui/EmptyState"
 
 function formatPrice(cents: number) {
   return (cents / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })
@@ -26,15 +28,16 @@ function CopyCheckoutLink({ productId }: { productId: string }) {
     setTimeout(() => setCopied(false), 2000)
   }
   return (
-    <button onClick={copy} title="Copiar link de checkout"
-      className="flex items-center gap-1.5 h-7 px-2.5 rounded-md border border-gray-200 text-xs text-gray-500 hover:border-gray-400 hover:text-gray-700 transition-colors">
-      {copied ? <Check className="h-3 w-3 text-green-600" /> : <Link2 className="h-3 w-3" />}
+    <button
+      onClick={copy}
+      title="Copiar link de checkout"
+      className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded-lg border border-gray-200 text-xs font-medium text-gray-500 hover:border-blue-300 hover:text-blue-600 hover:bg-blue-50 transition-colors"
+    >
+      {copied ? <Check className="h-3 w-3 text-emerald-600" /> : <Link2 className="h-3 w-3" />}
       {copied ? "Copiado!" : "Link"}
     </button>
   )
 }
-
-// ─── Component ────────────────────────────────────────────────────────────────
 
 export function ProductsClient() {
   const { data: products = [], mutate } = useSWR<ProductData[]>("/api/products", fetcher)
@@ -66,66 +69,94 @@ export function ProductsClient() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Produtos</h1>
-          <p className="text-gray-500 mt-1">Gerencie os produtos que você vende.</p>
-        </div>
-        <button onClick={openCreate}
-          className="flex items-center gap-2 h-10 px-4 bg-gray-900 text-white rounded-lg text-sm font-medium hover:bg-gray-800 transition-colors">
-          <Plus className="h-4 w-4" />
-          Novo Produto
-        </button>
-      </div>
+      <PageHeader
+        title="Produtos"
+        description="Gerencie os produtos que você vende."
+        actions={
+          <Button onClick={openCreate} leftIcon={<Plus />}>
+            Novo Produto
+          </Button>
+        }
+      />
 
       {/* Grid */}
       {products.length === 0 ? (
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm py-16 flex flex-col items-center gap-4">
-          <p className="text-gray-400 text-sm">Nenhum produto cadastrado ainda.</p>
-          <button onClick={openCreate}
-            className="flex items-center gap-2 h-9 px-4 bg-gray-900 text-white rounded-lg text-sm font-medium hover:bg-gray-800 transition-colors">
-            <Plus className="h-4 w-4" />
-            Criar primeiro produto
-          </button>
+        <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
+          <EmptyState
+            icon={Package}
+            title="Nenhum produto cadastrado"
+            description="Cadastre seu primeiro produto para começar a vender pelo Telegram."
+            action={
+              <Button onClick={openCreate} leftIcon={<Plus />}>
+                Criar primeiro produto
+              </Button>
+            }
+          />
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {products.map((product) => (
-            <div key={product.id} className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm flex flex-col gap-4">
+            <div
+              key={product.id}
+              className="group bg-white rounded-xl border border-gray-200 p-5 shadow-sm hover:shadow-md hover:border-gray-300 transition-all flex flex-col gap-4"
+            >
+              {/* Header */}
               <div className="flex items-start justify-between gap-2">
-                <div className="min-w-0">
-                  <h3 className="font-semibold text-gray-900 text-sm leading-snug truncate">{product.name}</h3>
+                <div className="min-w-0 flex-1">
+                  <h3 className="font-semibold text-gray-900 text-[15px] leading-snug truncate">
+                    {product.name}
+                  </h3>
                   {product.description && (
-                    <p className="text-xs text-gray-400 mt-1 line-clamp-2">{product.description}</p>
+                    <p className="text-xs text-gray-500 mt-1 line-clamp-2 leading-relaxed">
+                      {product.description}
+                    </p>
                   )}
                 </div>
-                <div className="flex gap-1 shrink-0">
-                  <button onClick={() => openEdit(product)}
-                    className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-md transition-colors" title="Editar">
+                <div className="flex gap-0.5 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <button
+                    onClick={() => openEdit(product)}
+                    className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-colors"
+                    title="Editar"
+                  >
                     <Pencil className="h-3.5 w-3.5" />
                   </button>
-                  <button onClick={() => setDeletingProduct(product)}
-                    className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors" title="Deletar">
+                  <button
+                    onClick={() => setDeletingProduct(product)}
+                    className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors"
+                    title="Deletar"
+                  >
                     <Trash2 className="h-3.5 w-3.5" />
                   </button>
                 </div>
               </div>
-              <p className="text-2xl font-bold text-gray-900 leading-none">{formatPrice(product.priceInCents)}</p>
-              <div className="flex items-center justify-between gap-2 pt-1 border-t border-gray-100">
-                <div className="flex flex-wrap gap-1.5">
-                  {product.paymentMethods.map((m) => (
-                    <span key={m} className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
-                      {methodLabel[m] ?? m}
-                    </span>
-                  ))}
-                  {product.isRecurring && (
-                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-600">
-                      {product.billingType === "MONTHLY" ? "Mensal" : "Anual"}
-                      {product.billingCycles ? ` · ${product.billingCycles}x` : ""}
-                    </span>
-                  )}
-                </div>
+
+              {/* Price */}
+              <div>
+                <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1">
+                  Preço
+                </p>
+                <p className="text-2xl font-bold text-gray-900 leading-none tabular-nums">
+                  {formatPrice(product.priceInCents)}
+                </p>
+              </div>
+
+              {/* Badges */}
+              <div className="flex flex-wrap gap-1.5">
+                {product.paymentMethods.map((m) => (
+                  <Badge key={m} variant="neutral" size="sm">
+                    {methodLabel[m] ?? m}
+                  </Badge>
+                ))}
+                {product.isRecurring && (
+                  <Badge variant="info" size="sm" leftIcon={<Repeat className="h-2.5 w-2.5" />}>
+                    {product.billingType === "MONTHLY" ? "Mensal" : "Anual"}
+                    {product.billingCycles ? ` · ${product.billingCycles}x` : ""}
+                  </Badge>
+                )}
+              </div>
+
+              {/* Footer */}
+              <div className="flex items-center justify-end pt-3 border-t border-gray-100">
                 <CopyCheckoutLink productId={product.id!} />
               </div>
             </div>
@@ -136,13 +167,18 @@ export function ProductsClient() {
       {/* Sheet — criar / editar */}
       <Dialog.Root open={sheetOpen} onOpenChange={setSheetOpen}>
         <Dialog.Portal>
-          <Dialog.Overlay className="fixed inset-0 bg-black/40 z-50" />
-          <Dialog.Content className="fixed right-0 top-0 h-full w-full max-w-md bg-white shadow-xl z-50 flex flex-col">
+          <Dialog.Overlay className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 animate-fade-in" />
+          <Dialog.Content className="fixed right-0 top-0 h-full w-full max-w-md bg-white shadow-xl z-50 flex flex-col animate-slide-in-right">
             <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
-              <Dialog.Title className="text-lg font-semibold text-gray-900">
-                {editingProduct ? "Editar produto" : "Novo produto"}
-              </Dialog.Title>
-              <Dialog.Close className="p-2 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100 transition-colors">
+              <div>
+                <Dialog.Title className="text-base font-semibold text-gray-900">
+                  {editingProduct ? "Editar produto" : "Novo produto"}
+                </Dialog.Title>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  {editingProduct ? "Atualize as informações do produto" : "Preencha os dados do novo produto"}
+                </p>
+              </div>
+              <Dialog.Close className="p-2 text-gray-400 hover:text-gray-700 rounded-lg hover:bg-gray-100 transition-colors">
                 <X className="h-5 w-5" />
               </Dialog.Close>
             </div>
@@ -163,21 +199,31 @@ export function ProductsClient() {
       {/* AlertDialog — confirmar deleção */}
       <AlertDialog.Root open={!!deletingProduct} onOpenChange={(open) => !open && setDeletingProduct(null)}>
         <AlertDialog.Portal>
-          <AlertDialog.Overlay className="fixed inset-0 bg-black/40 z-50" />
-          <AlertDialog.Content className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-sm bg-white rounded-xl shadow-xl z-50 p-6">
-            <AlertDialog.Title className="text-lg font-semibold text-gray-900">Deletar produto</AlertDialog.Title>
-            <AlertDialog.Description className="text-sm text-gray-500 mt-2">
-              Tem certeza que deseja deletar{" "}
-              <strong className="text-gray-700">{deletingProduct?.name}</strong>?
-              Esta ação não pode ser desfeita.
-            </AlertDialog.Description>
-            <div className="flex justify-end gap-3 mt-6">
-              <AlertDialog.Cancel className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
-                Cancelar
+          <AlertDialog.Overlay className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 animate-fade-in" />
+          <AlertDialog.Content className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-sm bg-white rounded-xl shadow-lg z-50 p-6">
+            <div className="flex items-start gap-3 mb-4">
+              <div className="w-10 h-10 rounded-full bg-red-50 border border-red-100 flex items-center justify-center shrink-0">
+                <Trash2 className="h-4 w-4 text-red-600" />
+              </div>
+              <div>
+                <AlertDialog.Title className="text-base font-semibold text-gray-900">
+                  Deletar produto
+                </AlertDialog.Title>
+                <AlertDialog.Description className="text-sm text-gray-500 mt-1">
+                  Tem certeza que deseja deletar{" "}
+                  <strong className="text-gray-700">{deletingProduct?.name}</strong>?
+                  Esta ação não pode ser desfeita.
+                </AlertDialog.Description>
+              </div>
+            </div>
+            <div className="flex justify-end gap-2">
+              <AlertDialog.Cancel asChild>
+                <Button variant="secondary">Cancelar</Button>
               </AlertDialog.Cancel>
-              <AlertDialog.Action onClick={confirmDelete} disabled={deleteLoading}
-                className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 disabled:opacity-50 transition-colors">
-                {deleteLoading ? "Deletando..." : "Deletar"}
+              <AlertDialog.Action asChild>
+                <Button variant="danger" onClick={confirmDelete} loading={deleteLoading}>
+                  {deleteLoading ? "Deletando..." : "Deletar"}
+                </Button>
               </AlertDialog.Action>
             </div>
           </AlertDialog.Content>

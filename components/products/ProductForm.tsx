@@ -4,11 +4,11 @@ import { useForm, Controller } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
 import { useState } from "react"
-import { Loader2, Check, ChevronDown } from "lucide-react"
+import { Check, ChevronDown, AlertCircle } from "lucide-react"
 import * as Checkbox from "@radix-ui/react-checkbox"
 import * as Select from "@radix-ui/react-select"
-
-// ─── Client-side form schema ──────────────────────────────────────────────────
+import { Input } from "@/components/ui/Input"
+import { Button } from "@/components/ui/Button"
 
 const formSchema = z
   .object({
@@ -39,8 +39,6 @@ const formSchema = z
 
 type FormValues = z.infer<typeof formSchema>
 
-// ─── Types ────────────────────────────────────────────────────────────────────
-
 export interface ProductData {
   id: string
   name: string
@@ -57,8 +55,6 @@ interface Props {
   onSuccess: () => void
 }
 
-// ─── Price mask ───────────────────────────────────────────────────────────────
-
 function formatPriceMask(raw: string): string {
   const digits = raw.replace(/\D/g, "")
   if (!digits) return ""
@@ -67,6 +63,33 @@ function formatPriceMask(raw: string): string {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   })
+}
+
+// ─── Checkbox (blue primário) ────────────────────────────────────────────────
+
+function StyledCheckbox({
+  checked,
+  onCheckedChange,
+  label,
+}: {
+  checked: boolean
+  onCheckedChange: (v: boolean) => void
+  label: string
+}) {
+  return (
+    <label className="flex items-center gap-2.5 cursor-pointer select-none group">
+      <Checkbox.Root
+        checked={checked}
+        onCheckedChange={(c) => onCheckedChange(!!c)}
+        className="h-[18px] w-[18px] shrink-0 rounded-md border-2 border-gray-300 data-[state=checked]:bg-blue-600 data-[state=checked]:border-blue-600 flex items-center justify-center transition-colors group-hover:border-blue-400"
+      >
+        <Checkbox.Indicator>
+          <Check className="h-3 w-3 text-white" strokeWidth={3} />
+        </Checkbox.Indicator>
+      </Checkbox.Root>
+      <span className="text-sm text-gray-700 group-hover:text-gray-900 transition-colors">{label}</span>
+    </label>
+  )
 }
 
 // ─── Recurring sub-section ───────────────────────────────────────────────────
@@ -83,31 +106,24 @@ function RecurringSection({
   register: ReturnType<typeof useForm<FormValues>>["register"]
 }) {
   return (
-    <div className="mt-2 ml-7 pl-3 border-l-2 border-gray-100 flex flex-col gap-3">
+    <div className="mt-2 ml-7 bg-gray-50 border border-gray-200 rounded-lg p-3 flex flex-col gap-3">
       <Controller
         control={control}
         name="isRecurring"
         render={({ field }) => (
-          <label className="flex items-center gap-3 cursor-pointer select-none">
-            <Checkbox.Root
-              checked={field.value}
-              onCheckedChange={(checked) => field.onChange(!!checked)}
-              className="h-4 w-4 shrink-0 rounded border-2 border-gray-300 data-[state=checked]:bg-gray-900 data-[state=checked]:border-gray-900 flex items-center justify-center"
-            >
-              <Checkbox.Indicator>
-                <Check className="h-3 w-3 text-white" />
-              </Checkbox.Indicator>
-            </Checkbox.Root>
-            <span className="text-sm text-gray-700">Cobrança recorrente</span>
-          </label>
+          <StyledCheckbox
+            checked={field.value}
+            onCheckedChange={field.onChange}
+            label="Cobrança recorrente"
+          />
         )}
       />
 
       {isRecurring && (
-        <div className="flex flex-col gap-3 ml-7">
+        <div className="grid grid-cols-2 gap-3 pl-7">
           {/* Periodicidade */}
           <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">
+            <label className="block text-xs font-medium text-gray-600 mb-1.5">
               Periodicidade
             </label>
             <Controller
@@ -115,7 +131,7 @@ function RecurringSection({
               name="billingType"
               render={({ field }) => (
                 <Select.Root value={field.value} onValueChange={field.onChange}>
-                  <Select.Trigger className="flex h-9 w-full items-center justify-between rounded-md border border-gray-300 px-3 text-sm text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-gray-900">
+                  <Select.Trigger className="flex h-10 w-full items-center justify-between rounded-lg border border-gray-200 px-3 text-sm text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 transition-colors">
                     <Select.Value placeholder="Selecione..." />
                     <Select.Icon>
                       <ChevronDown className="h-4 w-4 text-gray-400" />
@@ -123,20 +139,20 @@ function RecurringSection({
                   </Select.Trigger>
                   <Select.Portal>
                     <Select.Content
-                      className="z-[60] min-w-[8rem] overflow-hidden rounded-md border border-gray-200 bg-white shadow-md"
+                      className="z-[60] min-w-[8rem] overflow-hidden rounded-lg border border-gray-200 bg-white shadow-lg"
                       position="popper"
                       sideOffset={4}
                     >
                       <Select.Viewport className="p-1">
                         <Select.Item
                           value="MONTHLY"
-                          className="flex items-center px-3 py-2 text-sm text-gray-900 cursor-pointer rounded outline-none data-[highlighted]:bg-gray-100"
+                          className="flex items-center px-3 py-2 text-sm text-gray-900 cursor-pointer rounded-md outline-none data-[highlighted]:bg-blue-50 data-[highlighted]:text-blue-700"
                         >
                           <Select.ItemText>Mensal</Select.ItemText>
                         </Select.Item>
                         <Select.Item
                           value="ANNUAL"
-                          className="flex items-center px-3 py-2 text-sm text-gray-900 cursor-pointer rounded outline-none data-[highlighted]:bg-gray-100"
+                          className="flex items-center px-3 py-2 text-sm text-gray-900 cursor-pointer rounded-md outline-none data-[highlighted]:bg-blue-50 data-[highlighted]:text-blue-700"
                         >
                           <Select.ItemText>Anual</Select.ItemText>
                         </Select.Item>
@@ -147,33 +163,24 @@ function RecurringSection({
               )}
             />
             {errors.billingType && (
-              <p className="text-red-500 text-xs mt-1">{errors.billingType.message}</p>
+              <p className="text-xs text-red-600 mt-1">{errors.billingType.message}</p>
             )}
           </div>
 
           {/* Ciclos */}
-          <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">
-              Número de ciclos
-            </label>
-            <input
-              {...register("billingCycles")}
-              type="number"
-              min="1"
-              className="w-full h-9 rounded-md border border-gray-300 px-3 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent"
-              placeholder="Ex: 12"
-            />
-            {errors.billingCycles && (
-              <p className="text-red-500 text-xs mt-1">{errors.billingCycles.message}</p>
-            )}
-          </div>
+          <Input
+            {...register("billingCycles")}
+            type="number"
+            min="1"
+            label="Nº de ciclos"
+            placeholder="Ex: 12"
+            error={errors.billingCycles?.message}
+          />
         </div>
       )}
     </div>
   )
 }
-
-// ─── Component ────────────────────────────────────────────────────────────────
 
 export function ProductForm({ product, onSuccess }: Props) {
   const [serverError, setServerError] = useState("")
@@ -184,9 +191,7 @@ export function ProductForm({ product, onSuccess }: Props) {
       ? {
           name: product.name,
           description: product.description ?? "",
-          price: formatPriceMask(
-            String(product.priceInCents).padStart(3, "0")
-          ),
+          price: formatPriceMask(String(product.priceInCents).padStart(3, "0")),
           paymentMethods: product.paymentMethods,
           isRecurring: product.isRecurring,
           billingType: product.billingType ?? undefined,
@@ -263,44 +268,38 @@ export function ProductForm({ product, onSuccess }: Props) {
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-5">
       {/* Nome */}
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">Nome</label>
-        <input
-          {...register("name")}
-          className="w-full h-10 rounded-md border border-gray-300 px-3 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent"
-          placeholder="Ex: Pack de fotos, E-book, Mentoria..."
-        />
-        {errors.name && (
-          <p className="text-red-500 text-xs mt-1">{errors.name.message}</p>
-        )}
-      </div>
+      <Input
+        {...register("name")}
+        label="Nome"
+        placeholder="Ex: Pack de fotos, E-book, Mentoria..."
+        error={errors.name?.message}
+      />
 
       {/* Descrição */}
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
-          Descrição{" "}
-          <span className="text-gray-400 font-normal">(opcional)</span>
+        <label className="block text-sm font-medium text-gray-700 mb-1.5">
+          Descrição <span className="text-gray-400 font-normal">(opcional)</span>
         </label>
         <textarea
           {...register("description")}
           rows={3}
           maxLength={300}
-          className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent resize-none"
           placeholder="Descreva seu produto..."
+          className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 resize-none transition-colors"
         />
-        <p className="text-xs text-gray-400 mt-1 text-right">
-          {description.length}/300
-        </p>
-        {errors.description && (
-          <p className="text-red-500 text-xs mt-1">{errors.description.message}</p>
-        )}
+        <div className="flex items-center justify-between mt-1">
+          {errors.description ? (
+            <p className="text-xs text-red-600">{errors.description.message}</p>
+          ) : <span />}
+          <p className="text-xs text-gray-400 tabular-nums">{description.length}/300</p>
+        </div>
       </div>
 
       {/* Preço */}
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">Preço</label>
+        <label className="block text-sm font-medium text-gray-700 mb-1.5">Preço</label>
         <div className="relative">
-          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-500 pointer-events-none">
+          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-medium text-gray-500 pointer-events-none">
             R$
           </span>
           <input
@@ -309,19 +308,19 @@ export function ProductForm({ product, onSuccess }: Props) {
               const formatted = formatPriceMask(e.target.value)
               form.setValue("price", formatted, { shouldValidate: true })
             }}
-            className="w-full h-10 rounded-md border border-gray-300 pl-9 pr-3 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent"
             placeholder="0,00"
             inputMode="numeric"
+            className="w-full h-10 rounded-lg border border-gray-200 bg-white pl-9 pr-3 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 transition-colors tabular-nums"
           />
         </div>
         {errors.price && (
-          <p className="text-red-500 text-xs mt-1">{errors.price.message}</p>
+          <p className="text-xs text-red-600 mt-1">{errors.price.message}</p>
         )}
       </div>
 
       {/* Formas de pagamento */}
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
+        <label className="block text-sm font-medium text-gray-700 mb-2.5">
           Formas de pagamento
         </label>
 
@@ -329,27 +328,19 @@ export function ProductForm({ product, onSuccess }: Props) {
           control={control}
           name="paymentMethods"
           render={({ field }) => (
-            <div className="flex flex-col gap-1">
+            <div className="flex flex-col gap-2">
               {/* PIX */}
-              <label className="flex items-center gap-3 cursor-pointer select-none">
-                <Checkbox.Root
-                  checked={field.value?.includes("PIX")}
-                  onCheckedChange={(checked) => {
-                    const curr = field.value ?? []
-                    field.onChange(
-                      checked ? [...curr, "PIX"] : curr.filter((m) => m !== "PIX")
-                    )
-                  }}
-                  className="h-4 w-4 shrink-0 rounded border-2 border-gray-300 data-[state=checked]:bg-gray-900 data-[state=checked]:border-gray-900 flex items-center justify-center"
-                >
-                  <Checkbox.Indicator>
-                    <Check className="h-3 w-3 text-white" />
-                  </Checkbox.Indicator>
-                </Checkbox.Root>
-                <span className="text-sm text-gray-700">PIX</span>
-              </label>
+              <StyledCheckbox
+                checked={field.value?.includes("PIX") ?? false}
+                onCheckedChange={(checked) => {
+                  const curr = field.value ?? []
+                  field.onChange(
+                    checked ? [...curr, "PIX"] : curr.filter((m) => m !== "PIX")
+                  )
+                }}
+                label="PIX"
+              />
 
-              {/* Recorrência abaixo do PIX */}
               {hasPix && (
                 <RecurringSection
                   control={control}
@@ -359,28 +350,18 @@ export function ProductForm({ product, onSuccess }: Props) {
                 />
               )}
 
-              {/* Cartão de crédito */}
-              <label className="flex items-center gap-3 cursor-pointer select-none mt-1">
-                <Checkbox.Root
-                  checked={field.value?.includes("CREDIT_CARD")}
-                  onCheckedChange={(checked) => {
-                    const curr = field.value ?? []
-                    field.onChange(
-                      checked
-                        ? [...curr, "CREDIT_CARD"]
-                        : curr.filter((m) => m !== "CREDIT_CARD")
-                    )
-                  }}
-                  className="h-4 w-4 shrink-0 rounded border-2 border-gray-300 data-[state=checked]:bg-gray-900 data-[state=checked]:border-gray-900 flex items-center justify-center"
-                >
-                  <Checkbox.Indicator>
-                    <Check className="h-3 w-3 text-white" />
-                  </Checkbox.Indicator>
-                </Checkbox.Root>
-                <span className="text-sm text-gray-700">Cartão de Crédito</span>
-              </label>
+              {/* Cartão */}
+              <StyledCheckbox
+                checked={field.value?.includes("CREDIT_CARD") ?? false}
+                onCheckedChange={(checked) => {
+                  const curr = field.value ?? []
+                  field.onChange(
+                    checked ? [...curr, "CREDIT_CARD"] : curr.filter((m) => m !== "CREDIT_CARD")
+                  )
+                }}
+                label="Cartão de Crédito"
+              />
 
-              {/* Recorrência abaixo do Cartão */}
               {hasCard && (
                 <RecurringSection
                   control={control}
@@ -394,28 +375,24 @@ export function ProductForm({ product, onSuccess }: Props) {
         />
 
         {errors.paymentMethods && (
-          <p className="text-red-500 text-xs mt-1">{errors.paymentMethods.message}</p>
+          <p className="text-xs text-red-600 mt-1.5">{errors.paymentMethods.message}</p>
         )}
       </div>
 
       {serverError && (
-        <p className="text-red-500 text-sm text-center bg-red-50 py-2 rounded-md">
-          {serverError}
-        </p>
+        <div className="flex items-start gap-2 text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2.5">
+          <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
+          <p>{serverError}</p>
+        </div>
       )}
 
-      <button
-        type="submit"
-        disabled={isSubmitting}
-        className="w-full h-10 bg-gray-900 text-white rounded-md text-sm font-medium hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 transition-colors mt-2"
-      >
-        {isSubmitting && <Loader2 className="h-4 w-4 animate-spin" />}
+      <Button type="submit" fullWidth size="lg" loading={isSubmitting} className="mt-2">
         {isSubmitting
           ? "Salvando..."
           : product
           ? "Salvar alterações"
           : "Criar produto"}
-      </button>
+      </Button>
     </form>
   )
 }

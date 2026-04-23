@@ -183,7 +183,7 @@ export default async function DashboardPage() {
               </div>
               <Link
                 href={action.href}
-                className="mt-auto inline-flex items-center gap-1.5 h-9 px-4 rounded-lg bg-blue-600 text-white text-xs font-semibold hover:bg-blue-500 transition-colors w-fit shadow-sm shadow-blue-600/20"
+                className="mt-auto inline-flex items-center gap-1.5 h-9 px-4 rounded-lg bg-[#111627] text-white text-xs font-semibold hover:bg-[#1c2434] transition-colors w-fit shadow-sm shadow-black/10"
               >
                 {action.cta}
                 <ArrowRight className="h-3 w-3" />

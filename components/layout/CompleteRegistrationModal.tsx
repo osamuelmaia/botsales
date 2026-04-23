@@ -166,7 +166,7 @@ export function CompleteRegistrationModal() {
   return (
     <Dialog.Root open={open} onOpenChange={handleOpen}>
       <Dialog.Trigger asChild>
-        <button className="inline-flex items-center gap-1.5 h-9 px-4 rounded-lg bg-blue-600 text-white text-sm font-medium hover:bg-blue-500 transition-colors shadow-sm shadow-blue-600/20 shrink-0">
+        <button className="inline-flex items-center gap-1.5 h-9 px-4 rounded-lg bg-[#111627] text-white text-sm font-medium hover:bg-[#1c2434] transition-colors shadow-sm shadow-black/10 shrink-0">
           Completar agora
           <ArrowRight className="h-3.5 w-3.5" />
         </button>
