@@ -65,7 +65,7 @@ jobs:
             npx prisma generate
 
             # ── Sincroniza schema com o banco (aplica novas colunas/tabelas) ─────
-            npx prisma db push --skip-generate 2>&1 | tail -3 || echo "⚠ prisma db push falhou — verifique APP_DATABASE_URL"
+            npx prisma db push --skip-generate --accept-data-loss 2>&1 | tail -3 || echo "⚠ prisma db push falhou — verifique APP_DATABASE_URL"
 
             npm run build
             pm2 reload nextjs --update-env
