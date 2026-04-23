@@ -315,6 +315,19 @@ export const GatewayService = {
   },
 
   /**
+   * Retorna o saldo atual da conta Asaas da plataforma.
+   */
+  async getPlatformBalance(): Promise<{ totalCents: number; availableCents: number }> {
+    const res = await asaasGet<{ balance?: number; totalBalance?: number; availableBalance?: number }>("/finance/balance")
+    const total     = res.totalBalance     ?? res.balance ?? 0
+    const available = res.availableBalance ?? res.balance ?? 0
+    return {
+      totalCents:     Math.round(total     * 100),
+      availableCents: Math.round(available * 100),
+    }
+  },
+
+  /**
    * Valida e parseia um evento de webhook do Asaas.
    *
    * Asaas envia o token configurado no header `asaas-access-token`.

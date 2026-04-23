@@ -1,17 +1,9 @@
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import Link from "next/link"
-import {
-  Check,
-  Package,
-  Bot,
-  ShoppingCart,
-  TrendingUp,
-  Wallet,
-  ArrowRight,
-  Sparkles,
-} from "lucide-react"
+import { Check, Package, Bot, ShoppingCart, ArrowRight, Sparkles } from "lucide-react"
 import { PageHeader } from "@/components/ui/PageHeader"
+import { DashboardStatsClient } from "./DashboardStatsClient"
 
 export default async function DashboardPage() {
   const session = await auth()
@@ -45,13 +37,6 @@ export default async function DashboardPage() {
   const totalSteps = steps.length
   const progressPct = (doneCount / totalSteps) * 100
 
-  const stats = [
-    { label: "Vendas hoje",          value: "R$ 0,00",             icon: TrendingUp },
-    { label: "Vendas do mês",        value: "R$ 0,00",             icon: Wallet },
-    { label: "Bots criados",         value: botsCount.toString(),     icon: Bot },
-    { label: "Produtos cadastrados", value: productsCount.toString(), icon: Package },
-  ]
-
   const quickActions = [
     { icon: Package,      title: "Novo Produto", desc: "Cadastre um produto digital para vender.", href: "/products", cta: "Criar produto" },
     { icon: Bot,          title: "Novo Bot",     desc: "Conecte um bot do Telegram à sua loja.",   href: "/bots",     cta: "Criar bot" },
@@ -65,25 +50,8 @@ export default async function DashboardPage() {
         description="Aqui está o resumo da sua plataforma."
       />
 
-      {/* Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {stats.map(({ label, value, icon: Icon }) => (
-          <div
-            key={label}
-            className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm hover:shadow-md hover:border-gray-300 transition-all"
-          >
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">{label}</p>
-                <p className="text-2xl font-bold text-gray-900 mt-2 tabular-nums">{value}</p>
-              </div>
-              <div className="w-9 h-9 rounded-lg bg-blue-50 border border-blue-100 flex items-center justify-center shrink-0">
-                <Icon className="h-4 w-4 text-blue-600" strokeWidth={2} />
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
+      {/* Stats with date filter */}
+      <DashboardStatsClient />
 
       {/* Getting started */}
       {!hasSales && (
