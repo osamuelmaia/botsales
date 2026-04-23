@@ -343,11 +343,12 @@ export const GatewayService = {
     const paymentMethod = methodMap[payment.billingType] ?? null
 
     const typeMap: Record<string, WebhookEventType> = {
-      PAYMENT_CONFIRMED: "PAYMENT_CONFIRMED",
-      PAYMENT_RECEIVED:  "PAYMENT_CONFIRMED", // PIX usa RECEIVED
-      PAYMENT_REFUSED:   "PAYMENT_REFUSED",
-      PAYMENT_OVERDUE:   "PAYMENT_OVERDUE",   // PIX venceu sem pagamento
-      PAYMENT_REFUNDED:  "PAYMENT_REFUNDED",
+      PAYMENT_CONFIRMED:          "PAYMENT_CONFIRMED",
+      PAYMENT_RECEIVED:           "PAYMENT_CONFIRMED", // PIX usa RECEIVED
+      PAYMENT_REFUSED:            "PAYMENT_REFUSED",
+      PAYMENT_OVERDUE:            "PAYMENT_OVERDUE",   // PIX venceu sem pagamento
+      PAYMENT_REFUNDED:           "PAYMENT_REFUNDED",
+      PAYMENT_PARTIALLY_REFUNDED: "PAYMENT_REFUNDED",  // trata como reembolso total no saldo
     }
 
     return {
