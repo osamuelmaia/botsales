@@ -16,10 +16,10 @@ import { cn } from "@/lib/cn"
 
 const navItems = [
   { href: "/dashboard",          label: "Dashboard", icon: LayoutDashboard },
-  { href: "/dashboard/products", label: "Produtos",  icon: Package },
-  { href: "/dashboard/bots",     label: "Bots",      icon: Bot },
-  { href: "/dashboard/sales",    label: "Vendas",    icon: ShoppingCart },
-  { href: "/dashboard/wallet",   label: "Carteira",  icon: Wallet },
+  { href: "/products", label: "Produtos",  icon: Package },
+  { href: "/bots",     label: "Bots",      icon: Bot },
+  { href: "/sales",    label: "Vendas",    icon: ShoppingCart },
+  { href: "/wallet",   label: "Carteira",  icon: Wallet },
 ]
 
 function NavContent({ onClose }: { onClose?: () => void }) {

@@ -228,7 +228,7 @@ export function BotConfigModal({ botId, open, onOpenChange, onSaved }: Props) {
                       </p>
                       <button
                         type="button"
-                        onClick={() => router.push("/dashboard/products")}
+                        onClick={() => router.push("/products")}
                         className="text-sm font-medium text-blue-600 hover:text-blue-500 mt-1 transition-colors"
                       >
                         Criar produto →

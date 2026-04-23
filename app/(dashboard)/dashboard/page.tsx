@@ -35,9 +35,9 @@ export default async function DashboardPage() {
   const hasSales      = salesCount > 0
 
   const steps = [
-    { label: "Criar um produto",          done: hasProducts,   href: "/dashboard/products" },
-    { label: "Criar um bot",              done: hasBots,       href: "/dashboard/bots" },
-    { label: "Configurar o fluxo do bot", done: hasConfigFlow, href: "/dashboard/bots" },
+    { label: "Criar um produto",          done: hasProducts,   href: "/products" },
+    { label: "Criar um bot",              done: hasBots,       href: "/bots" },
+    { label: "Configurar o fluxo do bot", done: hasConfigFlow, href: "/bots" },
     { label: "Faça sua primeira venda",   done: hasSales,      href: null as string | null },
   ]
 
@@ -53,9 +53,9 @@ export default async function DashboardPage() {
   ]
 
   const quickActions = [
-    { icon: Package,      title: "Novo Produto", desc: "Cadastre um produto digital para vender.", href: "/dashboard/products", cta: "Criar produto" },
-    { icon: Bot,          title: "Novo Bot",     desc: "Conecte um bot do Telegram à sua loja.",   href: "/dashboard/bots",     cta: "Criar bot" },
-    { icon: ShoppingCart, title: "Ver Vendas",   desc: "Acompanhe o histórico de transações.",     href: "/dashboard/sales",    cta: "Ver vendas" },
+    { icon: Package,      title: "Novo Produto", desc: "Cadastre um produto digital para vender.", href: "/products", cta: "Criar produto" },
+    { icon: Bot,          title: "Novo Bot",     desc: "Conecte um bot do Telegram à sua loja.",   href: "/bots",     cta: "Criar bot" },
+    { icon: ShoppingCart, title: "Ver Vendas",   desc: "Acompanhe o histórico de transações.",     href: "/sales",    cta: "Ver vendas" },
   ]
 
   return (

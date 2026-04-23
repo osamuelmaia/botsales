@@ -666,7 +666,7 @@ function FlowEditorInner({ botId, botName, channelPermissionError, products, mod
       {/* Top bar */}
       <div className="flex items-center gap-3 px-4 h-14 bg-white border-b border-gray-200 shrink-0">
         <button
-          onClick={() => isDirty ? setShowLeaveDialog(true) : router.push(`/dashboard/bots`)}
+          onClick={() => isDirty ? setShowLeaveDialog(true) : router.push(`/bots`)}
           className="h-8 w-8 flex items-center justify-center rounded-lg text-gray-500 hover:text-gray-900 hover:bg-gray-100 transition-colors"
           aria-label="Voltar"
         >
@@ -901,7 +901,7 @@ function FlowEditorInner({ botId, botName, channelPermissionError, products, mod
                 Continuar editando
               </AlertDialog.Cancel>
               <AlertDialog.Action
-                onClick={() => router.push(`/dashboard/bots`)}
+                onClick={() => router.push(`/bots`)}
                 className="px-4 py-2 text-sm font-medium text-white bg-red-500 rounded-lg hover:bg-red-600 transition-colors"
               >
                 Sair sem salvar
