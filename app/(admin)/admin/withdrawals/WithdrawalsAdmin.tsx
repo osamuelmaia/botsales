@@ -1,14 +1,17 @@
 "use client"
 
 import useSWR from "swr"
-import { useState } from "react"
+import { useState, useRef } from "react"
 import { toast } from "sonner"
 import {
   CheckCircle2, XCircle, Loader2, RefreshCw,
   Clock, AlertCircle, ChevronDown, ChevronLeft, ChevronRight,
+  ImageIcon, X, Upload,
 } from "lucide-react"
 import * as AlertDialog from "@radix-ui/react-alert-dialog"
+import * as Dialog from "@radix-ui/react-dialog"
 import { fetcher } from "@/lib/fetcher"
+import { UserDrawer } from "@/components/admin/UserDrawer"
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -23,6 +26,7 @@ interface WithdrawalItem {
   amountCents: number
   status: "REQUESTED" | "PROCESSING" | "COMPLETED" | "FAILED"
   adminNote: string | null
+  proofPath: string | null
   requestedAt: string
   reviewedAt: string | null
   processedAt: string | null
@@ -61,7 +65,7 @@ const STATUS_BADGE: Record<string, string> = {
   FAILED:     "bg-red-50    text-red-600    border-red-100",
 }
 
-// ─── Confirm dialog (approve / complete) ─────────────────────────────────────
+// ─── Confirm dialog (approve) ─────────────────────────────────────────────────
 
 function ConfirmDialog({
   title, description, confirmLabel, confirmClass, onConfirm, onCancel, loading,
@@ -128,13 +132,145 @@ function RejectDialog({ onConfirm, onCancel }: { onConfirm: (note: string) => vo
   )
 }
 
+// ─── Complete dialog (with optional proof upload) ────────────────────────────
+
+function CompleteDialog({
+  item, onConfirm, onCancel,
+}: {
+  item: WithdrawalItem
+  onConfirm: (file: File | null) => Promise<void>
+  onCancel: () => void
+}) {
+  const [file, setFile]       = useState<File | null>(null)
+  const [preview, setPreview] = useState<string | null>(null)
+  const [loading, setLoading] = useState(false)
+  const inputRef              = useRef<HTMLInputElement>(null)
+
+  function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const f = e.target.files?.[0] ?? null
+    if (!f) { setFile(null); setPreview(null); return }
+    if (f.size > 5 * 1024 * 1024) { toast.error("Imagem deve ter no máximo 5MB"); return }
+    setFile(f)
+    const reader = new FileReader()
+    reader.onload = () => setPreview(reader.result as string)
+    reader.readAsDataURL(f)
+  }
+
+  async function handleConfirm() {
+    setLoading(true)
+    try { await onConfirm(file) }
+    finally { setLoading(false) }
+  }
+
+  return (
+    <AlertDialog.Root open>
+      <AlertDialog.Portal>
+        <AlertDialog.Overlay className="fixed inset-0 bg-black/40 z-50" />
+        <AlertDialog.Content className="fixed z-50 left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-sm bg-white rounded-xl shadow-2xl p-6 focus:outline-none">
+          <AlertDialog.Title className="text-base font-semibold text-gray-900 mb-1">
+            Confirmar envio
+          </AlertDialog.Title>
+          <AlertDialog.Description className="text-sm text-gray-500 mb-4">
+            Confirma que a transferência de <strong>{formatBRL(item.amountCents)}</strong> para{" "}
+            <strong>{item.user.name}</strong> foi enviada?
+          </AlertDialog.Description>
+
+          {/* Optional proof upload */}
+          <div className="mb-5">
+            <p className="text-xs font-medium text-gray-600 mb-2">
+              Comprovante <span className="text-gray-400 font-normal">(opcional)</span>
+            </p>
+            {!preview ? (
+              <button
+                type="button"
+                onClick={() => inputRef.current?.click()}
+                className="w-full h-16 rounded-lg border-2 border-dashed border-gray-200 flex items-center justify-center gap-2 text-xs text-gray-400 hover:border-gray-300 hover:text-gray-500 transition-colors"
+              >
+                <Upload className="h-4 w-4" />
+                Clique para anexar imagem
+              </button>
+            ) : (
+              <div className="relative rounded-lg overflow-hidden border border-gray-200">
+                <img src={preview} alt="Comprovante" className="w-full max-h-36 object-contain bg-gray-50" />
+                <button
+                  type="button"
+                  onClick={() => { setFile(null); setPreview(null); if (inputRef.current) inputRef.current.value = "" }}
+                  className="absolute top-1.5 right-1.5 p-1 rounded-full bg-white/80 border border-gray-200 text-gray-500 hover:text-gray-700 hover:bg-white transition-colors"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            )}
+            <input
+              ref={inputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp,image/gif"
+              onChange={handleFile}
+              className="hidden"
+            />
+          </div>
+
+          <div className="flex gap-2">
+            <AlertDialog.Cancel onClick={onCancel}
+              className="flex-1 h-9 rounded-lg border border-gray-200 text-sm text-gray-600 hover:bg-gray-50 transition-colors">
+              Cancelar
+            </AlertDialog.Cancel>
+            <AlertDialog.Action
+              onClick={handleConfirm}
+              disabled={loading}
+              className="flex-1 h-9 rounded-lg bg-gray-900 text-sm text-white font-medium hover:bg-gray-800 disabled:opacity-50 transition-colors flex items-center justify-center gap-1.5"
+            >
+              {loading && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+              Confirmar envio
+            </AlertDialog.Action>
+          </div>
+        </AlertDialog.Content>
+      </AlertDialog.Portal>
+    </AlertDialog.Root>
+  )
+}
+
+// ─── Proof viewer dialog ──────────────────────────────────────────────────────
+
+function ProofDialog({ withdrawalId, onClose }: { withdrawalId: string; onClose: () => void }) {
+  return (
+    <Dialog.Root open onOpenChange={(open) => { if (!open) onClose() }}>
+      <Dialog.Portal>
+        <Dialog.Overlay className="fixed inset-0 bg-black/60 z-50" />
+        <Dialog.Content className="fixed z-50 left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-lg bg-white rounded-xl shadow-2xl p-4 focus:outline-none">
+          <div className="flex items-center justify-between mb-3">
+            <Dialog.Title className="text-sm font-semibold text-gray-900">
+              Comprovante de transferência
+            </Dialog.Title>
+            <Dialog.Close className="p-1.5 text-gray-400 hover:text-gray-600 rounded-md hover:bg-gray-100 transition-colors">
+              <X className="h-4 w-4" />
+            </Dialog.Close>
+          </div>
+          <img
+            src={`/api/admin/withdrawals/${withdrawalId}/proof`}
+            alt="Comprovante"
+            className="w-full rounded-lg border border-gray-100"
+          />
+        </Dialog.Content>
+      </Dialog.Portal>
+    </Dialog.Root>
+  )
+}
+
 // ─── Withdrawal row ───────────────────────────────────────────────────────────
 
-function WithdrawalRow({ item, onAction }: { item: WithdrawalItem; onAction: () => void }) {
+function WithdrawalRow({
+  item, onAction, onUserClick,
+}: {
+  item: WithdrawalItem
+  onAction: () => void
+  onUserClick: () => void
+}) {
   const [acting, setActing]           = useState(false)
   const [showReject, setShowReject]   = useState(false)
   const [showApprove, setShowApprove] = useState(false)
   const [showComplete, setShowComplete] = useState(false)
+  const [showProof, setShowProof]     = useState(false)
   const [expanded, setExpanded]       = useState(false)
   const a = item.bankAccount
 
@@ -168,20 +304,28 @@ function WithdrawalRow({ item, onAction }: { item: WithdrawalItem; onAction: () 
     } finally { setActing(false) }
   }
 
-  async function markComplete() {
+  async function markComplete(file: File | null) {
     setShowComplete(false)
     setActing(true)
     try {
-      const res  = await fetch(`/api/admin/withdrawals/${item.id}`, { method: "PUT" })
+      let res: Response
+      if (file) {
+        const fd = new FormData()
+        fd.append("proof", file)
+        res = await fetch(`/api/admin/withdrawals/${item.id}`, { method: "PUT", body: fd })
+      } else {
+        res = await fetch(`/api/admin/withdrawals/${item.id}`, { method: "PUT" })
+      }
       const json = await res.json()
       if (!res.ok) { toast.error(json.error ?? "Erro"); return }
-      toast.success("Saque marcado como concluído")
+      toast.success(file ? "Saque concluído — comprovante salvo" : "Saque marcado como concluído")
       onAction()
     } finally { setActing(false) }
   }
 
   return (
     <>
+      {showProof    && <ProofDialog withdrawalId={item.id} onClose={() => setShowProof(false)} />}
       {showReject   && <RejectDialog onConfirm={reject} onCancel={() => setShowReject(false)} />}
       {showApprove  && (
         <ConfirmDialog
@@ -192,12 +336,7 @@ function WithdrawalRow({ item, onAction }: { item: WithdrawalItem; onAction: () 
         />
       )}
       {showComplete && (
-        <ConfirmDialog
-          title="Confirmar envio"
-          description={`Confirma que a transferência de ${formatBRL(item.amountCents)} para ${item.user.name} foi enviada?`}
-          confirmLabel="Confirmar envio" confirmClass="bg-gray-900 hover:bg-gray-800"
-          onConfirm={markComplete} onCancel={() => setShowComplete(false)} loading={acting}
-        />
+        <CompleteDialog item={item} onConfirm={markComplete} onCancel={() => setShowComplete(false)} />
       )}
 
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
@@ -208,11 +347,17 @@ function WithdrawalRow({ item, onAction }: { item: WithdrawalItem; onAction: () 
             <p className="text-xs text-gray-400">{formatDate(item.requestedAt)}</p>
           </div>
 
-          {/* User */}
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold text-gray-900 truncate">{item.user.name}</p>
+          {/* User — clickable for security drawer */}
+          <button
+            type="button"
+            onClick={onUserClick}
+            className="flex-1 min-w-0 text-left group"
+          >
+            <p className="text-sm font-semibold text-gray-900 truncate group-hover:underline transition-colors">
+              {item.user.name}
+            </p>
             <p className="text-xs text-gray-400 truncate">{item.user.email}</p>
-          </div>
+          </button>
 
           {/* Bank summary */}
           <div className="hidden sm:block shrink-0 text-right">
@@ -248,9 +393,20 @@ function WithdrawalRow({ item, onAction }: { item: WithdrawalItem; onAction: () 
               </>
             )}
             {item.status === "COMPLETED" && (
-              <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium border ${STATUS_BADGE.COMPLETED}`}>
-                <CheckCircle2 className="h-3 w-3" /> Concluído
-              </span>
+              <div className="flex items-center gap-1.5">
+                <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium border ${STATUS_BADGE.COMPLETED}`}>
+                  <CheckCircle2 className="h-3 w-3" /> Concluído
+                </span>
+                {item.proofPath && (
+                  <button
+                    onClick={() => setShowProof(true)}
+                    className="p-1.5 text-gray-400 hover:text-gray-700 rounded-md hover:bg-gray-100 transition-colors"
+                    title="Ver comprovante"
+                  >
+                    <ImageIcon className="h-4 w-4" />
+                  </button>
+                )}
+              </div>
             )}
             {item.status === "FAILED" && (
               <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium border ${STATUS_BADGE.FAILED}`}>
@@ -304,7 +460,8 @@ export function WithdrawalsAdmin({
   initialTotal: number
 }) {
   const [statusFilter, setStatusFilter] = useState("REQUESTED")
-  const [page, setPage] = useState(1)
+  const [page, setPage]                 = useState(1)
+  const [selectedUserId, setSelectedUserId] = useState<string | null>(null)
 
   const { data, mutate, isValidating } = useSWR<PageData>(
     `/api/admin/withdrawals?status=${statusFilter}&page=${page}`,
@@ -324,91 +481,104 @@ export function WithdrawalsAdmin({
   function changeFilter(f: string) { setStatusFilter(f); setPage(1) }
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Saques</h1>
-          <p className="text-sm text-gray-500 mt-0.5">Gerencie as solicitações de saque dos usuários</p>
-        </div>
-        <div className="flex items-center gap-3">
-          {statusFilter === "REQUESTED" && total > 0 && (
-            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-amber-50 border border-amber-200 text-amber-700 text-xs font-semibold">
-              <Clock className="h-3.5 w-3.5" />
-              {total} aguardando aprovação
-            </span>
-          )}
-          <button onClick={() => mutate()} disabled={isValidating}
-            className="flex items-center gap-1.5 h-9 px-3 rounded-lg border border-gray-200 text-sm text-gray-600 hover:bg-gray-50 disabled:opacity-40 transition-colors">
-            <RefreshCw className={`h-3.5 w-3.5 ${isValidating ? "animate-spin" : ""}`} />
-            Atualizar
-          </button>
-        </div>
-      </div>
+    <>
+      <UserDrawer
+        userId={selectedUserId}
+        onClose={() => setSelectedUserId(null)}
+        onSaved={() => mutate()}
+      />
 
-      {/* Filter tabs */}
-      <div className="flex gap-1 bg-white border border-gray-200 rounded-xl p-1 w-fit shadow-sm flex-wrap">
-        {STATUS_OPTS.map((opt) => (
-          <button key={opt.value} onClick={() => changeFilter(opt.value)}
-            className={`h-8 px-4 rounded-lg text-sm font-medium transition-colors ${
-              statusFilter === opt.value
-                ? "bg-gray-900 text-white"
-                : "text-gray-500 hover:text-gray-900 hover:bg-gray-50"
-            }`}>
-            {opt.label}
-          </button>
-        ))}
-      </div>
-
-      {/* List */}
-      {isValidating && withdrawals.length === 0 ? (
-        <div className="space-y-3">
-          {Array.from({ length: 3 }).map((_, i) => (
-            <div key={i} className="bg-white rounded-xl border border-gray-200 h-20 animate-pulse" />
-          ))}
-        </div>
-      ) : withdrawals.length === 0 ? (
-        <div className="bg-white rounded-xl border border-gray-200 flex flex-col items-center gap-2 py-16">
-          <CheckCircle2 className="h-10 w-10 text-gray-200" />
-          <p className="text-gray-500 font-medium">Nenhum saque aqui</p>
-          <p className="text-gray-400 text-sm">
-            {statusFilter === "REQUESTED" ? "Nenhuma solicitação aguardando aprovação" : "Sem registros para este filtro"}
-          </p>
-        </div>
-      ) : (
-        <div className="space-y-3">
-          {withdrawals.map((w) => (
-            <WithdrawalRow key={w.id} item={w} onAction={() => mutate()} />
-          ))}
-        </div>
-      )}
-
-      {/* Pagination */}
-      {pages > 1 && (
-        <div className="flex items-center justify-between pt-2">
-          <p className="text-xs text-gray-400">{total} registros · página {page} de {pages}</p>
-          <div className="flex items-center gap-1">
-            <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1}
-              className="h-8 w-8 flex items-center justify-center rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 disabled:opacity-30 transition-colors">
-              <ChevronLeft className="h-4 w-4" />
-            </button>
-            <button onClick={() => setPage((p) => Math.min(pages, p + 1))} disabled={page === pages}
-              className="h-8 w-8 flex items-center justify-center rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 disabled:opacity-30 transition-colors">
-              <ChevronRight className="h-4 w-4" />
+      <div className="max-w-4xl mx-auto space-y-6">
+        {/* Header */}
+        <div className="flex items-center justify-between flex-wrap gap-3">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">Saques</h1>
+            <p className="text-sm text-gray-500 mt-0.5">Gerencie as solicitações de saque dos usuários</p>
+          </div>
+          <div className="flex items-center gap-3">
+            {statusFilter === "REQUESTED" && total > 0 && (
+              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-amber-50 border border-amber-200 text-amber-700 text-xs font-semibold">
+                <Clock className="h-3.5 w-3.5" />
+                {total} aguardando aprovação
+              </span>
+            )}
+            <button onClick={() => mutate()} disabled={isValidating}
+              className="flex items-center gap-1.5 h-9 px-3 rounded-lg border border-gray-200 text-sm text-gray-600 hover:bg-gray-50 disabled:opacity-40 transition-colors">
+              <RefreshCw className={`h-3.5 w-3.5 ${isValidating ? "animate-spin" : ""}`} />
+              Atualizar
             </button>
           </div>
         </div>
-      )}
 
-      {/* Security notice */}
-      <div className="flex items-start gap-3 bg-amber-50 border border-amber-100 rounded-xl px-4 py-3">
-        <AlertCircle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
-        <p className="text-xs text-amber-700 leading-relaxed">
-          <strong>Atenção:</strong> Verifique os dados bancários antes de aprovar. Após aprovar,
-          execute a transferência manualmente e clique em <strong>Concluir</strong> quando o pagamento for enviado.
-          Ao recusar, o saldo é devolvido automaticamente.
-        </p>
+        {/* Filter tabs */}
+        <div className="flex gap-1 bg-white border border-gray-200 rounded-xl p-1 w-fit shadow-sm flex-wrap">
+          {STATUS_OPTS.map((opt) => (
+            <button key={opt.value} onClick={() => changeFilter(opt.value)}
+              className={`h-8 px-4 rounded-lg text-sm font-medium transition-colors ${
+                statusFilter === opt.value
+                  ? "bg-gray-900 text-white"
+                  : "text-gray-500 hover:text-gray-900 hover:bg-gray-50"
+              }`}>
+              {opt.label}
+            </button>
+          ))}
+        </div>
+
+        {/* List */}
+        {isValidating && withdrawals.length === 0 ? (
+          <div className="space-y-3">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <div key={i} className="bg-white rounded-xl border border-gray-200 h-20 animate-pulse" />
+            ))}
+          </div>
+        ) : withdrawals.length === 0 ? (
+          <div className="bg-white rounded-xl border border-gray-200 flex flex-col items-center gap-2 py-16">
+            <CheckCircle2 className="h-10 w-10 text-gray-200" />
+            <p className="text-gray-500 font-medium">Nenhum saque aqui</p>
+            <p className="text-gray-400 text-sm">
+              {statusFilter === "REQUESTED" ? "Nenhuma solicitação aguardando aprovação" : "Sem registros para este filtro"}
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {withdrawals.map((w) => (
+              <WithdrawalRow
+                key={w.id}
+                item={w}
+                onAction={() => mutate()}
+                onUserClick={() => setSelectedUserId(w.user.id)}
+              />
+            ))}
+          </div>
+        )}
+
+        {/* Pagination */}
+        {pages > 1 && (
+          <div className="flex items-center justify-between pt-2">
+            <p className="text-xs text-gray-400">{total} registros · página {page} de {pages}</p>
+            <div className="flex items-center gap-1">
+              <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1}
+                className="h-8 w-8 flex items-center justify-center rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 disabled:opacity-30 transition-colors">
+                <ChevronLeft className="h-4 w-4" />
+              </button>
+              <button onClick={() => setPage((p) => Math.min(pages, p + 1))} disabled={page === pages}
+                className="h-8 w-8 flex items-center justify-center rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 disabled:opacity-30 transition-colors">
+                <ChevronRight className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Security notice */}
+        <div className="flex items-start gap-3 bg-amber-50 border border-amber-100 rounded-xl px-4 py-3">
+          <AlertCircle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
+          <p className="text-xs text-amber-700 leading-relaxed">
+            <strong>Atenção:</strong> Clique no nome do usuário para ver informações de segurança antes de aprovar.
+            Após aprovar, execute a transferência manualmente e clique em <strong>Concluir</strong> — você poderá
+            anexar o comprovante. Ao recusar, o saldo é devolvido automaticamente.
+          </p>
+        </div>
       </div>
-    </div>
+    </>
   )
 }

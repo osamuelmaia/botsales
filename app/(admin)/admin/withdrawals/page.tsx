@@ -26,6 +26,7 @@ export default async function AdminWithdrawalsPage() {
     amountCents: w.amountCents,
     status:      w.status as "REQUESTED" | "PROCESSING" | "COMPLETED" | "FAILED",
     adminNote:   (w as Record<string, unknown>).adminNote as string | null ?? null,
+    proofPath:   (w as Record<string, unknown>).proofPath as string | null ?? null,
     reviewedAt:  ((w as Record<string, unknown>).reviewedAt as Date | null)?.toISOString() ?? null,
     requestedAt: w.requestedAt.toISOString(),
     processedAt: w.processedAt?.toISOString() ?? null,

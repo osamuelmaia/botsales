@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { z } from "zod"
+import { writeFile, mkdir } from "fs/promises"
+import path from "path"
 
 const actionSchema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("approve") }),
@@ -46,7 +48,6 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     return NextResponse.json({ withdrawal: updated })
   }
 
-  // Reject — balance is automatically restored since we exclude FAILED from reserved
   const updated = await prisma.withdrawal.update({
     where: { id: params.id },
     data: { status: "FAILED", adminNote: parsed.data.adminNote, reviewedBy: adminId, reviewedAt: now } as WithdrawalUpdateData,
@@ -54,7 +55,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   return NextResponse.json({ withdrawal: updated })
 }
 
-// Mark a PROCESSING withdrawal as COMPLETED (payment sent)
+// Mark a PROCESSING withdrawal as COMPLETED — optionally accepts multipart with proof image
 export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
   const session = await auth()
   const role = (session?.user as { role?: string } | undefined)?.role
@@ -70,9 +71,43 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
     return NextResponse.json({ error: "Apenas saques em processamento podem ser marcados como concluídos" }, { status: 422 })
   }
 
+  // Try to save proof image if provided
+  let proofPath: string | null = null
+  const contentType = req.headers.get("content-type") ?? ""
+  if (contentType.includes("multipart/form-data")) {
+    try {
+      const formData = await req.formData()
+      const file = formData.get("proof") as File | null
+      if (file && file.size > 0) {
+        const ALLOWED = ["image/jpeg", "image/png", "image/webp", "image/gif"]
+        if (!ALLOWED.includes(file.type)) {
+          return NextResponse.json({ error: "Apenas imagens JPEG, PNG, WebP ou GIF são aceitas" }, { status: 400 })
+        }
+        if (file.size > 5 * 1024 * 1024) {
+          return NextResponse.json({ error: "Comprovante deve ter no máximo 5MB" }, { status: 400 })
+        }
+        const rawExt = file.name.split(".").pop()?.toLowerCase() ?? "jpg"
+        const safeExt = ["jpg", "jpeg", "png", "webp", "gif"].includes(rawExt) ? rawExt : "jpg"
+        const dir = path.join(process.cwd(), "data", "proofs")
+        await mkdir(dir, { recursive: true })
+        const filename = `${params.id}.${safeExt}`
+        await writeFile(path.join(dir, filename), Buffer.from(await file.arrayBuffer()))
+        proofPath = filename
+      }
+    } catch (err) {
+      console.error("[proof-upload]", err)
+      // Don't block completion if upload fails — log and continue
+    }
+  }
+
   const updated = await prisma.withdrawal.update({
     where: { id: params.id },
-    data: { status: "COMPLETED", processedAt: new Date() },
+    data: {
+      status: "COMPLETED",
+      processedAt: new Date(),
+      ...(proofPath ? { proofPath } : {}),
+    },
   })
   return NextResponse.json({ withdrawal: updated })
 }
+

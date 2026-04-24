@@ -39,6 +39,7 @@ export async function GET(req: NextRequest) {
       id: w.id, amountCents: w.amountCents, status: w.status,
       adminNote:  (w as Record<string, unknown>).adminNote ?? null,
       reviewedBy: (w as Record<string, unknown>).reviewedBy ?? null,
+      proofPath:  (w as Record<string, unknown>).proofPath ?? null,
       user: w.user,
       requestedAt: w.requestedAt.toISOString(),
       reviewedAt:  ((w as Record<string, unknown>).reviewedAt as Date | null)?.toISOString() ?? null,

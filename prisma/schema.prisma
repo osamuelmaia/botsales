@@ -260,6 +260,7 @@ model Withdrawal {
   status        WithdrawalStatus @default(REQUESTED)
   adminNote     String?          // rejection reason or admin notes
   reviewedBy    String?          // admin userId who approved/rejected
+  proofPath     String?          // filename of transfer proof image (stored outside public/)
   requestedAt   DateTime         @default(now())
   reviewedAt    DateTime?        // when admin acted on this
   processedAt   DateTime?        // when payment was actually sent
