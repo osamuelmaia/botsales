@@ -1,7 +1,8 @@
 "use client"
 
 import useSWR from "swr"
-import { useState } from "react"
+import { useState, useEffect } from "react"
+import { useSearchParams } from "next/navigation"
 import { toast } from "sonner"
 import { Plus, Settings, Trash2, Bot, GitBranch, AlertTriangle, X } from "lucide-react"
 import * as Dialog from "@radix-ui/react-dialog"
@@ -17,6 +18,7 @@ import { Input } from "@/components/ui/Input"
 
 interface BotListItem {
   id: string
+  shortId: string | null
   name: string
   isActive: boolean
   createdAt: string
@@ -145,7 +147,7 @@ function BotCard({ bot, onDelete, onUpdated }: { bot: BotListItem; onDelete: (id
           <Button variant="secondary" size="sm" onClick={() => setConfigOpen(true)} leftIcon={<Settings />}>
             Configurar
           </Button>
-          <Button variant="secondary" size="sm" onClick={() => router.push(`/bots/${bot.id}/flow`)} leftIcon={<GitBranch />}>
+          <Button variant="secondary" size="sm" onClick={() => router.push(`/bots/${bot.shortId ?? bot.id}/flow`)} leftIcon={<GitBranch />}>
             Fluxo
           </Button>
           <AlertDialog.Root open={deleteOpen} onOpenChange={setDeleteOpen}>
@@ -198,7 +200,13 @@ function BotCard({ bot, onDelete, onUpdated }: { bot: BotListItem; onDelete: (id
 
 export function BotsClient() {
   const { data: bots = [], mutate } = useSWR<BotListItem[]>("/api/bots", fetcher)
+  const searchParams = useSearchParams()
   const [open, setOpen] = useState(false)
+
+  useEffect(() => {
+    if (searchParams.get("create") === "true") setOpen(true)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   return (
     <div className="space-y-6">

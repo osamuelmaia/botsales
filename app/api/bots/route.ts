@@ -1,8 +1,20 @@
 import { NextResponse } from "next/server"
+import { randomBytes } from "crypto"
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { botCreateSchema } from "@/lib/validations/bot"
 import { encryptToken } from "@/lib/utils"
+
+function generateShortId(): string {
+  const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
+  const bytes = randomBytes(16)
+  let id = ""
+  for (let i = 0; i < bytes.length && id.length < 8; i++) {
+    const b = bytes[i]
+    if (b < 186) id += chars[b % 62]
+  }
+  return id.padEnd(8, "A")
+}
 
 export async function GET() {
   const session = await auth()
@@ -15,6 +27,7 @@ export async function GET() {
     orderBy: { createdAt: "desc" },
     select: {
       id: true,
+      shortId: true,
       name: true,
       isActive: true,
       createdAt: true,
@@ -43,6 +56,7 @@ export async function POST(request: Request) {
   const bot = await prisma.bot.create({
     data: {
       userId: session.user.id,
+      shortId: generateShortId(),
       name,
       tokenEncrypted: encryptToken(token),
     },

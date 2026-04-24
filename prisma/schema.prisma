@@ -110,6 +110,7 @@ model User {
 model Bot {
   id                       String    @id @default(cuid())
   userId                   String
+  shortId                  String?   @unique
   name                     String
   tokenEncrypted           String
   channelId                String?

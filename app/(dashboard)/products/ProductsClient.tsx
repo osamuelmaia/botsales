@@ -1,7 +1,8 @@
 "use client"
 
 import useSWR from "swr"
-import { useState } from "react"
+import { useState, useEffect } from "react"
+import { useSearchParams } from "next/navigation"
 import { Plus, Pencil, Trash2, X, Link2, Check, Package } from "lucide-react"
 import * as Dialog from "@radix-ui/react-dialog"
 import * as AlertDialog from "@radix-ui/react-alert-dialog"
@@ -53,6 +54,7 @@ function CopyCheckoutLink({ productId, shortId }: { productId: string; shortId?:
 
 export function ProductsClient() {
   const { data: products = [], mutate } = useSWR<ProductData[]>("/api/products", fetcher)
+  const searchParams = useSearchParams()
 
   const [sheetOpen, setSheetOpen] = useState(false)
   const [editingProduct, setEditingProduct] = useState<ProductData | null>(null)
@@ -61,6 +63,11 @@ export function ProductsClient() {
 
   function openCreate() { setEditingProduct(null); setSheetOpen(true) }
   function openEdit(product: ProductData) { setEditingProduct(product); setSheetOpen(true) }
+
+  useEffect(() => {
+    if (searchParams.get("create") === "true") openCreate()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   async function confirmDelete() {
     if (!deletingProduct) return

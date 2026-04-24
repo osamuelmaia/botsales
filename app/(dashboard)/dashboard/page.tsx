@@ -38,9 +38,9 @@ export default async function DashboardPage() {
   const progressPct = (doneCount / totalSteps) * 100
 
   const quickActions = [
-    { icon: Package,      title: "Novo Produto", desc: "Cadastre um produto digital para vender.", href: "/products", cta: "Criar produto" },
-    { icon: Bot,          title: "Novo Bot",     desc: "Conecte um bot do Telegram à sua loja.",   href: "/bots",     cta: "Criar bot" },
-    { icon: ShoppingCart, title: "Ver Vendas",   desc: "Acompanhe o histórico de transações.",     href: "/sales",    cta: "Ver vendas" },
+    { icon: Package,      title: "Novo Produto", desc: "Cadastre um produto digital para vender.", href: "/products?create=true", cta: "Criar produto" },
+    { icon: Bot,          title: "Novo Bot",     desc: "Conecte um bot do Telegram à sua loja.",   href: "/bots?create=true",     cta: "Criar bot" },
+    { icon: ShoppingCart, title: "Ver Vendas",   desc: "Acompanhe o histórico de transações.",     href: "/sales",                cta: "Ver vendas" },
   ]
 
   return (

@@ -739,6 +739,22 @@ function FlowEditorInner({ botId, botName, channelPermissionError, products, mod
       <div className="flex flex-1 min-h-0">
         {/* Palette */}
         <div className="w-64 bg-white border-r border-gray-200 p-3 space-y-4 shrink-0 overflow-y-auto">
+
+          {/* Context banner */}
+          <div className={`rounded-lg border px-3 py-2.5 ${isRemarketing ? "bg-orange-50 border-orange-200" : "bg-blue-50 border-blue-200"}`}>
+            {isRemarketing ? (
+              <>
+                <p className="text-xs font-semibold text-orange-800">Fluxo de Remarketing</p>
+                <p className="text-[11px] text-orange-600 mt-0.5 leading-relaxed">Enviado automaticamente quando uma renovação falha. Tente recuperar o cliente antes de removê-lo do grupo.</p>
+              </>
+            ) : (
+              <>
+                <p className="text-xs font-semibold text-blue-800">Fluxo Principal</p>
+                <p className="text-[11px] text-blue-600 mt-0.5 leading-relaxed">Sequência de mensagens que o bot envia quando um novo contato começa a conversa. Termine com Pagamento + Liberar acesso.</p>
+              </>
+            )}
+          </div>
+
           <PaletteGroup title="Comunicação">
             <PaletteItem icon={<Type className="h-4 w-4" />} label="Texto" nodeType="text" color="border-blue-200 bg-blue-50 text-blue-800 hover:bg-blue-100" onAdd={() => addNode("text")} />
             <PaletteItem icon={<ImageIcon className="h-4 w-4" />} label="Imagem" nodeType="image" color="border-sky-200 bg-sky-50 text-sky-800 hover:bg-sky-100" onAdd={() => addNode("image")} />
@@ -763,13 +779,14 @@ function FlowEditorInner({ botId, botName, channelPermissionError, products, mod
               <PaletteItem icon={<CreditCard className="h-4 w-4" />} label="Pagamento" nodeType="payment" color="border-violet-200 bg-violet-50 text-violet-800 hover:bg-violet-100" onAdd={() => addNode("payment")} />
             </PaletteGroup>
           )}
-          <div className="pt-2 border-t border-gray-100">
-            <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1.5">Dicas</p>
-            <ul className="text-xs text-gray-500 space-y-1">
-              <li>• Clique num nó para editar</li>
-              <li>• Arraste as bolinhas para conectar</li>
-              <li>• Delete/Backspace remove nó</li>
-              <li>• Ctrl+Z desfaz, Ctrl+Shift+Z refaz</li>
+          <div className="pt-2 border-t border-gray-100 space-y-1.5">
+            <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Como usar</p>
+            <ul className="text-xs text-gray-500 space-y-1.5">
+              <li className="flex items-start gap-1.5"><span className="shrink-0 mt-0.5">🖱️</span> Clique num bloco para editar seu conteúdo</li>
+              <li className="flex items-start gap-1.5"><span className="shrink-0 mt-0.5">🔗</span> Arraste a bolinha de saída para criar uma conexão — ou solte no vazio para escolher o próximo nó</li>
+              <li className="flex items-start gap-1.5"><span className="shrink-0 mt-0.5">🗑️</span> Selecione e pressione Delete para remover um nó</li>
+              <li className="flex items-start gap-1.5"><span className="shrink-0 mt-0.5">↩️</span> Ctrl+Z desfaz · Ctrl+Shift+Z refaz</li>
+              <li className="flex items-start gap-1.5"><span className="shrink-0 mt-0.5">💡</span> Arraste itens da paleta diretamente no canvas para posicioná-los</li>
             </ul>
           </div>
         </div>
@@ -812,6 +829,22 @@ function FlowEditorInner({ botId, botName, channelPermissionError, products, mod
                 zIndex: 1000,
               }} />
             )
+          )}
+
+          {/* Empty canvas hint */}
+          {!loading && nodes.length <= 1 && !nodePicker && (
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+              <div className="bg-white/90 border border-gray-200 rounded-xl px-5 py-4 shadow-sm text-center max-w-xs">
+                <p className="text-sm font-semibold text-gray-700">
+                  {isRemarketing ? "Monte o fluxo de recuperação" : "Monte seu fluxo de vendas"}
+                </p>
+                <p className="text-xs text-gray-400 mt-1 leading-relaxed">
+                  {isRemarketing
+                    ? "Adicione mensagens e um nó de Pagamento para tentar recuperar assinantes inadimplentes."
+                    : "Arraste blocos da paleta ou clique neles para adicionar. Conecte o /start ao primeiro nó e termine com Pagamento → Liberar acesso."}
+                </p>
+              </div>
+            </div>
           )}
 
           {/* Node picker popup (ManyChat style) */}

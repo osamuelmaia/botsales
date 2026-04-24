@@ -12,7 +12,10 @@ export default async function BotFlowPage({ params }: Props) {
   if (!session?.user?.id) redirect("/login")
 
   const bot = await prisma.bot.findFirst({
-    where: { id: params.id, userId: session.user.id },
+    where: {
+      OR: [{ id: params.id }, { shortId: params.id }],
+      userId: session.user.id,
+    },
     include: {
       botProducts: {
         include: { product: true },
