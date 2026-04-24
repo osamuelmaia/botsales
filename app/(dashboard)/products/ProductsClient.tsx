@@ -3,7 +3,7 @@
 import useSWR from "swr"
 import { useState, useEffect } from "react"
 import { useSearchParams } from "next/navigation"
-import { Plus, Trash2, X, Link2, Check, Package, Info } from "lucide-react"
+import { Plus, Trash2, X, Link2, Check, Package } from "lucide-react"
 import * as Dialog from "@radix-ui/react-dialog"
 import * as AlertDialog from "@radix-ui/react-alert-dialog"
 import { toast } from "sonner"
@@ -75,7 +75,14 @@ export function ProductsClient() {
     try {
       const res = await fetch(`/api/products/${deletingProduct.id}`, { method: "DELETE" })
       const json = await res.json()
-      if (!res.ok) { toast.error(json.error ?? "Erro ao deletar produto"); return }
+      if (!res.ok) {
+        setDeletingProduct(null)
+        const msg = res.status === 409
+          ? "Esse produto está vinculado a um bot ativo. Desative o bot primeiro e tente de novo."
+          : (json.error ?? "Erro ao deletar produto")
+        toast.error(msg)
+        return
+      }
       toast.success("Produto deletado")
       setDeletingProduct(null)
       mutate()
@@ -98,16 +105,11 @@ export function ProductsClient() {
         }
       />
 
-      {/* Tips */}
+      {/* Tip — single line, casual */}
       {products.length > 0 && (
-        <div className="bg-blue-50 border border-blue-100 rounded-xl px-4 py-3 flex items-start gap-3">
-          <Info className="h-4 w-4 text-blue-500 shrink-0 mt-0.5" />
-          <div className="text-xs text-blue-700 space-y-0.5">
-            <p><strong>Clique num produto</strong> para editar nome, preço ou configurações de cobrança.</p>
-            <p>O <strong>link de checkout</strong> é gerado automaticamente — compartilhe diretamente ou deixe seu bot enviar após o /start.</p>
-            <p>Cada bot suporta no máximo <strong>3 produtos</strong>. Você pode ter quantos produtos quiser na conta.</p>
-          </div>
-        </div>
+        <p className="text-xs text-gray-400">
+          Clique num produto para editar · cada bot aceita até 3 produtos · link de checkout gerado automaticamente
+        </p>
       )}
 
       {/* Grid */}
@@ -129,14 +131,10 @@ export function ProductsClient() {
           {products.map((product) => (
             <div
               key={product.id}
-              className="group bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md hover:border-blue-300 transition-all flex flex-col overflow-hidden cursor-pointer"
+              className="group bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md hover:border-gray-300 transition-all flex flex-col overflow-hidden cursor-pointer"
             >
               {/* Card body — clicável para editar */}
               <div className="flex-1 p-5 relative" onClick={() => openEdit(product)}>
-                {/* Hover hint */}
-                <span className="absolute top-3 right-10 text-[10px] font-medium text-blue-500 opacity-0 group-hover:opacity-100 transition-opacity">
-                  clique para editar
-                </span>
 
                 {/* Header */}
                 <div className="flex items-start gap-3 mb-4">

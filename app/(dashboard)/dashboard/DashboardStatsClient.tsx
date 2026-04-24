@@ -116,7 +116,7 @@ function SplitCard({
   )
 }
 
-export function DashboardStatsClient() {
+export function DashboardStatsClient({ firstName }: { firstName?: string }) {
   const [range, setRange] = useState(defaultRange)
 
   const key = `/api/dashboard/stats?from=${range.from}&to=${range.to}`
@@ -126,8 +126,16 @@ export function DashboardStatsClient() {
 
   return (
     <div className="space-y-4">
-      {/* Period selector */}
-      <div className="flex justify-end">
+      {/* Header — title left, calendar right, same row */}
+      <div className="flex items-center justify-between gap-4">
+        <div>
+          {firstName && (
+            <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Olá, {firstName}!</h1>
+          )}
+          <p className="text-sm text-gray-500 mt-0.5">
+            Acompanhe seu faturamento e veja o desempenho do seu bot de vendas.
+          </p>
+        </div>
         <DateRangePicker value={range} onChange={setRange} />
       </div>
 

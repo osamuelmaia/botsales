@@ -2,7 +2,6 @@ import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import Link from "next/link"
 import { Check, Package, Bot, ShoppingCart, ArrowRight, Sparkles } from "lucide-react"
-import { PageHeader } from "@/components/ui/PageHeader"
 import { DashboardStatsClient } from "./DashboardStatsClient"
 
 export default async function DashboardPage() {
@@ -45,13 +44,8 @@ export default async function DashboardPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        title={`Olá, ${firstName}!`}
-        description="Acompanhe seu faturamento e veja o desempenho do seu bot de vendas."
-      />
-
-      {/* Stats with date filter */}
-      <DashboardStatsClient />
+      {/* Stats with date filter — header inline with calendar */}
+      <DashboardStatsClient firstName={firstName} />
 
       {/* Getting started */}
       {!hasSales && (
