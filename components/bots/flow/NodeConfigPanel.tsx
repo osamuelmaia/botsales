@@ -334,8 +334,9 @@ export function NodeConfigPanel({ node, botId, botName, products, onUpdate, onCl
         {/* ── Text ──────────────────────────────────────────────────────── */}
         {node.type === "text" && (
           <div className="space-y-3">
+            <p className="text-xs text-gray-400 leading-relaxed">Mensagem simples de texto. Use para saudação, apresentação ou qualquer instrução ao usuário.</p>
             <div>
-              <label className={labelCls}>Mensagem de texto</label>
+              <label className={labelCls}>Mensagem</label>
               <textarea value={textContent} onChange={(e) => { setTextContent(e.target.value); emit({ content: e.target.value }) }}
                 rows={5} className={textareaCls} placeholder="Digite a mensagem... (suporta Markdown do Telegram)" />
             </div>
@@ -346,6 +347,7 @@ export function NodeConfigPanel({ node, botId, botName, products, onUpdate, onCl
         {/* ── Image ─────────────────────────────────────────────────────── */}
         {node.type === "image" && (
           <div className="space-y-3">
+            <p className="text-xs text-gray-400 leading-relaxed">Envie uma imagem para chamar atenção. Ótimo para banners de produto ou capas de material.</p>
             <div>
               <label className={labelCls}>Imagem</label>
               <MediaUpload url={imageUrl} accept={ALLOWED_IMAGE_TYPES.join(",")}
@@ -368,6 +370,7 @@ export function NodeConfigPanel({ node, botId, botName, products, onUpdate, onCl
         {/* ── Video ─────────────────────────────────────────────────────── */}
         {node.type === "video" && (
           <div className="space-y-3">
+            <p className="text-xs text-gray-400 leading-relaxed">Vídeos de vendas convertem bem. Use para apresentar o produto, depoimentos ou demonstrações.</p>
             <div>
               <label className={labelCls}>Vídeo</label>
               <MediaUpload url={videoUrl} accept={ALLOWED_VIDEO_TYPES.join(",")}
@@ -390,6 +393,7 @@ export function NodeConfigPanel({ node, botId, botName, products, onUpdate, onCl
         {/* ── Audio ─────────────────────────────────────────────────────── */}
         {node.type === "audio" && (
           <div className="space-y-3">
+            <p className="text-xs text-gray-400 leading-relaxed">Mensagens de voz geram mais engajamento e proximidade. Use para criar uma conexão mais pessoal com o cliente.</p>
             <label className={labelCls}>Arquivo de áudio</label>
             <MediaUpload url={audioUrl} accept={ALLOWED_AUDIO_TYPES.join(",")}
               allowedTypes={ALLOWED_AUDIO_TYPES} maxSize={AUDIO_MAX_SIZE}
@@ -405,6 +409,7 @@ export function NodeConfigPanel({ node, botId, botName, products, onUpdate, onCl
         {/* ── File ──────────────────────────────────────────────────────── */}
         {node.type === "file" && (
           <div className="space-y-3">
+            <p className="text-xs text-gray-400 leading-relaxed">Envie PDFs, eBooks, planilhas ou qualquer arquivo como bônus ou material de apoio.</p>
             <div>
               <label className={labelCls}>Arquivo</label>
               <MediaUpload url={fileUrl} accept="*/*"
@@ -430,6 +435,7 @@ export function NodeConfigPanel({ node, botId, botName, products, onUpdate, onCl
         {/* ── Typing ────────────────────────────────────────────────────── */}
         {node.type === "typing" && (
           <div className="space-y-3">
+            <p className="text-xs text-gray-400 leading-relaxed">Simula que o bot está digitando antes de enviar a próxima mensagem — deixa o fluxo mais humano e natural.</p>
             <div>
               <label className={labelCls}>Duração do efeito</label>
               <div className="flex gap-2">
@@ -450,6 +456,7 @@ export function NodeConfigPanel({ node, botId, botName, products, onUpdate, onCl
         {/* ── Button ────────────────────────────────────────────────────── */}
         {node.type === "button" && (
           <div className="space-y-3">
+            <p className="text-xs text-gray-400 leading-relaxed">Mensagem com botões clicáveis. Cada botão pode seguir um caminho diferente no fluxo ou abrir um link externo.</p>
             {/* Image */}
             <div>
               <label className={labelCls}>Imagem (recomendado)</label>
@@ -541,6 +548,7 @@ export function NodeConfigPanel({ node, botId, botName, products, onUpdate, onCl
         {/* ── Delay ─────────────────────────────────────────────────────── */}
         {node.type === "delay" && (
           <div className="space-y-3">
+            <p className="text-xs text-gray-400 leading-relaxed">Pausa fixa antes de continuar. Dá tempo ao usuário para ler e cria um ritmo mais natural na conversa.</p>
             <div>
               <label className={labelCls}>Tempo de espera</label>
               <div className="flex gap-2">
@@ -563,6 +571,7 @@ export function NodeConfigPanel({ node, botId, botName, products, onUpdate, onCl
         {/* ── Smart Delay ───────────────────────────────────────────────── */}
         {node.type === "smart_delay" && (
           <div className="space-y-3">
+            <p className="text-xs text-gray-400 leading-relaxed">Pausa aleatória entre dois valores — mais humano que o atraso fixo. Ideal para evitar que o bot pareça robótico demais.</p>
             <div>
               <label className={labelCls}>Intervalo aleatório</label>
               <div className="flex items-center gap-2">
@@ -593,6 +602,7 @@ export function NodeConfigPanel({ node, botId, botName, products, onUpdate, onCl
         {/* ── Payment ───────────────────────────────────────────────────── */}
         {node.type === "payment" && (
           <div className="space-y-4">
+            <p className="text-xs text-gray-400 leading-relaxed">Envia a cobrança ao usuário com um botão de pagamento. Tem duas saídas: <strong className="text-gray-500">aprovado</strong> e <strong className="text-gray-500">recusado</strong> — conecte cada uma ao próximo nó.</p>
             <div>
               <label className={labelCls}>Produto <span className="text-red-500">*</span></label>
               <select value={productId} onChange={(e) => {

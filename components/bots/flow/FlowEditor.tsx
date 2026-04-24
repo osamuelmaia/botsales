@@ -201,6 +201,7 @@ function FlowEditorInner({ botId, botName, channelPermissionError, products, mod
   const [activeMode, setActiveMode] = useState<"main" | "remarketing">(mode)
   const [pendingMode, setPendingMode] = useState<"main" | "remarketing" | null>(null)
   const [showSwitchTabDialog, setShowSwitchTabDialog] = useState(false)
+  const [showWelcome, setShowWelcome] = useState(true)
   const isRemarketing = activeMode === "remarketing"
   // Ref so callbacks always see the current mode without stale closure
   const activeModeRef = useRef(activeMode)
@@ -780,14 +781,18 @@ function FlowEditorInner({ botId, botName, channelPermissionError, products, mod
             </PaletteGroup>
           )}
           <div className="pt-2 border-t border-gray-100 space-y-1.5">
-            <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Como usar</p>
-            <ul className="text-xs text-gray-500 space-y-1.5">
-              <li className="flex items-start gap-1.5"><span className="shrink-0 mt-0.5">🖱️</span> Clique num bloco para editar seu conteúdo</li>
-              <li className="flex items-start gap-1.5"><span className="shrink-0 mt-0.5">🔗</span> Arraste a bolinha de saída para criar uma conexão — ou solte no vazio para escolher o próximo nó</li>
-              <li className="flex items-start gap-1.5"><span className="shrink-0 mt-0.5">🗑️</span> Selecione e pressione Delete para remover um nó</li>
-              <li className="flex items-start gap-1.5"><span className="shrink-0 mt-0.5">↩️</span> Ctrl+Z desfaz · Ctrl+Shift+Z refaz</li>
-              <li className="flex items-start gap-1.5"><span className="shrink-0 mt-0.5">💡</span> Arraste itens da paleta diretamente no canvas para posicioná-los</li>
-            </ul>
+            <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Atalhos</p>
+            <div className="space-y-1">
+              {[
+                ["Ctrl+Z / Ctrl+Y", "Desfazer / Refazer"],
+                ["Delete", "Remover nó selecionado"],
+              ].map(([key, desc]) => (
+                <div key={key} className="flex items-center justify-between gap-2">
+                  <span className="text-[11px] text-gray-400">{desc}</span>
+                  <kbd className="text-[10px] font-mono bg-gray-100 border border-gray-200 text-gray-500 px-1.5 py-0.5 rounded shrink-0">{key}</kbd>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
 
@@ -831,18 +836,51 @@ function FlowEditorInner({ botId, botName, channelPermissionError, products, mod
             )
           )}
 
-          {/* Empty canvas hint */}
-          {!loading && nodes.length <= 1 && !nodePicker && (
-            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-              <div className="bg-white/90 border border-gray-200 rounded-xl px-5 py-4 shadow-sm text-center max-w-xs">
-                <p className="text-sm font-semibold text-gray-700">
-                  {isRemarketing ? "Monte o fluxo de recuperação" : "Monte seu fluxo de vendas"}
-                </p>
-                <p className="text-xs text-gray-400 mt-1 leading-relaxed">
+          {/* Empty canvas welcome modal */}
+          {!loading && nodes.length <= 1 && showWelcome && (
+            <div className="absolute inset-0 flex items-center justify-center z-20 bg-black/10">
+              <div className="bg-white rounded-2xl shadow-xl border border-gray-200 w-full max-w-sm mx-4 p-6">
+                <div className="flex items-start justify-between gap-3 mb-4">
+                  <div className="w-10 h-10 rounded-xl bg-blue-50 border border-blue-100 flex items-center justify-center shrink-0">
+                    <GitBranch className="h-5 w-5 text-blue-600" strokeWidth={1.75} />
+                  </div>
+                  <button
+                    onClick={() => setShowWelcome(false)}
+                    className="h-7 w-7 flex items-center justify-center rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors shrink-0"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+                <h3 className="text-base font-semibold text-gray-900 mb-1">
+                  {isRemarketing ? "Fluxo de recuperação" : "Construa seu fluxo de vendas"}
+                </h3>
+                <p className="text-sm text-gray-500 leading-relaxed mb-5">
                   {isRemarketing
-                    ? "Adicione mensagens e um nó de Pagamento para tentar recuperar assinantes inadimplentes."
-                    : "Arraste blocos da paleta ou clique neles para adicionar. Conecte o /start ao primeiro nó e termine com Pagamento → Liberar acesso."}
+                    ? "Este fluxo é enviado automaticamente quando uma renovação falha. Adicione mensagens e um nó de Pagamento para tentar recuperar o assinante antes de removê-lo do grupo."
+                    : "Cada bloco é uma mensagem ou ação que o bot executa em sequência. O fluxo ideal é: apresentação → oferta → Pagamento → Liberar acesso ao canal."}
                 </p>
+                <div className="space-y-2 mb-5">
+                  {(isRemarketing ? [
+                    "Clique num bloco da paleta para adicioná-lo",
+                    "Conecte os blocos arrastando a bolinha de saída",
+                    "Termine com um nó de Pagamento",
+                  ] : [
+                    "Clique num bloco da paleta para adicioná-lo",
+                    "Conecte os blocos arrastando a bolinha de saída",
+                    "Termine com Pagamento → Liberar acesso ao canal",
+                  ]).map((tip, i) => (
+                    <div key={i} className="flex items-center gap-2.5 text-sm text-gray-600">
+                      <span className="w-5 h-5 rounded-full bg-blue-600 text-white text-[10px] font-bold flex items-center justify-center shrink-0">{i + 1}</span>
+                      {tip}
+                    </div>
+                  ))}
+                </div>
+                <button
+                  onClick={() => setShowWelcome(false)}
+                  className="w-full h-9 bg-[#111627] text-white rounded-lg text-sm font-semibold hover:bg-[#1c2434] transition-colors"
+                >
+                  Entendido, vamos lá
+                </button>
               </div>
             </div>
           )}
