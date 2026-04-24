@@ -237,7 +237,7 @@ export function WalletClient() {
     <div className="space-y-6">
       <PageHeader
         title="Carteira"
-        description="Saldo, saques e contas bancárias"
+        description="PIX cai em 1 dia útil, cartão fica bloqueado por 30 dias. Cadastre sua conta bancária para sacar."
         actions={
           <button
             onClick={() => mutate()}

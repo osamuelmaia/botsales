@@ -148,7 +148,7 @@ function EmptyRows() {
           <div>
             <p className="text-sm font-semibold text-gray-700">Nenhuma venda encontrada</p>
             <p className="text-xs text-gray-400 mt-1 leading-relaxed">
-              As transações aparecerão aqui quando os primeiros pagamentos forem processados.
+              Compartilhe o link de checkout do seu produto — cada pagamento aprovado aparecerá aqui em tempo real.
             </p>
           </div>
         </div>

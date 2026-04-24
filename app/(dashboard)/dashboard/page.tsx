@@ -47,7 +47,7 @@ export default async function DashboardPage() {
     <div className="space-y-6">
       <PageHeader
         title={`Olá, ${firstName}!`}
-        description="Aqui está o resumo da sua plataforma."
+        description="Acompanhe seu faturamento e veja o desempenho do seu bot de vendas."
       />
 
       {/* Stats with date filter */}

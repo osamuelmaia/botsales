@@ -87,7 +87,7 @@ export function SalesClient({ initialStartDate }: { initialStartDate: string }) 
     <div className="space-y-5">
       <PageHeader
         title="Vendas"
-        description="Histórico completo de transações"
+        description="Todas as vendas realizadas pelo seu bot — filtre por período, status ou método de pagamento."
         actions={
           <ExportButton
             filters={{

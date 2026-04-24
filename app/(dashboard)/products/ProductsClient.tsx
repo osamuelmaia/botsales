@@ -83,7 +83,7 @@ export function ProductsClient() {
     <div className="space-y-6">
       <PageHeader
         title="Produtos"
-        description="Gerencie os produtos que você vende."
+        description="Cada produto tem um link de checkout exclusivo — compartilhe e seu bot vende automaticamente."
         actions={
           <Button onClick={openCreate} leftIcon={<Plus />}>
             Novo Produto
@@ -97,7 +97,7 @@ export function ProductsClient() {
           <EmptyState
             icon={Package}
             title="Nenhum produto cadastrado"
-            description="Cadastre seu primeiro produto para começar a vender pelo Telegram."
+            description="Defina nome, preço e tipo de cobrança — o sistema gera um link de checkout automático para você compartilhar."
             action={
               <Button onClick={openCreate} leftIcon={<Plus />}>
                 Criar primeiro produto

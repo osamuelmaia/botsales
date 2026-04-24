@@ -119,8 +119,8 @@ function BotCard({ bot, onDelete, onUpdated }: { bot: BotListItem; onDelete: (id
               <h3 className="font-semibold text-gray-900 text-[15px] leading-tight truncate">{bot.name}</h3>
               <p className="text-xs text-gray-500 mt-0.5">
                 {productCount === 0
-                  ? "Nenhum produto vinculado"
-                  : `${productCount} produto${productCount > 1 ? "s" : ""}`}
+                  ? "Sem produtos — acesse Configurar para vincular"
+                  : `${productCount} produto${productCount > 1 ? "s" : ""} vinculado${productCount > 1 ? "s" : ""}`}
               </p>
             </div>
           </div>
@@ -204,7 +204,7 @@ export function BotsClient() {
     <div className="space-y-6">
       <PageHeader
         title="Bots"
-        description="Gerencie seus bots do Telegram."
+        description="Conecte um bot do Telegram, adicione produtos e configure o fluxo de mensagens para vender no automático."
         actions={
           <Dialog.Root open={open} onOpenChange={setOpen}>
             <Dialog.Trigger asChild>
@@ -265,7 +265,7 @@ export function BotsClient() {
           <EmptyState
             icon={Bot}
             title="Nenhum bot criado ainda"
-            description="Crie seu primeiro bot para começar a vender pelo Telegram."
+            description="Um bot é seu vendedor automático no Telegram. Crie o primeiro, vincule produtos e configure o fluxo de mensagens."
             action={
               <Button onClick={() => setOpen(true)} leftIcon={<Plus />}>
                 Criar primeiro bot
