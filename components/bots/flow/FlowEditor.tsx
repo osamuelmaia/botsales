@@ -10,7 +10,7 @@ import {
 import "@xyflow/react/dist/style.css"
 import { toast } from "sonner"
 import {
-  Save, Loader2, ArrowLeft, AlertCircle,
+  Save, Loader2, ArrowLeft, AlertCircle, X,
   Type, Image as ImageIcon, Film, Music, FileText, MoreHorizontal,
   MousePointerClick, Clock, Timer, CreditCard, Undo2, Redo2,
   GitBranch, RefreshCw,
