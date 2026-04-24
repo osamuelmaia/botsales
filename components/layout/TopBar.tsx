@@ -79,7 +79,7 @@ export async function TopBar() {
               strokeDasharray={`${(lvl.progress / 100) * 113.1} 113.1`}
             />
           </svg>
-          <div className="absolute inset-[5px] rounded-full bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center shadow-md shadow-blue-500/40">
+          <div className="absolute inset-[5px] rounded-full flex items-center justify-center" style={{ backgroundColor: "#111627" }}>
             <span className="text-white text-[10px] font-black leading-none tracking-tight">{ROMAN[lvl.idx]}</span>
           </div>
         </div>
