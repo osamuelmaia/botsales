@@ -3,7 +3,7 @@
 import useSWR from "swr"
 import { useState, useEffect } from "react"
 import { useSearchParams } from "next/navigation"
-import { Plus, Pencil, Trash2, X, Link2, Check, Package } from "lucide-react"
+import { Plus, Trash2, X, Link2, Check, Package, Info } from "lucide-react"
 import * as Dialog from "@radix-ui/react-dialog"
 import * as AlertDialog from "@radix-ui/react-alert-dialog"
 import { toast } from "sonner"
@@ -98,6 +98,18 @@ export function ProductsClient() {
         }
       />
 
+      {/* Tips */}
+      {products.length > 0 && (
+        <div className="bg-blue-50 border border-blue-100 rounded-xl px-4 py-3 flex items-start gap-3">
+          <Info className="h-4 w-4 text-blue-500 shrink-0 mt-0.5" />
+          <div className="text-xs text-blue-700 space-y-0.5">
+            <p><strong>Clique num produto</strong> para editar nome, preço ou configurações de cobrança.</p>
+            <p>O <strong>link de checkout</strong> é gerado automaticamente — compartilhe diretamente ou deixe seu bot enviar após o /start.</p>
+            <p>Cada bot suporta no máximo <strong>3 produtos</strong>. Você pode ter quantos produtos quiser na conta.</p>
+          </div>
+        </div>
+      )}
+
       {/* Grid */}
       {products.length === 0 ? (
         <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
@@ -117,10 +129,15 @@ export function ProductsClient() {
           {products.map((product) => (
             <div
               key={product.id}
-              className="bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md hover:border-gray-300 transition-all flex flex-col overflow-hidden"
+              className="group bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md hover:border-blue-300 transition-all flex flex-col overflow-hidden cursor-pointer"
             >
-              {/* Card body */}
-              <div className="flex-1 p-5">
+              {/* Card body — clicável para editar */}
+              <div className="flex-1 p-5 relative" onClick={() => openEdit(product)}>
+                {/* Hover hint */}
+                <span className="absolute top-3 right-10 text-[10px] font-medium text-blue-500 opacity-0 group-hover:opacity-100 transition-opacity">
+                  clique para editar
+                </span>
+
                 {/* Header */}
                 <div className="flex items-start gap-3 mb-4">
                   <div className="w-10 h-10 rounded-lg bg-blue-50 border border-blue-100 flex items-center justify-center shrink-0">
@@ -136,22 +153,13 @@ export function ProductsClient() {
                       </p>
                     )}
                   </div>
-                  <div className="flex gap-0.5 shrink-0 -mt-0.5">
-                    <button
-                      onClick={() => openEdit(product)}
-                      className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-colors"
-                      title="Editar"
-                    >
-                      <Pencil className="h-3.5 w-3.5" />
-                    </button>
-                    <button
-                      onClick={() => setDeletingProduct(product)}
-                      className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors"
-                      title="Excluir"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </button>
-                  </div>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); setDeletingProduct(product) }}
+                    className="p-1.5 text-gray-300 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors shrink-0 -mt-0.5"
+                    title="Excluir produto"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
                 </div>
 
                 {/* Price + billing */}

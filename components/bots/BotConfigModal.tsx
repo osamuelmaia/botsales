@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react"
 import { toast } from "sonner"
 import {
-  Eye, EyeOff, CheckCircle2, XCircle, Loader2, Check, X, AlertCircle,
+  Eye, EyeOff, CheckCircle2, XCircle, Loader2, Check, X, AlertCircle, Info,
 } from "lucide-react"
 import * as Dialog from "@radix-ui/react-dialog"
 import * as Checkbox from "@radix-ui/react-checkbox"
@@ -159,6 +159,15 @@ export function BotConfigModal({ botId, open, onOpenChange, onSaved }: Props) {
               </div>
             ) : (
               <form id="bot-config-form" onSubmit={handleSave} className="space-y-5">
+
+                {/* Dica geral */}
+                <div className="bg-blue-50 border border-blue-100 rounded-lg px-3 py-2.5 flex items-start gap-2.5">
+                  <Info className="h-3.5 w-3.5 text-blue-500 shrink-0 mt-0.5" />
+                  <p className="text-xs text-blue-700 leading-relaxed">
+                    Configure aqui o token do bot, os produtos que ele vende e o comportamento de renovação. Após salvar, acesse <strong>Fluxo</strong> para montar as mensagens.
+                  </p>
+                </div>
+
                 {/* Nome */}
                 <Input
                   label="Nome do bot"
@@ -194,6 +203,13 @@ export function BotConfigModal({ botId, open, onOpenChange, onSaved }: Props) {
                       {showToken ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                     </button>
                   </div>
+                  <p className="text-xs text-gray-400 mt-1.5">
+                    Obtenha em{" "}
+                    <a href="https://t.me/BotFather" target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:text-blue-600 font-medium">
+                      @BotFather
+                    </a>{" "}
+                    no Telegram → /newbot → copie o token gerado.
+                  </p>
                   {validation.status === "valid" && (
                     <div className="flex items-center gap-1.5 mt-1.5">
                       <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
@@ -212,7 +228,7 @@ export function BotConfigModal({ botId, open, onOpenChange, onSaved }: Props) {
 
                 {/* Produtos */}
                 <div>
-                  <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center justify-between mb-1">
                     <label className="text-sm font-medium text-gray-700">
                       Produtos vinculados
                     </label>
@@ -220,6 +236,9 @@ export function BotConfigModal({ botId, open, onOpenChange, onSaved }: Props) {
                       {productIds.length}/3
                     </span>
                   </div>
+                  <p className="text-xs text-gray-400 mb-2 leading-relaxed">
+                    O bot apresenta estes produtos no fluxo de vendas. Selecione até 3.
+                  </p>
 
                   {products.length === 0 ? (
                     <div className="bg-gray-50 border border-dashed border-gray-200 rounded-lg py-6 px-4 text-center">
@@ -284,7 +303,7 @@ export function BotConfigModal({ botId, open, onOpenChange, onSaved }: Props) {
                     Período de carência
                   </label>
                   <p className="text-xs text-gray-500 mb-2 leading-relaxed">
-                    Tempo que o bot tenta recuperar o assinante antes de removê-lo do grupo quando uma renovação é recusada.
+                    Quando uma renovação é recusada, o bot envia o fluxo de remarketing e aguarda este período antes de remover o assinante do grupo. <span className="text-gray-400">0 dias = remoção imediata.</span>
                   </p>
                   <div className="flex items-center gap-3">
                     <input
@@ -306,7 +325,7 @@ export function BotConfigModal({ botId, open, onOpenChange, onSaved }: Props) {
                   <div className="min-w-0">
                     <p className="text-sm font-semibold text-gray-900">Bot ativo</p>
                     <p className="text-xs text-gray-500 mt-0.5 leading-relaxed">
-                      Ative para que o bot responda usuários no Telegram.
+                      Quando ativo, o bot responde automaticamente no Telegram e processa vendas. Desative para pausar sem excluir.
                     </p>
                   </div>
                   <button
