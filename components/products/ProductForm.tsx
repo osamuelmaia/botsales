@@ -113,9 +113,9 @@ export function ProductForm({ product, onSuccess }: Props) {
 
   // Helper text for billing cycles
   const cyclesHint = (() => {
-    if (!billingType) return "Quantas vezes cobrar no total"
-    if (billingType === "MONTHLY") return "Quantos meses cobrar — ex: 12 = cobrar por 1 ano"
-    return "Quantos anos cobrar — ex: 2 = cobrar por 2 anos"
+    if (!billingType) return "Total de vezes que o cliente será cobrado"
+    if (billingType === "MONTHLY") return "Ex: 12 = o cliente paga 12 vezes (uma por mês)"
+    return "Ex: 3 = o cliente paga 3 vezes (uma por ano)"
   })()
 
   async function onSubmit(values: FormValues) {

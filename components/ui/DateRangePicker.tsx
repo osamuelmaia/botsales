@@ -105,7 +105,7 @@ export function DateRangePicker({ value, onChange, placeholder = "Período" }: P
       <Popover.Portal>
         <Popover.Content
           sideOffset={8}
-          align="end"
+          align="start"
           className="z-50 bg-white rounded-xl border border-gray-200 flex overflow-hidden"
           style={{ boxShadow: "0 4px 24px rgba(0,0,0,0.09)" }}
         >

@@ -276,6 +276,7 @@ export const GatewayService = {
     customerCpfCnpj: string
     amountCents: number
     billingType: "MONTHLY" | "ANNUAL"
+    billingCycles?: number | null
     description: string
     externalReference: string
     cardToken?: string
@@ -294,6 +295,7 @@ export const GatewayService = {
       cycle: params.billingType === "MONTHLY" ? "MONTHLY" : "YEARLY",
       description: params.description,
       externalReference: params.externalReference,
+      ...(params.billingCycles ? { maxPayments: params.billingCycles } : {}),
       ...(params.cardToken ? { creditCardToken: params.cardToken } : {}),
     })
 
