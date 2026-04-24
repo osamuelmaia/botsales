@@ -1,7 +1,7 @@
 "use client"
 
 import useSWR from "swr"
-import { useState, useMemo } from "react"
+import { useState } from "react"
 import {
   TrendingUp, Wallet, ShoppingCart, CreditCard,
   RefreshCw, Repeat, Users, Target,
@@ -9,30 +9,10 @@ import {
 import { fetcher } from "@/lib/fetcher"
 import { DateRangePicker } from "@/components/ui/DateRangePicker"
 
-type Period = "today" | "7d" | "month" | "30d" | "custom"
-
-const PRESETS: Array<{ label: string; value: Exclude<Period, "custom"> }> = [
-  { label: "Hoje",     value: "today" },
-  { label: "7 dias",   value: "7d"    },
-  { label: "Este mês", value: "month" },
-  { label: "30 dias",  value: "30d"   },
-]
-
-function getPresetRange(period: Exclude<Period, "custom">): { from: string; to: string } {
-  const now   = new Date()
-  const today = now.toISOString().slice(0, 10)
-  switch (period) {
-    case "today":
-      return { from: today, to: today }
-    case "7d":
-      return { from: new Date(Date.now() - 7  * 86400_000).toISOString().slice(0, 10), to: today }
-    case "30d":
-      return { from: new Date(Date.now() - 30 * 86400_000).toISOString().slice(0, 10), to: today }
-    case "month": {
-      const y = now.getFullYear(), m = String(now.getMonth() + 1).padStart(2, "0")
-      return { from: `${y}-${m}-01`, to: today }
-    }
-  }
+function defaultRange() {
+  const to   = new Date().toISOString().slice(0, 10)
+  const from = new Date(Date.now() - 30 * 86400_000).toISOString().slice(0, 10)
+  return { from, to }
 }
 
 function brl(cents: number) {
@@ -137,47 +117,18 @@ function SplitCard({
 }
 
 export function DashboardStatsClient() {
-  const [period, setPeriod]       = useState<Period>("month")
-  const [customRange, setCustomRange] = useState<{ from: string; to: string } | null>(null)
+  const [range, setRange] = useState(defaultRange)
 
-  const range = useMemo<{ from: string; to: string } | null>(() => {
-    if (period === "custom") return customRange
-    return getPresetRange(period)
-  }, [period, customRange])
-
-  const key = range ? `/api/dashboard/stats?from=${range.from}&to=${range.to}` : null
+  const key = `/api/dashboard/stats?from=${range.from}&to=${range.to}`
   const { data, isLoading } = useSWR<StatsData>(key, fetcher, { refreshInterval: 30_000 })
-
-  const periodLabel =
-    period === "custom"
-      ? customRange ? `${customRange.from} → ${customRange.to}` : "personalizado"
-      : PRESETS.find((p) => p.value === period)?.label.toLowerCase() ?? ""
 
   const loading = isLoading && !data
 
   return (
     <div className="space-y-4">
       {/* Period selector */}
-      <div className="flex items-center gap-2 flex-wrap">
-        <span className="text-xs font-medium text-gray-400">Período:</span>
-        {PRESETS.map((p) => (
-          <button
-            key={p.value}
-            onClick={() => setPeriod(p.value)}
-            className={`h-8 px-3.5 rounded-full text-xs font-medium transition-colors ${
-              period === p.value
-                ? "bg-blue-600 text-white shadow-sm"
-                : "bg-white border border-gray-200 text-gray-600 hover:border-blue-300 hover:text-blue-600"
-            }`}
-          >
-            {p.label}
-          </button>
-        ))}
-        <DateRangePicker
-          value={period === "custom" ? customRange : null}
-          onChange={(r) => { setCustomRange(r); setPeriod("custom") }}
-          placeholder="Personalizado"
-        />
+      <div className="flex justify-end">
+        <DateRangePicker value={range} onChange={setRange} />
       </div>
 
       {/* Row 1 */}
@@ -185,7 +136,7 @@ export function DashboardStatsClient() {
         <StatCard
           label="Vendas"
           value={brl(data?.gmvCents ?? 0)}
-          sub={`Volume bruto · ${periodLabel}`}
+          sub="Volume bruto no período"
           icon={TrendingUp}
           tone="blue"
           loading={loading}
@@ -201,7 +152,7 @@ export function DashboardStatsClient() {
         <StatCard
           label="Total de vendas"
           value={String(data?.salesCount ?? 0)}
-          sub={`Transações em ${periodLabel}`}
+          sub="Transações no período"
           icon={ShoppingCart}
           tone="blue"
           loading={loading}
@@ -244,7 +195,7 @@ export function DashboardStatsClient() {
         <StatCard
           label="Contatos"
           value={String(data?.contactsCount ?? 0)}
-          sub={`Leads novos em ${periodLabel}`}
+          sub="Leads novos no período"
           icon={Users}
           tone="amber"
           loading={loading}

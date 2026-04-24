@@ -2,40 +2,17 @@
 
 import useSWR from "swr"
 import Link from "next/link"
-import { useState, useMemo } from "react"
+import { useState } from "react"
 import { TrendingUp, DollarSign, Users, Bot, Wallet, ArrowRight, Building2 } from "lucide-react"
 import { AdminStatCard } from "@/components/admin/AdminStatCard"
 import { AdminRevenueChart } from "@/components/admin/AdminRevenueChart"
 import { DateRangePicker } from "@/components/ui/DateRangePicker"
 import { fetcher } from "@/lib/fetcher"
 
-type Period = "today" | "7d" | "30d" | "month" | "all" | "custom"
-
-const PRESETS: Array<{ label: string; value: Exclude<Period, "custom"> }> = [
-  { label: "Hoje",     value: "today" },
-  { label: "7 dias",   value: "7d"    },
-  { label: "30 dias",  value: "30d"   },
-  { label: "Este mês", value: "month" },
-  { label: "Tudo",     value: "all"   },
-]
-
-function getPresetRange(period: Exclude<Period, "custom">): { from: string; to: string } {
-  const now   = new Date()
-  const today = now.toISOString().slice(0, 10)
-  switch (period) {
-    case "today":
-      return { from: today, to: today }
-    case "7d":
-      return { from: new Date(Date.now() - 7  * 86400_000).toISOString().slice(0, 10), to: today }
-    case "30d":
-      return { from: new Date(Date.now() - 30 * 86400_000).toISOString().slice(0, 10), to: today }
-    case "month": {
-      const y = now.getFullYear(), m = String(now.getMonth() + 1).padStart(2, "0")
-      return { from: `${y}-${m}-01`, to: today }
-    }
-    case "all":
-      return { from: "2020-01-01", to: today }
-  }
+function defaultRange() {
+  const to   = new Date().toISOString().slice(0, 10)
+  const from = new Date(Date.now() - 30 * 86400_000).toISOString().slice(0, 10)
+  return { from, to }
 }
 
 interface Stats {
@@ -66,50 +43,20 @@ function StatSkeleton() {
 }
 
 export function AdminDashboardClient() {
-  const [period, setPeriod]           = useState<Period>("30d")
-  const [customRange, setCustomRange] = useState<{ from: string; to: string } | null>(null)
+  const [range, setRange] = useState(defaultRange)
 
-  const range = useMemo<{ from: string; to: string } | null>(() => {
-    if (period === "custom") return customRange
-    return getPresetRange(period)
-  }, [period, customRange])
-
-  const key = range ? `/api/admin/stats?from=${range.from}&to=${range.to}` : null
+  const key = `/api/admin/stats?from=${range.from}&to=${range.to}`
   const { data, isLoading } = useSWR<Stats>(key, fetcher, { refreshInterval: 60_000 })
-
-  const periodLabel =
-    period === "custom"
-      ? customRange ? `${customRange.from} → ${customRange.to}` : ""
-      : PRESETS.find((p) => p.value === period)?.label ?? ""
 
   return (
     <div className="space-y-6">
-      {/* Header + period chips */}
+      {/* Header */}
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Visão Geral</h1>
           <p className="text-sm text-gray-500 mt-0.5">Métricas consolidadas da plataforma</p>
         </div>
-        <div className="flex items-center gap-1.5 flex-wrap">
-          {PRESETS.map((p) => (
-            <button
-              key={p.value}
-              onClick={() => setPeriod(p.value)}
-              className={`h-8 px-3.5 rounded-full text-xs font-medium transition-colors ${
-                period === p.value
-                  ? "bg-blue-600 text-white shadow-sm"
-                  : "bg-white border border-gray-200 text-gray-600 hover:border-blue-300 hover:text-blue-600"
-              }`}
-            >
-              {p.label}
-            </button>
-          ))}
-          <DateRangePicker
-            value={period === "custom" ? customRange : null}
-            onChange={(r) => { setCustomRange(r); setPeriod("custom") }}
-            placeholder="Personalizado"
-          />
-        </div>
+        <DateRangePicker value={range} onChange={setRange} />
       </div>
 
       {/* Row 1 — 4 main KPIs */}
@@ -127,14 +74,14 @@ export function AdminDashboardClient() {
               iconColor="text-emerald-500"
             />
             <AdminStatCard
-              title={`GMV · ${periodLabel}`}
+              title="GMV do período"
               value={brl(data?.gmvPeriodCents ?? 0)}
               sub="Vendas aprovadas no período"
               icon={TrendingUp}
               iconColor="text-gray-500"
             />
             <AdminStatCard
-              title={`Taxas · ${periodLabel}`}
+              title="Taxas do período"
               value={brl(data?.feesPeriodCents ?? 0)}
               sub="Receita da plataforma"
               icon={DollarSign}
@@ -190,7 +137,7 @@ export function AdminDashboardClient() {
         <div className="flex items-center justify-between mb-4">
           <div>
             <h2 className="text-sm font-semibold text-gray-900">Volume e Taxas</h2>
-            <p className="text-xs text-gray-400 mt-0.5">Vendas aprovadas · {periodLabel}</p>
+            <p className="text-xs text-gray-400 mt-0.5">Vendas aprovadas no período selecionado</p>
           </div>
           <p className="text-xs text-gray-400 italic">
             Nota: saldo Asaas pode diferir das taxas acumuladas por reembolsos e tarifas do gateway.
