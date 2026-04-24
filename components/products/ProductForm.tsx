@@ -24,7 +24,7 @@ const formSchema = z
   })
   .refine(
     (d) => !(d.isRecurring && !d.billingType),
-    { message: "Selecione o tipo de cobrança", path: ["billingType"] }
+    { message: "Selecione a frequência de cobrança", path: ["billingType"] }
   )
   .refine(
     (d) => {
@@ -34,7 +34,7 @@ const formSchema = z
       }
       return true
     },
-    { message: "Informe um número de ciclos válido", path: ["billingCycles"] }
+    { message: "Informe um número válido", path: ["billingCycles"] }
   )
 
 type FormValues = z.infer<typeof formSchema>
@@ -66,122 +66,10 @@ function formatPriceMask(raw: string): string {
   })
 }
 
-// ─── Checkbox (blue primário) ────────────────────────────────────────────────
-
-function StyledCheckbox({
-  checked,
-  onCheckedChange,
-  label,
-}: {
-  checked: boolean
-  onCheckedChange: (v: boolean) => void
-  label: string
-}) {
-  return (
-    <label className="flex items-center gap-2.5 cursor-pointer select-none group">
-      <Checkbox.Root
-        checked={checked}
-        onCheckedChange={(c) => onCheckedChange(!!c)}
-        className="h-[18px] w-[18px] shrink-0 rounded-md border-2 border-gray-300 data-[state=checked]:bg-blue-600 data-[state=checked]:border-blue-600 flex items-center justify-center transition-colors group-hover:border-blue-400"
-      >
-        <Checkbox.Indicator>
-          <Check className="h-3 w-3 text-white" strokeWidth={3} />
-        </Checkbox.Indicator>
-      </Checkbox.Root>
-      <span className="text-sm text-gray-700 group-hover:text-gray-900 transition-colors">{label}</span>
-    </label>
-  )
-}
-
-// ─── Recurring sub-section ───────────────────────────────────────────────────
-
-function RecurringSection({
-  control,
-  isRecurring,
-  errors,
-  register,
-}: {
-  control: ReturnType<typeof useForm<FormValues>>["control"]
-  isRecurring: boolean
-  errors: ReturnType<typeof useForm<FormValues>>["formState"]["errors"]
-  register: ReturnType<typeof useForm<FormValues>>["register"]
-}) {
-  return (
-    <div className="mt-2 ml-7 bg-gray-50 border border-gray-200 rounded-lg p-3 flex flex-col gap-3">
-      <Controller
-        control={control}
-        name="isRecurring"
-        render={({ field }) => (
-          <StyledCheckbox
-            checked={field.value}
-            onCheckedChange={field.onChange}
-            label="Cobrança recorrente"
-          />
-        )}
-      />
-
-      {isRecurring && (
-        <div className="grid grid-cols-2 gap-3 pl-7">
-          {/* Periodicidade */}
-          <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1.5">
-              Periodicidade
-            </label>
-            <Controller
-              control={control}
-              name="billingType"
-              render={({ field }) => (
-                <Select.Root value={field.value} onValueChange={field.onChange}>
-                  <Select.Trigger className="flex h-10 w-full items-center justify-between rounded-lg border border-gray-200 px-3 text-sm text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 transition-colors">
-                    <Select.Value placeholder="Selecione..." />
-                    <Select.Icon>
-                      <ChevronDown className="h-4 w-4 text-gray-400" />
-                    </Select.Icon>
-                  </Select.Trigger>
-                  <Select.Portal>
-                    <Select.Content
-                      className="z-[60] min-w-[8rem] overflow-hidden rounded-lg border border-gray-200 bg-white shadow-lg"
-                      position="popper"
-                      sideOffset={4}
-                    >
-                      <Select.Viewport className="p-1">
-                        <Select.Item
-                          value="MONTHLY"
-                          className="flex items-center px-3 py-2 text-sm text-gray-900 cursor-pointer rounded-md outline-none data-[highlighted]:bg-blue-50 data-[highlighted]:text-blue-700"
-                        >
-                          <Select.ItemText>Mensal</Select.ItemText>
-                        </Select.Item>
-                        <Select.Item
-                          value="ANNUAL"
-                          className="flex items-center px-3 py-2 text-sm text-gray-900 cursor-pointer rounded-md outline-none data-[highlighted]:bg-blue-50 data-[highlighted]:text-blue-700"
-                        >
-                          <Select.ItemText>Anual</Select.ItemText>
-                        </Select.Item>
-                      </Select.Viewport>
-                    </Select.Content>
-                  </Select.Portal>
-                </Select.Root>
-              )}
-            />
-            {errors.billingType && (
-              <p className="text-xs text-red-600 mt-1">{errors.billingType.message}</p>
-            )}
-          </div>
-
-          {/* Ciclos */}
-          <Input
-            {...register("billingCycles")}
-            type="number"
-            min="1"
-            label="Nº de ciclos"
-            placeholder="Ex: 12"
-            error={errors.billingCycles?.message}
-          />
-        </div>
-      )}
-    </div>
-  )
-}
+const PAYMENT_OPTIONS = [
+  { id: "PIX",         label: "PIX",              desc: "Pagamento instantâneo" },
+  { id: "CREDIT_CARD", label: "Cartão de crédito", desc: "Cobrado na fatura do cliente" },
+] as const
 
 export function ProductForm({ product, onSuccess }: Props) {
   const [serverError, setServerError] = useState("")
@@ -218,10 +106,17 @@ export function ProductForm({ product, onSuccess }: Props) {
   } = form
 
   const paymentMethods = watch("paymentMethods") ?? []
-  const isRecurring = watch("isRecurring")
-  const description = watch("description") ?? ""
-  const hasPix = paymentMethods.includes("PIX")
-  const hasCard = paymentMethods.includes("CREDIT_CARD")
+  const isRecurring    = watch("isRecurring")
+  const billingType    = watch("billingType")
+  const description    = watch("description") ?? ""
+  const hasAnyMethod   = paymentMethods.length > 0
+
+  // Helper text for billing cycles
+  const cyclesHint = (() => {
+    if (!billingType) return "Quantas vezes cobrar no total"
+    if (billingType === "MONTHLY") return "Quantos meses cobrar — ex: 12 = cobrar por 1 ano"
+    return "Quantos anos cobrar — ex: 2 = cobrar por 2 anos"
+  })()
 
   async function onSubmit(values: FormValues) {
     setServerError("")
@@ -268,6 +163,7 @@ export function ProductForm({ product, onSuccess }: Props) {
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-5">
+
       {/* Nome */}
       <Input
         {...register("name")}
@@ -285,13 +181,13 @@ export function ProductForm({ product, onSuccess }: Props) {
           {...register("description")}
           rows={3}
           maxLength={300}
-          placeholder="Descreva seu produto..."
+          placeholder="Descreva seu produto em poucas palavras..."
           className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 resize-none transition-colors"
         />
         <div className="flex items-center justify-between mt-1">
-          {errors.description ? (
-            <p className="text-xs text-red-600">{errors.description.message}</p>
-          ) : <span />}
+          {errors.description
+            ? <p className="text-xs text-red-600">{errors.description.message}</p>
+            : <span />}
           <p className="text-xs text-gray-400 tabular-nums">{description.length}/300</p>
         </div>
       </div>
@@ -319,66 +215,152 @@ export function ProductForm({ product, onSuccess }: Props) {
         )}
       </div>
 
-      {/* Formas de pagamento */}
+      {/* Formas de pagamento — visual card selectors */}
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-2.5">
           Formas de pagamento
         </label>
-
         <Controller
           control={control}
           name="paymentMethods"
           render={({ field }) => (
-            <div className="flex flex-col gap-2">
-              {/* PIX */}
-              <StyledCheckbox
-                checked={field.value?.includes("PIX") ?? false}
-                onCheckedChange={(checked) => {
-                  const curr = field.value ?? []
-                  field.onChange(
-                    checked ? [...curr, "PIX"] : curr.filter((m) => m !== "PIX")
-                  )
-                }}
-                label="PIX"
-              />
-
-              {hasPix && (
-                <RecurringSection
-                  control={control}
-                  isRecurring={isRecurring}
-                  errors={errors}
-                  register={register}
-                />
-              )}
-
-              {/* Cartão */}
-              <StyledCheckbox
-                checked={field.value?.includes("CREDIT_CARD") ?? false}
-                onCheckedChange={(checked) => {
-                  const curr = field.value ?? []
-                  field.onChange(
-                    checked ? [...curr, "CREDIT_CARD"] : curr.filter((m) => m !== "CREDIT_CARD")
-                  )
-                }}
-                label="Cartão de Crédito"
-              />
-
-              {hasCard && (
-                <RecurringSection
-                  control={control}
-                  isRecurring={isRecurring}
-                  errors={errors}
-                  register={register}
-                />
-              )}
+            <div className="grid grid-cols-2 gap-3">
+              {PAYMENT_OPTIONS.map(({ id, label, desc }) => {
+                const checked = field.value?.includes(id) ?? false
+                return (
+                  <label
+                    key={id}
+                    className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-all ${
+                      checked
+                        ? "border-gray-900 bg-gray-50 ring-1 ring-gray-900"
+                        : "border-gray-200 hover:border-gray-300 hover:bg-gray-50"
+                    }`}
+                  >
+                    <Checkbox.Root
+                      checked={checked}
+                      onCheckedChange={(c) => {
+                        const curr = field.value ?? []
+                        field.onChange(
+                          c ? [...curr, id] : curr.filter((m) => m !== id)
+                        )
+                      }}
+                      className="h-[18px] w-[18px] shrink-0 rounded-md border-2 border-gray-300 data-[state=checked]:bg-gray-900 data-[state=checked]:border-gray-900 flex items-center justify-center transition-colors"
+                    >
+                      <Checkbox.Indicator>
+                        <Check className="h-3 w-3 text-white" strokeWidth={3} />
+                      </Checkbox.Indicator>
+                    </Checkbox.Root>
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-gray-900 leading-tight">{label}</p>
+                      <p className="text-xs text-gray-400 leading-tight mt-0.5">{desc}</p>
+                    </div>
+                  </label>
+                )
+              })}
             </div>
           )}
         />
-
         {errors.paymentMethods && (
           <p className="text-xs text-red-600 mt-1.5">{errors.paymentMethods.message}</p>
         )}
       </div>
+
+      {/* Cobrança recorrente — só aparece quando tem método selecionado */}
+      {hasAnyMethod && (
+        <div className="rounded-lg border border-gray-200 bg-gray-50/50 p-4">
+          <Controller
+            control={control}
+            name="isRecurring"
+            render={({ field }) => (
+              <label className="flex items-start gap-2.5 cursor-pointer select-none">
+                <Checkbox.Root
+                  checked={field.value}
+                  onCheckedChange={(c) => field.onChange(!!c)}
+                  className="mt-0.5 h-[18px] w-[18px] shrink-0 rounded-md border-2 border-gray-300 data-[state=checked]:bg-gray-900 data-[state=checked]:border-gray-900 flex items-center justify-center transition-colors"
+                >
+                  <Checkbox.Indicator>
+                    <Check className="h-3 w-3 text-white" strokeWidth={3} />
+                  </Checkbox.Indicator>
+                </Checkbox.Root>
+                <div>
+                  <p className="text-sm font-semibold text-gray-900">Cobrança recorrente</p>
+                  <p className="text-xs text-gray-400 mt-0.5 leading-relaxed">
+                    O cliente é cobrado automaticamente toda semana, mês ou ano — sem precisar pagar de novo.
+                  </p>
+                </div>
+              </label>
+            )}
+          />
+
+          {isRecurring && (
+            <div className="mt-4 grid grid-cols-2 gap-3">
+              {/* Frequência */}
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1.5">
+                  Com que frequência?
+                </label>
+                <Controller
+                  control={control}
+                  name="billingType"
+                  render={({ field }) => (
+                    <Select.Root value={field.value} onValueChange={field.onChange}>
+                      <Select.Trigger className="flex h-10 w-full items-center justify-between rounded-lg border border-gray-200 px-3 text-sm text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 transition-colors">
+                        <Select.Value placeholder="Selecione..." />
+                        <Select.Icon>
+                          <ChevronDown className="h-4 w-4 text-gray-400" />
+                        </Select.Icon>
+                      </Select.Trigger>
+                      <Select.Portal>
+                        <Select.Content
+                          className="z-[60] min-w-[8rem] overflow-hidden rounded-lg border border-gray-200 bg-white shadow-lg"
+                          position="popper"
+                          sideOffset={4}
+                        >
+                          <Select.Viewport className="p-1">
+                            <Select.Item
+                              value="MONTHLY"
+                              className="flex items-center px-3 py-2 text-sm text-gray-900 cursor-pointer rounded-md outline-none data-[highlighted]:bg-gray-100"
+                            >
+                              <Select.ItemText>Mensal</Select.ItemText>
+                            </Select.Item>
+                            <Select.Item
+                              value="ANNUAL"
+                              className="flex items-center px-3 py-2 text-sm text-gray-900 cursor-pointer rounded-md outline-none data-[highlighted]:bg-gray-100"
+                            >
+                              <Select.ItemText>Anual</Select.ItemText>
+                            </Select.Item>
+                          </Select.Viewport>
+                        </Select.Content>
+                      </Select.Portal>
+                    </Select.Root>
+                  )}
+                />
+                {errors.billingType && (
+                  <p className="text-xs text-red-600 mt-1">{errors.billingType.message}</p>
+                )}
+              </div>
+
+              {/* Número de cobranças */}
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1.5">
+                  Número de cobranças
+                </label>
+                <input
+                  {...register("billingCycles")}
+                  type="number"
+                  min="1"
+                  placeholder="Ex: 12"
+                  className="w-full h-10 rounded-lg border border-gray-200 bg-white px-3 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 transition-colors"
+                />
+                {errors.billingCycles
+                  ? <p className="text-xs text-red-600 mt-1">{errors.billingCycles.message}</p>
+                  : <p className="text-xs text-gray-400 mt-1 leading-relaxed">{cyclesHint}</p>
+                }
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {serverError && (
         <div className="flex items-start gap-2 text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2.5">
@@ -388,11 +370,7 @@ export function ProductForm({ product, onSuccess }: Props) {
       )}
 
       <Button type="submit" fullWidth size="lg" loading={isSubmitting} className="mt-2">
-        {isSubmitting
-          ? "Salvando..."
-          : product
-          ? "Salvar alterações"
-          : "Criar produto"}
+        {isSubmitting ? "Salvando..." : product ? "Salvar alterações" : "Criar produto"}
       </Button>
     </form>
   )

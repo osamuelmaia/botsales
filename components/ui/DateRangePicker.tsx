@@ -48,7 +48,7 @@ export function DateRangePicker({ value, onChange, placeholder = "Período" }: P
         from: value?.from ? parseISO(value.from) : null,
         to:   value?.to   ? parseISO(value.to)   : null,
       })
-      setCursor(value?.from ? parseISO(value.from) : new Date())
+      setCursor(new Date()) // always open on current month
     }
   }, [open]) // eslint-disable-line react-hooks/exhaustive-deps
 
