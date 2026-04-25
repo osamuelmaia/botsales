@@ -9,6 +9,7 @@ import {
   Bot,
   ShoppingCart,
   Wallet,
+  Plug,
   Menu,
   X,
 } from "lucide-react"
@@ -68,6 +69,15 @@ function NavContent({ onClose }: { onClose?: () => void }) {
             </Link>
           )
         })}
+
+        {/* Integrações — Em breve */}
+        <div className="relative group flex items-center gap-3 px-3 h-10 rounded-lg text-sm font-medium text-gray-300 cursor-default select-none mt-0.5">
+          <Plug className="h-[18px] w-[18px] shrink-0" strokeWidth={1.75} />
+          Integrações
+          <span className="pointer-events-none absolute left-full ml-2 top-1/2 -translate-y-1/2 whitespace-nowrap rounded-md bg-gray-800 px-2 py-1 text-xs text-white opacity-0 group-hover:opacity-100 transition-opacity z-50">
+            Em breve
+          </span>
+        </div>
       </div>
 
       {/* Footer meta */}

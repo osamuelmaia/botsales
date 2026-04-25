@@ -253,56 +253,15 @@ export function WalletClient() {
       <BalanceHero data={data} />
       <FeeInfo feePercent={data.feePercent} feeCents={data.feeCents} />
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Left */}
-        <div className="space-y-4">
+      {/* Ação + Contas lado a lado */}
+      <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+        {/* Efetuar saque — coluna estreita */}
+        <div className="lg:col-span-2">
           <WithdrawalPanel data={data} onSuccess={() => mutate()} />
-
-          {/* Withdrawal history */}
-          <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-            <div className="flex items-center gap-2.5 px-5 py-4 border-b border-gray-100">
-              <div className="w-8 h-8 rounded-lg bg-blue-50 border border-blue-100 flex items-center justify-center">
-                <TrendingUp className="h-4 w-4 text-blue-500" />
-              </div>
-              <div>
-                <h3 className="text-sm font-semibold text-gray-900">Histórico de saques</h3>
-                <p className="text-xs text-gray-400">Últimas solicitações</p>
-              </div>
-            </div>
-            {withdrawals.length === 0 ? (
-              <div className="flex flex-col items-center gap-2 px-5 py-10 text-center">
-                <div className="w-12 h-12 rounded-2xl bg-blue-50 border border-blue-100 flex items-center justify-center">
-                  <TrendingUp className="h-5 w-5 text-blue-300" />
-                </div>
-                <p className="text-sm font-medium text-gray-600">Nenhum saque ainda</p>
-                <p className="text-xs text-gray-400 max-w-xs leading-relaxed">
-                  Quando você solicitar um saque, ele aparecerá aqui com o status em tempo real.
-                </p>
-              </div>
-            ) : (
-              <div className="divide-y divide-gray-100">
-                {withdrawals.map((w) => {
-                  const s = WITHDRAWAL_STATUS[w.status] ?? WITHDRAWAL_STATUS.REQUESTED
-                  const Icon = s.icon
-                  return (
-                    <div key={w.id} className="px-5 py-3.5 flex items-center justify-between gap-4 hover:bg-gray-50 transition-colors">
-                      <div className="min-w-0">
-                        <p className="text-sm font-semibold text-gray-900 tabular-nums">{formatBRL(w.amountCents)}</p>
-                        <p className="text-xs text-gray-400 mt-0.5">{formatDate(w.requestedAt)} · Banco {w.bankAccount.bankCode}</p>
-                      </div>
-                      <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium border ${s.cls}`}>
-                        <Icon className="h-3 w-3" /> {s.label}
-                      </span>
-                    </div>
-                  )
-                })}
-              </div>
-            )}
-          </div>
         </div>
 
-        {/* Right — Bank accounts */}
-        <div className="space-y-4">
+        {/* Contas bancárias — coluna larga */}
+        <div className="lg:col-span-3 space-y-4">
           <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
             <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
               <div className="flex items-center gap-2.5">
@@ -394,6 +353,49 @@ export function WalletClient() {
             />
           )}
         </div>
+      </div>
+
+      {/* Histórico de saques — largura total */}
+      <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+        <div className="flex items-center gap-2.5 px-5 py-4 border-b border-gray-100">
+          <div className="w-8 h-8 rounded-lg bg-gray-50 border border-gray-100 flex items-center justify-center">
+            <TrendingUp className="h-4 w-4 text-gray-400" />
+          </div>
+          <div>
+            <h3 className="text-sm font-semibold text-gray-900">Histórico de saques</h3>
+            <p className="text-xs text-gray-400">Todas as suas solicitações</p>
+          </div>
+        </div>
+        {withdrawals.length === 0 ? (
+          <div className="flex flex-col items-center gap-2 px-5 py-10 text-center">
+            <div className="w-12 h-12 rounded-2xl bg-gray-50 border border-gray-100 flex items-center justify-center">
+              <TrendingUp className="h-5 w-5 text-gray-300" />
+            </div>
+            <p className="text-sm font-medium text-gray-600">Nenhum saque ainda</p>
+            <p className="text-xs text-gray-400 max-w-xs leading-relaxed">
+              Quando você solicitar um saque, ele aparecerá aqui com o status atualizado.
+            </p>
+          </div>
+        ) : (
+          <div className="divide-y divide-gray-100">
+            {withdrawals.map((w) => {
+              const s = WITHDRAWAL_STATUS[w.status] ?? WITHDRAWAL_STATUS.REQUESTED
+              const Icon = s.icon
+              return (
+                <div key={w.id} className="px-5 py-3.5 flex items-center gap-4 hover:bg-gray-50 transition-colors">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-gray-900 tabular-nums">{formatBRL(w.amountCents)}</p>
+                    <p className="text-xs text-gray-400 mt-0.5">Banco {w.bankAccount.bankCode} · Ag {w.bankAccount.agency}</p>
+                  </div>
+                  <p className="text-xs text-gray-400 hidden sm:block shrink-0">{formatDate(w.requestedAt)}</p>
+                  <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium border shrink-0 ${s.cls}`}>
+                    <Icon className="h-3 w-3" /> {s.label}
+                  </span>
+                </div>
+              )
+            })}
+          </div>
+        )}
       </div>
     </div>
   )

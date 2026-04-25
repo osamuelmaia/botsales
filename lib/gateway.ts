@@ -275,7 +275,7 @@ export const GatewayService = {
     customerEmail: string
     customerCpfCnpj: string
     amountCents: number
-    billingType: "MONTHLY" | "ANNUAL"
+    billingType: "WEEKLY" | "MONTHLY" | "QUARTERLY" | "SEMIANNUAL" | "ANNUAL"
     billingCycles?: number | null
     description: string
     externalReference: string
@@ -287,12 +287,20 @@ export const GatewayService = {
       cpfCnpj: params.customerCpfCnpj,
     })
 
+    const ASAAS_CYCLE: Record<string, string> = {
+      WEEKLY:     "WEEKLY",
+      MONTHLY:    "MONTHLY",
+      QUARTERLY:  "QUARTERLY",
+      SEMIANNUAL: "SEMIANNUALLY",
+      ANNUAL:     "YEARLY",
+    }
+
     const subscription = await asaasPost<AsaasSubscription>("/subscriptions", {
       customer: customerId,
       billingType: "CREDIT_CARD",
       value: params.amountCents / 100,
       nextDueDate: todayDateString(),
-      cycle: params.billingType === "MONTHLY" ? "MONTHLY" : "YEARLY",
+      cycle: ASAAS_CYCLE[params.billingType] ?? "MONTHLY",
       description: params.description,
       externalReference: params.externalReference,
       ...(params.billingCycles ? { maxPayments: params.billingCycles } : {}),

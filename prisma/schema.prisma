@@ -20,7 +20,10 @@ enum PaymentMethod {
 }
 
 enum BillingType {
+  WEEKLY
   MONTHLY
+  QUARTERLY
+  SEMIANNUAL
   ANNUAL
 }
 

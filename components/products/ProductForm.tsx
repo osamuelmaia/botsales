@@ -19,22 +19,22 @@ const formSchema = z
       .array(z.enum(["PIX", "CREDIT_CARD"]))
       .min(1, "Selecione ao menos uma forma de pagamento"),
     isRecurring: z.boolean(),
-    billingType: z.enum(["MONTHLY", "ANNUAL"]).optional(),
+    billingType: z.enum(["WEEKLY", "MONTHLY", "QUARTERLY", "SEMIANNUAL", "ANNUAL"]).optional(),
     billingCycles: z.string().optional(),
   })
   .refine(
     (d) => !(d.isRecurring && !d.billingType),
-    { message: "Selecione a frequência de cobrança", path: ["billingType"] }
+    { message: "Selecione o intervalo de cobrança", path: ["billingType"] }
   )
   .refine(
     (d) => {
-      if (d.isRecurring) {
-        const n = parseInt(d.billingCycles ?? "")
+      if (d.isRecurring && d.billingCycles && d.billingCycles.trim() !== "") {
+        const n = parseInt(d.billingCycles)
         return !isNaN(n) && n > 0
       }
       return true
     },
-    { message: "Informe um número válido", path: ["billingCycles"] }
+    { message: "Informe um número válido ou deixe em branco", path: ["billingCycles"] }
   )
 
 type FormValues = z.infer<typeof formSchema>
@@ -47,7 +47,7 @@ export interface ProductData {
   priceInCents: number
   paymentMethods: ("PIX" | "CREDIT_CARD")[]
   isRecurring: boolean
-  billingType?: "MONTHLY" | "ANNUAL" | null
+  billingType?: "WEEKLY" | "MONTHLY" | "QUARTERLY" | "SEMIANNUAL" | "ANNUAL" | null
   billingCycles?: number | null
 }
 
@@ -111,11 +111,15 @@ export function ProductForm({ product, onSuccess }: Props) {
   const description    = watch("description") ?? ""
   const hasAnyMethod   = paymentMethods.length > 0
 
-  // Helper text for billing cycles
   const cyclesHint = (() => {
-    if (!billingType) return "Total de vezes que o cliente será cobrado"
-    if (billingType === "MONTHLY") return "Ex: 12 = o cliente paga 12 vezes (uma por mês)"
-    return "Ex: 3 = o cliente paga 3 vezes (uma por ano)"
+    const hints: Record<string, string> = {
+      WEEKLY:     "Ex: 8 = cobra por 8 semanas. Vazio = sem prazo definido.",
+      MONTHLY:    "Ex: 12 = cobra por 12 meses. Vazio = sem prazo definido.",
+      QUARTERLY:  "Ex: 4 = cobra por 4 trimestres (1 ano). Vazio = sem prazo.",
+      SEMIANNUAL: "Ex: 2 = cobra por 2 semestres (1 ano). Vazio = sem prazo.",
+      ANNUAL:     "Ex: 3 = cobra por 3 anos. Vazio = sem prazo definido.",
+    }
+    return billingType ? (hints[billingType] ?? "Vazio = assinatura sem prazo definido.") : "Vazio = assinatura sem prazo definido."
   })()
 
   async function onSubmit(values: FormValues) {
@@ -137,7 +141,7 @@ export function ProductForm({ product, onSuccess }: Props) {
       isRecurring: values.isRecurring,
       billingType: values.isRecurring ? values.billingType : undefined,
       billingCycles:
-        values.isRecurring && values.billingCycles
+        values.isRecurring && values.billingCycles && values.billingCycles.trim() !== ""
           ? parseInt(values.billingCycles)
           : undefined,
     }
@@ -283,9 +287,9 @@ export function ProductForm({ product, onSuccess }: Props) {
                   </Checkbox.Indicator>
                 </Checkbox.Root>
                 <div>
-                  <p className="text-sm font-semibold text-gray-900">Cobrança recorrente</p>
+                  <p className="text-sm font-semibold text-gray-900">Assinatura recorrente</p>
                   <p className="text-xs text-gray-400 mt-0.5 leading-relaxed">
-                    O cliente é cobrado automaticamente toda semana, mês ou ano — sem precisar pagar de novo.
+                    O cliente assina e é cobrado automaticamente no intervalo escolhido — semanal, mensal, trimestral etc.
                   </p>
                 </div>
               </label>
@@ -297,7 +301,7 @@ export function ProductForm({ product, onSuccess }: Props) {
               {/* Frequência */}
               <div>
                 <label className="block text-xs font-medium text-gray-600 mb-1.5">
-                  Com que frequência?
+                  Intervalo de cobrança
                 </label>
                 <Controller
                   control={control}
@@ -317,18 +321,21 @@ export function ProductForm({ product, onSuccess }: Props) {
                           sideOffset={4}
                         >
                           <Select.Viewport className="p-1">
-                            <Select.Item
-                              value="MONTHLY"
-                              className="flex items-center px-3 py-2 text-sm text-gray-900 cursor-pointer rounded-md outline-none data-[highlighted]:bg-gray-100"
-                            >
-                              <Select.ItemText>Mensal</Select.ItemText>
-                            </Select.Item>
-                            <Select.Item
-                              value="ANNUAL"
-                              className="flex items-center px-3 py-2 text-sm text-gray-900 cursor-pointer rounded-md outline-none data-[highlighted]:bg-gray-100"
-                            >
-                              <Select.ItemText>Anual</Select.ItemText>
-                            </Select.Item>
+                            {[
+                              { value: "WEEKLY",     label: "Semanal" },
+                              { value: "MONTHLY",    label: "Mensal" },
+                              { value: "QUARTERLY",  label: "Trimestral" },
+                              { value: "SEMIANNUAL", label: "Semestral" },
+                              { value: "ANNUAL",     label: "Anual" },
+                            ].map((opt) => (
+                              <Select.Item
+                                key={opt.value}
+                                value={opt.value}
+                                className="flex items-center px-3 py-2 text-sm text-gray-900 cursor-pointer rounded-md outline-none data-[highlighted]:bg-gray-100"
+                              >
+                                <Select.ItemText>{opt.label}</Select.ItemText>
+                              </Select.Item>
+                            ))}
                           </Select.Viewport>
                         </Select.Content>
                       </Select.Portal>
@@ -343,13 +350,13 @@ export function ProductForm({ product, onSuccess }: Props) {
               {/* Número de cobranças */}
               <div>
                 <label className="block text-xs font-medium text-gray-600 mb-1.5">
-                  Número de cobranças
+                  Número de cobranças <span className="text-gray-400 font-normal">(opcional)</span>
                 </label>
                 <input
                   {...register("billingCycles")}
                   type="number"
                   min="1"
-                  placeholder="Ex: 12"
+                  placeholder="Sem prazo"
                   className="w-full h-10 rounded-lg border border-gray-200 bg-white px-3 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 transition-colors"
                 />
                 {errors.billingCycles

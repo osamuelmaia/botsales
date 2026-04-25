@@ -224,7 +224,7 @@ export async function POST(
 
       if (product.isRecurring && product.billingType) {
         // Produto recorrente → assinatura no Asaas
-        const billingType = product.billingType as "MONTHLY" | "ANNUAL"
+        const billingType = product.billingType as "WEEKLY" | "MONTHLY" | "QUARTERLY" | "SEMIANNUAL" | "ANNUAL"
         const subscription = await GatewayService.createSubscription({
           customerName: name,
           customerEmail: email,
