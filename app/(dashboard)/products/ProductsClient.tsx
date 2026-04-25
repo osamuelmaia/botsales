@@ -20,15 +20,17 @@ function formatPrice(cents: number) {
 
 const methodLabel: Record<string, string> = { PIX: "PIX", CREDIT_CARD: "Cartão" }
 
+const BILLING_LABEL: Record<string, string> = {
+  WEEKLY:     "Assinatura semanal",
+  MONTHLY:    "Assinatura mensal",
+  QUARTERLY:  "Assinatura trimestral",
+  SEMIANNUAL: "Assinatura semestral",
+  ANNUAL:     "Assinatura anual",
+}
+
 function getBillingDescription(product: ProductData): string {
   if (!product.isRecurring) return "Pagamento único"
-  const cycles = product.billingCycles ?? 1
-  if (product.billingType === "MONTHLY") {
-    if (cycles <= 1) return "Assinatura mensal"
-    return `Mensal · ${cycles} meses`
-  }
-  if (cycles <= 1) return "Assinatura anual"
-  return `Anual · ${cycles} anos`
+  return BILLING_LABEL[product.billingType ?? ""] ?? "Assinatura recorrente"
 }
 
 function CopyCheckoutLink({ productId, shortId }: { productId: string; shortId?: string | null }) {

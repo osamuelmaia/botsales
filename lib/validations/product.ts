@@ -13,15 +13,10 @@ export const productSchema = z
       .min(1, "Selecione ao menos uma forma de pagamento"),
     isRecurring: z.boolean().default(false),
     billingType: z.enum(["WEEKLY", "MONTHLY", "QUARTERLY", "SEMIANNUAL", "ANNUAL"]).nullish(),
-    billingCycles: z.number().int().positive().nullish(),
   })
   .refine(
     (d) => !(d.isRecurring && !d.billingType),
     { message: "Selecione o intervalo de cobrança", path: ["billingType"] }
-  )
-  .refine(
-    (d) => !(d.isRecurring && !d.billingCycles),
-    { message: "Informe o número de cobranças", path: ["billingCycles"] }
   )
 
 export type ProductInput = z.infer<typeof productSchema>

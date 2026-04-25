@@ -41,7 +41,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: parsed.error.issues[0].message }, { status: 400 })
   }
 
-  const { isRecurring, billingType, billingCycles, ...rest } = parsed.data
+  const { isRecurring, billingType, ...rest } = parsed.data
 
   const product = await prisma.product.create({
     data: {
@@ -50,7 +50,7 @@ export async function POST(request: Request) {
       userId: session.user.id,
       isRecurring,
       billingType: isRecurring ? (billingType ?? null) : null,
-      billingCycles: isRecurring ? (billingCycles ?? null) : null,
+      billingCycles: null,
     },
   })
 

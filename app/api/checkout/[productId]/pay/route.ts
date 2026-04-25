@@ -231,7 +231,6 @@ export async function POST(
           customerCpfCnpj: cpf,
           amountCents: product.priceInCents,
           billingType,
-          billingCycles: product.billingCycles ?? undefined,
           description: product.name,
           externalReference: sale.id,
           cardToken,

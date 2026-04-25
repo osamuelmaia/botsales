@@ -20,21 +20,10 @@ const formSchema = z
       .min(1, "Selecione ao menos uma forma de pagamento"),
     isRecurring: z.boolean(),
     billingType: z.enum(["WEEKLY", "MONTHLY", "QUARTERLY", "SEMIANNUAL", "ANNUAL"]).optional(),
-    billingCycles: z.string().optional(),
   })
   .refine(
     (d) => !(d.isRecurring && !d.billingType),
     { message: "Selecione o intervalo de cobrança", path: ["billingType"] }
-  )
-  .refine(
-    (d) => {
-      if (d.isRecurring) {
-        const n = parseInt(d.billingCycles ?? "")
-        return !isNaN(n) && n > 0
-      }
-      return true
-    },
-    { message: "Informe o número de cobranças", path: ["billingCycles"] }
   )
 
 type FormValues = z.infer<typeof formSchema>
@@ -48,7 +37,6 @@ export interface ProductData {
   paymentMethods: ("PIX" | "CREDIT_CARD")[]
   isRecurring: boolean
   billingType?: "WEEKLY" | "MONTHLY" | "QUARTERLY" | "SEMIANNUAL" | "ANNUAL" | null
-  billingCycles?: number | null
 }
 
 interface Props {
@@ -84,7 +72,6 @@ export function ProductForm({ product, onSuccess }: Props) {
           paymentMethods: product.paymentMethods,
           isRecurring: product.isRecurring,
           billingType: product.billingType ?? undefined,
-          billingCycles: product.billingCycles?.toString() ?? "",
         }
       : {
           name: "",
@@ -93,7 +80,6 @@ export function ProductForm({ product, onSuccess }: Props) {
           paymentMethods: [],
           isRecurring: false,
           billingType: undefined,
-          billingCycles: "",
         },
   })
 
@@ -110,17 +96,6 @@ export function ProductForm({ product, onSuccess }: Props) {
   const billingType    = watch("billingType")
   const description    = watch("description") ?? ""
   const hasAnyMethod   = paymentMethods.length > 0
-
-  const cyclesHint = (() => {
-    const hints: Record<string, string> = {
-      WEEKLY:     "Ex: 8 = cobra por 8 semanas. Vazio = sem prazo definido.",
-      MONTHLY:    "Ex: 12 = cobra por 12 meses. Vazio = sem prazo definido.",
-      QUARTERLY:  "Ex: 4 = cobra por 4 trimestres (1 ano). Vazio = sem prazo.",
-      SEMIANNUAL: "Ex: 2 = cobra por 2 semestres (1 ano). Vazio = sem prazo.",
-      ANNUAL:     "Ex: 3 = cobra por 3 anos. Vazio = sem prazo definido.",
-    }
-    return billingType ? (hints[billingType] ?? "Vazio = assinatura sem prazo definido.") : "Vazio = assinatura sem prazo definido."
-  })()
 
   async function onSubmit(values: FormValues) {
     setServerError("")
@@ -140,10 +115,6 @@ export function ProductForm({ product, onSuccess }: Props) {
       paymentMethods: values.paymentMethods,
       isRecurring: values.isRecurring,
       billingType: values.isRecurring ? values.billingType : undefined,
-      billingCycles:
-        values.isRecurring && values.billingCycles
-          ? parseInt(values.billingCycles)
-          : undefined,
     }
 
     const url = product ? `/api/products/${product.id}` : "/api/products"
@@ -297,8 +268,7 @@ export function ProductForm({ product, onSuccess }: Props) {
           />
 
           {isRecurring && (
-            <div className="mt-4 grid grid-cols-2 gap-3">
-              {/* Frequência */}
+            <div className="mt-4">
               <div>
                 <label className="block text-xs font-medium text-gray-600 mb-1.5">
                   Intervalo de cobrança
@@ -347,23 +317,6 @@ export function ProductForm({ product, onSuccess }: Props) {
                 )}
               </div>
 
-              {/* Número de cobranças */}
-              <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1.5">
-                  Número de cobranças
-                </label>
-                <input
-                  {...register("billingCycles")}
-                  type="number"
-                  min="1"
-                  placeholder="Ex: 12"
-                  className="w-full h-10 rounded-lg border border-gray-200 bg-white px-3 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 transition-colors"
-                />
-                {errors.billingCycles
-                  ? <p className="text-xs text-red-600 mt-1">{errors.billingCycles.message}</p>
-                  : <p className="text-xs text-gray-400 mt-1 leading-relaxed">{cyclesHint}</p>
-                }
-              </div>
             </div>
           )}
         </div>

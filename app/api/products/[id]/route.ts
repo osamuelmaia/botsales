@@ -41,7 +41,7 @@ export async function PATCH(request: Request, { params }: Params) {
     return NextResponse.json({ error: parsed.error.issues[0].message }, { status: 400 })
   }
 
-  const { isRecurring, billingType, billingCycles, ...rest } = parsed.data
+  const { isRecurring, billingType, ...rest } = parsed.data
 
   const product = await prisma.product.update({
     where: { id: params.id },
@@ -49,7 +49,7 @@ export async function PATCH(request: Request, { params }: Params) {
       ...rest,
       isRecurring,
       billingType: isRecurring ? (billingType ?? null) : null,
-      billingCycles: isRecurring ? (billingCycles ?? null) : null,
+      billingCycles: null,
     },
   })
 
