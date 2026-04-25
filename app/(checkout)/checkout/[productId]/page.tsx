@@ -509,12 +509,16 @@ export default function CheckoutPage() {
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
 function ProductSummary({ product }: { product: ProductData }) {
-  const billingLabel =
-    product.isRecurring && product.billingType
-      ? product.billingType === "MONTHLY"
-        ? "/mês"
-        : "/ano"
-      : ""
+  const BILLING_SUFFIX: Record<string, string> = {
+    WEEKLY:     "/semana",
+    MONTHLY:    "/mês",
+    QUARTERLY:  "/trimestre",
+    SEMIANNUAL: "/semestre",
+    ANNUAL:     "/ano",
+  }
+  const billingLabel = product.isRecurring && product.billingType
+    ? (BILLING_SUFFIX[product.billingType] ?? "/período")
+    : ""
 
   return (
     <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5">

@@ -302,7 +302,7 @@ export const GatewayService = {
       cycle: ASAAS_CYCLE[params.billingType] ?? "MONTHLY",
       description: params.description,
       externalReference: params.externalReference,
-...(params.cardToken ? { creditCardToken: params.cardToken } : {}),
+      ...(params.cardToken ? { creditCardToken: params.cardToken } : {}),
     })
 
     return { id: subscription.id, paymentUrl: subscription.url ?? "" }
