@@ -14,7 +14,7 @@ export default async function AssinaturasPage() {
       subscriptions: {
         orderBy: { createdAt: "desc" },
         include: {
-          product: { select: { id: true, name: true, priceInCents: true, isRecurring: true } },
+          product: { select: { id: true, name: true, priceInCents: true, isRecurring: true, billingType: true } },
           bot:     { select: { id: true, name: true } },
         },
       },

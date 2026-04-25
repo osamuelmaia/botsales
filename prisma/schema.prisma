@@ -59,6 +59,7 @@ enum SaleStatus {
 
 enum SubscriptionStatus {
   ACTIVE
+  PAUSED
   REMARKETING
   KICKED
   CANCELLED
