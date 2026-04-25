@@ -28,13 +28,13 @@ const formSchema = z
   )
   .refine(
     (d) => {
-      if (d.isRecurring && d.billingCycles && d.billingCycles.trim() !== "") {
-        const n = parseInt(d.billingCycles)
+      if (d.isRecurring) {
+        const n = parseInt(d.billingCycles ?? "")
         return !isNaN(n) && n > 0
       }
       return true
     },
-    { message: "Informe um número válido ou deixe em branco", path: ["billingCycles"] }
+    { message: "Informe o número de cobranças", path: ["billingCycles"] }
   )
 
 type FormValues = z.infer<typeof formSchema>
@@ -141,7 +141,7 @@ export function ProductForm({ product, onSuccess }: Props) {
       isRecurring: values.isRecurring,
       billingType: values.isRecurring ? values.billingType : undefined,
       billingCycles:
-        values.isRecurring && values.billingCycles && values.billingCycles.trim() !== ""
+        values.isRecurring && values.billingCycles
           ? parseInt(values.billingCycles)
           : undefined,
     }
@@ -350,13 +350,13 @@ export function ProductForm({ product, onSuccess }: Props) {
               {/* Número de cobranças */}
               <div>
                 <label className="block text-xs font-medium text-gray-600 mb-1.5">
-                  Número de cobranças <span className="text-gray-400 font-normal">(opcional)</span>
+                  Número de cobranças
                 </label>
                 <input
                   {...register("billingCycles")}
                   type="number"
                   min="1"
-                  placeholder="Sem prazo"
+                  placeholder="Ex: 12"
                   className="w-full h-10 rounded-lg border border-gray-200 bg-white px-3 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 transition-colors"
                 />
                 {errors.billingCycles

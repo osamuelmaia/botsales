@@ -19,5 +19,9 @@ export const productSchema = z
     (d) => !(d.isRecurring && !d.billingType),
     { message: "Selecione o intervalo de cobrança", path: ["billingType"] }
   )
+  .refine(
+    (d) => !(d.isRecurring && !d.billingCycles),
+    { message: "Informe o número de cobranças", path: ["billingCycles"] }
+  )
 
 export type ProductInput = z.infer<typeof productSchema>
