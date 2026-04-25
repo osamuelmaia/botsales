@@ -1,8 +1,10 @@
+import { cookies } from "next/headers"
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { Sidebar } from "@/components/layout/Sidebar"
 import { TopBar } from "@/components/layout/TopBar"
 import { CompleteRegistrationBanner } from "@/components/layout/CompleteRegistrationBanner"
+import { ImpersonationBanner } from "@/components/layout/ImpersonationBanner"
 import { SWRProvider } from "@/components/providers/SWRProvider"
 
 // ─── Date helpers ─────────────────────────────────────────────────────────────
@@ -17,6 +19,9 @@ function thirtyDaysAgo() {
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const session = await auth()
   const userId = session?.user?.id
+
+  const cookieJar = await cookies()
+  const isImpersonating = !!cookieJar.get("_admin_return")?.value
 
   // Pre-fetch all dashboard data in parallel — runs once per session (layout stays
   // mounted during navigation, so SWR cache persists across all tab switches).
@@ -129,6 +134,9 @@ export default async function DashboardLayout({ children }: { children: React.Re
     <div className="flex min-h-screen bg-gray-50">
       <Sidebar />
       <div className="flex flex-col flex-1 min-w-0">
+        {isImpersonating && (
+          <ImpersonationBanner userName={session?.user?.name ?? "usuário"} />
+        )}
         <TopBar />
         <SWRProvider fallback={fallback}>
           <CompleteRegistrationBanner />

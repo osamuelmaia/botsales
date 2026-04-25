@@ -1,9 +1,10 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
 import * as Dialog from "@radix-ui/react-dialog"
 import { toast } from "sonner"
-import { Loader2, Bot, ShoppingBag, TrendingUp, Wallet, Shield, Receipt } from "lucide-react"
+import { Loader2, Bot, ShoppingBag, TrendingUp, Wallet, Shield, Receipt, LogIn } from "lucide-react"
 import useSWR from "swr"
 import { fetcher } from "@/lib/fetcher"
 
@@ -178,10 +179,27 @@ function FeeEditor({ userId, initial, onSaved }: {
 // ─── Drawer content ───────────────────────────────────────────────────────────
 
 function DrawerContent({ userId, onSaved }: { userId: string; onSaved: () => void }) {
+  const router = useRouter()
   const { data: user, isLoading, mutate } = useSWR<UserDetail>(
     `/api/admin/users/${userId}`,
     fetcher
   )
+  const [impersonating, setImpersonating] = useState(false)
+
+  async function handleImpersonate() {
+    setImpersonating(true)
+    try {
+      const res = await fetch("/api/admin/impersonate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId }),
+      })
+      const json = await res.json()
+      if (!res.ok) { toast.error(json.error ?? "Erro ao impersonar"); return }
+      router.push("/dashboard")
+      router.refresh()
+    } finally { setImpersonating(false) }
+  }
 
   if (isLoading || !user) {
     return (
@@ -199,11 +217,11 @@ function DrawerContent({ userId, onSaved }: { userId: string; onSaved: () => voi
         <div className="w-10 h-10 rounded-full bg-gray-900 flex items-center justify-center shrink-0">
           <span className="text-white text-sm font-bold">{user.name[0].toUpperCase()}</span>
         </div>
-        <div>
+        <div className="min-w-0 flex-1">
           <p className="text-sm font-semibold text-gray-900">{user.name}</p>
-          <p className="text-xs text-gray-400">{user.email}</p>
+          <p className="text-xs text-gray-400 truncate">{user.email}</p>
         </div>
-        <div className="ml-auto flex flex-col items-end gap-1">
+        <div className="flex flex-col items-end gap-1 shrink-0">
           <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${
             user.registrationStep === 2 ? "bg-green-100 text-green-700" : "bg-yellow-100 text-yellow-700"
           }`}>
@@ -216,6 +234,18 @@ function DrawerContent({ userId, onSaved }: { userId: string; onSaved: () => voi
           )}
         </div>
       </div>
+
+      {/* Impersonate button */}
+      <button
+        onClick={handleImpersonate}
+        disabled={impersonating}
+        className="w-full flex items-center justify-center gap-2 h-9 rounded-lg border border-amber-300 bg-amber-50 text-amber-700 text-sm font-medium hover:bg-amber-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+      >
+        {impersonating
+          ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          : <LogIn className="h-3.5 w-3.5" />}
+        {impersonating ? "Entrando..." : "Logar como este usuário"}
+      </button>
 
       {/* Info */}
       <Section icon={Shield} title="Dados pessoais">
