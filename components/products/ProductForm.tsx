@@ -93,7 +93,6 @@ export function ProductForm({ product, onSuccess }: Props) {
 
   const paymentMethods = watch("paymentMethods") ?? []
   const isRecurring    = watch("isRecurring")
-  const billingType    = watch("billingType")
   const description    = watch("description") ?? ""
   const hasAnyMethod   = paymentMethods.length > 0
 

@@ -5,7 +5,7 @@ import Link from "next/link"
 import { useState } from "react"
 import {
   TrendingUp, DollarSign, Users, Bot, Wallet, ArrowRight,
-  Building2, ShoppingCart, Percent, Ticket, UserCheck, UserPlus,
+  Building2, Percent, Ticket, UserCheck, UserPlus,
   RefreshCw, Repeat2,
 } from "lucide-react"
 import { AdminStatCard } from "@/components/admin/AdminStatCard"
