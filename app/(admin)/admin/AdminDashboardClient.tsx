@@ -3,7 +3,11 @@
 import useSWR from "swr"
 import Link from "next/link"
 import { useState } from "react"
-import { TrendingUp, DollarSign, Users, Bot, Wallet, ArrowRight, Building2 } from "lucide-react"
+import {
+  TrendingUp, DollarSign, Users, Bot, Wallet, ArrowRight,
+  Building2, ShoppingCart, Percent, Ticket, UserCheck, UserPlus,
+  RefreshCw, Repeat2,
+} from "lucide-react"
 import { AdminStatCard } from "@/components/admin/AdminStatCard"
 import { AdminRevenueChart } from "@/components/admin/AdminRevenueChart"
 import { DateRangePicker } from "@/components/ui/DateRangePicker"
@@ -18,9 +22,15 @@ function defaultRange() {
 interface Stats {
   gmvPeriodCents:          number
   feesPeriodCents:         number
+  avgTicketCents:          number
+  salesApprovedCount:      number
+  salesTotalCount:         number
+  conversionRate:          number
+  newUsersPeriod:          number
   totalUsers:              number
-  activeUsers:             number
+  completeUsers:           number
   activeBots:              number
+  activeSubscriptions:     number
   pendingWithdrawalsCount: number
   pendingWithdrawalsCents: number
   asaasBalanceCents:       number
@@ -42,105 +52,171 @@ function StatSkeleton() {
   )
 }
 
+function SectionLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider px-0.5">
+      {children}
+    </p>
+  )
+}
+
 export function AdminDashboardClient() {
   const [range, setRange] = useState(defaultRange)
 
   const key = `/api/admin/stats?from=${range.from}&to=${range.to}`
-  const { data, isLoading } = useSWR<Stats>(key, fetcher, { refreshInterval: 60_000 })
+  const { data, isLoading, mutate, isValidating } = useSWR<Stats>(key, fetcher, { refreshInterval: 60_000 })
+
+  const skeletons = (n: number) => Array.from({ length: n }).map((_, i) => <StatSkeleton key={i} />)
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-7">
       {/* Header */}
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Visão Geral</h1>
           <p className="text-sm text-gray-500 mt-0.5">Métricas consolidadas da plataforma</p>
         </div>
-        <DateRangePicker value={range} onChange={setRange} />
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => mutate()}
+            disabled={isValidating}
+            className="h-8 w-8 flex items-center justify-center rounded-lg border border-gray-200 text-gray-400 hover:text-gray-600 hover:bg-gray-50 disabled:opacity-40 transition-colors"
+          >
+            <RefreshCw className={`h-3.5 w-3.5 ${isValidating ? "animate-spin" : ""}`} />
+          </button>
+          <DateRangePicker value={range} onChange={setRange} />
+        </div>
       </div>
 
-      {/* Row 1 — 4 main KPIs */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-        {isLoading && !data ? (
-          Array.from({ length: 4 }).map((_, i) => <StatSkeleton key={i} />)
-        ) : (
-          <>
-            {/* Saldo Asaas — always live, independent of period */}
-            <AdminStatCard
-              title="Saldo Asaas"
-              value={brl(data?.asaasAvailableCents ?? 0)}
-              sub={`Disponível · Total: ${brl(data?.asaasBalanceCents ?? 0)}`}
-              icon={Building2}
-              iconColor="text-emerald-500"
-            />
-            <AdminStatCard
-              title="GMV do período"
-              value={brl(data?.gmvPeriodCents ?? 0)}
-              sub="Vendas aprovadas no período"
-              icon={TrendingUp}
-              iconColor="text-gray-500"
-            />
-            <AdminStatCard
-              title="Taxas do período"
-              value={brl(data?.feesPeriodCents ?? 0)}
-              sub="Receita da plataforma"
-              icon={DollarSign}
-              iconColor="text-blue-500"
-            />
-            <AdminStatCard
-              title="Saques Pendentes"
-              value={String(data?.pendingWithdrawalsCount ?? 0)}
-              sub={`Total: ${brl(data?.pendingWithdrawalsCents ?? 0)}`}
-              icon={Wallet}
-              iconColor={(data?.pendingWithdrawalsCount ?? 0) > 0 ? "text-amber-500" : "text-gray-400"}
-              action={
-                (data?.pendingWithdrawalsCount ?? 0) > 0 ? (
-                  <Link
-                    href="/admin/withdrawals"
-                    className="inline-flex items-center gap-1 text-xs font-medium text-amber-600 hover:text-amber-700 transition-colors"
-                  >
-                    Ver fila <ArrowRight className="h-3 w-3" />
-                  </Link>
-                ) : null
-              }
-            />
-          </>
-        )}
+      {/* ── Receita ── */}
+      <div className="space-y-3">
+        <SectionLabel>Receita — período selecionado</SectionLabel>
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+          {isLoading && !data ? skeletons(4) : (
+            <>
+              <AdminStatCard
+                title="GMV"
+                value={brl(data?.gmvPeriodCents ?? 0)}
+                sub="Volume total de vendas aprovadas"
+                icon={TrendingUp}
+                iconColor="text-gray-600"
+              />
+              <AdminStatCard
+                title="Receita da plataforma"
+                value={brl(data?.feesPeriodCents ?? 0)}
+                sub="Taxas descontadas das vendas"
+                icon={DollarSign}
+                iconColor="text-emerald-500"
+              />
+              <AdminStatCard
+                title="Ticket médio"
+                value={brl(data?.avgTicketCents ?? 0)}
+                sub={`${data?.salesApprovedCount ?? 0} vendas aprovadas`}
+                icon={Ticket}
+                iconColor="text-blue-500"
+              />
+              <AdminStatCard
+                title="Taxa de conversão"
+                value={`${data?.conversionRate ?? 0}%`}
+                sub={`${data?.salesApprovedCount ?? 0} de ${data?.salesTotalCount ?? 0} iniciadas`}
+                icon={Percent}
+                iconColor="text-purple-500"
+              />
+            </>
+          )}
+        </div>
       </div>
 
-      {/* Row 2 — Usuários e Bots */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        {isLoading && !data ? (
-          Array.from({ length: 2 }).map((_, i) => <StatSkeleton key={i} />)
-        ) : (
-          <>
-            <AdminStatCard
-              title="Usuários Ativos"
-              value={String(data?.activeUsers ?? 0)}
-              sub={`de ${data?.totalUsers ?? 0} cadastrados`}
-              icon={Users}
-              iconColor="text-blue-500"
-            />
-            <AdminStatCard
-              title="Bots Ativos"
-              value={String(data?.activeBots ?? 0)}
-              sub="Respondendo agora"
-              icon={Bot}
-              iconColor="text-purple-500"
-            />
-          </>
-        )}
+      {/* ── Usuários ── */}
+      <div className="space-y-3">
+        <SectionLabel>Usuários</SectionLabel>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          {isLoading && !data ? skeletons(3) : (
+            <>
+              <AdminStatCard
+                title="Novos cadastros"
+                value={String(data?.newUsersPeriod ?? 0)}
+                sub="Registros no período selecionado"
+                icon={UserPlus}
+                iconColor="text-blue-500"
+              />
+              <AdminStatCard
+                title="Cadastros completos"
+                value={String(data?.completeUsers ?? 0)}
+                sub="Com registro finalizado (step 2)"
+                icon={UserCheck}
+                iconColor="text-emerald-500"
+              />
+              <AdminStatCard
+                title="Total de usuários"
+                value={String(data?.totalUsers ?? 0)}
+                sub="Acumulado desde o início"
+                icon={Users}
+                iconColor="text-gray-500"
+              />
+            </>
+          )}
+        </div>
       </div>
 
-      {/* Chart */}
+      {/* ── Plataforma (live) ── */}
+      <div className="space-y-3">
+        <SectionLabel>Plataforma — tempo real</SectionLabel>
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+          {isLoading && !data ? skeletons(4) : (
+            <>
+              <AdminStatCard
+                title="Saldo Asaas"
+                value={brl(data?.asaasAvailableCents ?? 0)}
+                sub={`Disponível · Total: ${brl(data?.asaasBalanceCents ?? 0)}`}
+                icon={Building2}
+                iconColor="text-emerald-500"
+              />
+              <AdminStatCard
+                title="Saques pendentes"
+                value={String(data?.pendingWithdrawalsCount ?? 0)}
+                sub={`Total: ${brl(data?.pendingWithdrawalsCents ?? 0)}`}
+                icon={Wallet}
+                iconColor={(data?.pendingWithdrawalsCount ?? 0) > 0 ? "text-amber-500" : "text-gray-400"}
+                action={
+                  (data?.pendingWithdrawalsCount ?? 0) > 0 ? (
+                    <Link
+                      href="/admin/withdrawals"
+                      className="inline-flex items-center gap-1 text-xs font-medium text-amber-600 hover:text-amber-700 transition-colors"
+                    >
+                      Ver fila <ArrowRight className="h-3 w-3" />
+                    </Link>
+                  ) : null
+                }
+              />
+              <AdminStatCard
+                title="Assinaturas ativas"
+                value={String(data?.activeSubscriptions ?? 0)}
+                sub="Clientes pagando recorrência"
+                icon={Repeat2}
+                iconColor="text-blue-500"
+              />
+              <AdminStatCard
+                title="Bots ativos"
+                value={String(data?.activeBots ?? 0)}
+                sub="Respondendo agora"
+                icon={Bot}
+                iconColor="text-purple-500"
+              />
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* ── Gráfico ── */}
       <div className="bg-white rounded-xl border border-gray-200 p-5">
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex items-start justify-between mb-5 gap-4">
           <div>
-            <h2 className="text-sm font-semibold text-gray-900">Volume e Taxas</h2>
-            <p className="text-xs text-gray-400 mt-0.5">Vendas aprovadas no período selecionado</p>
+            <h2 className="text-sm font-semibold text-gray-900">GMV e Receita da plataforma</h2>
+            <p className="text-xs text-gray-400 mt-0.5">Vendas aprovadas no período · por dia</p>
           </div>
-          <p className="text-xs text-gray-400 italic">
-            Nota: saldo Asaas pode diferir das taxas acumuladas por reembolsos e tarifas do gateway.
+          <p className="text-xs text-gray-400 italic hidden sm:block">
+            Saldo Asaas pode diferir por reembolsos e tarifas do gateway
           </p>
         </div>
         {isLoading && !data ? (
