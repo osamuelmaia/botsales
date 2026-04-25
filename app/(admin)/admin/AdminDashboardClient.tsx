@@ -134,11 +134,11 @@ export function AdminDashboardClient() {
           {isLoading && !data ? skeletons(3) : (
             <>
               <AdminStatCard
-                title="Novos cadastros"
-                value={String(data?.newUsersPeriod ?? 0)}
-                sub="Registros no período selecionado"
-                icon={UserPlus}
-                iconColor="text-blue-500"
+                title="Total de usuários"
+                value={String(data?.totalUsers ?? 0)}
+                sub="Acumulado desde o início"
+                icon={Users}
+                iconColor="text-gray-500"
               />
               <AdminStatCard
                 title="Cadastros completos"
@@ -148,11 +148,11 @@ export function AdminDashboardClient() {
                 iconColor="text-emerald-500"
               />
               <AdminStatCard
-                title="Total de usuários"
-                value={String(data?.totalUsers ?? 0)}
-                sub="Acumulado desde o início"
-                icon={Users}
-                iconColor="text-gray-500"
+                title="Novos cadastros"
+                value={String(data?.newUsersPeriod ?? 0)}
+                sub="Registros no período selecionado"
+                icon={UserPlus}
+                iconColor="text-blue-500"
               />
             </>
           )}
