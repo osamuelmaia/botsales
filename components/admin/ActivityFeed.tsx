@@ -70,7 +70,6 @@ export function ActivityFeed({ endpoint = "/api/admin/activity" }: { endpoint?: 
       <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
         <div>
           <h2 className="text-sm font-semibold text-gray-900">Atividades dos usuários</h2>
-          <p className="text-xs text-gray-400 mt-0.5">Atualiza a cada 30s · últimas 60 ações</p>
         </div>
         <button
           onClick={() => mutate()}
@@ -91,7 +90,7 @@ export function ActivityFeed({ endpoint = "/api/admin/activity" }: { endpoint?: 
           Nenhuma atividade registrada
         </div>
       ) : (
-        <div className="divide-y divide-gray-50 max-h-[480px] overflow-y-auto">
+        <div className="divide-y divide-gray-50">
           {data.map((ev) => {
             const cfg  = EVENT_CFG[ev.type]
             const Icon = cfg.icon

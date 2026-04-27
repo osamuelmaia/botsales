@@ -87,5 +87,5 @@ export async function GET() {
 
   events.sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime())
 
-  return NextResponse.json(events.slice(0, 60))
+  return NextResponse.json(events.slice(0, 20))
 }
