@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma"
 import Link from "next/link"
 import { Check, Package, Bot, ShoppingCart, ArrowRight, Sparkles } from "lucide-react"
 import { DashboardStatsClient } from "./DashboardStatsClient"
+import { ActivityFeed } from "@/components/admin/ActivityFeed"
 
 export default async function DashboardPage() {
   const session = await auth()
@@ -154,6 +155,9 @@ export default async function DashboardPage() {
           ))}
         </div>
       </div>
+
+      {/* Activity feed */}
+      <ActivityFeed endpoint="/api/dashboard/activity" />
     </div>
   )
 }

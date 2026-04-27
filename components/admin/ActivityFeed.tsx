@@ -57,9 +57,9 @@ function timeAgo(iso: string): string {
 
 // ─── ActivityFeed ─────────────────────────────────────────────────────────────
 
-export function ActivityFeed() {
+export function ActivityFeed({ endpoint = "/api/admin/activity" }: { endpoint?: string }) {
   const { data, isLoading, mutate, isValidating } = useSWR<ActivityEvent[]>(
-    "/api/admin/activity",
+    endpoint,
     fetcher,
     { refreshInterval: 30_000 }
   )
