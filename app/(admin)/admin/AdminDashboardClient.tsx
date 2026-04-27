@@ -10,6 +10,7 @@ import {
 } from "lucide-react"
 import { AdminStatCard } from "@/components/admin/AdminStatCard"
 import { AdminRevenueChart } from "@/components/admin/AdminRevenueChart"
+import { ActivityFeed } from "@/components/admin/ActivityFeed"
 import { DateRangePicker } from "@/components/ui/DateRangePicker"
 import { fetcher } from "@/lib/fetcher"
 
@@ -225,6 +226,9 @@ export function AdminDashboardClient() {
           <AdminRevenueChart data={data?.dailySeries ?? []} />
         )}
       </div>
+
+      {/* ── Atividades ── */}
+      <ActivityFeed />
     </div>
   )
 }
