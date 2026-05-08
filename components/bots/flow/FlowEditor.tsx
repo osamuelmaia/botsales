@@ -38,7 +38,7 @@ const typedEdgeTypes: EdgeTypes = edgeTypes
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface Product { id: string; name: string; priceInCents: number }
-interface FlowEditorProps { botId: string; botName: string; botChannelId?: string | null; channelPermissionError?: string | null; products: Product[]; mode?: "main" | "remarketing" }
+interface FlowEditorProps { botId: string; botName: string; userId: string; botChannelId?: string | null; channelPermissionError?: string | null; products: Product[]; mode?: "main" | "remarketing" }
 type NodeType = "text" | "image" | "video" | "audio" | "file" | "typing" | "button" | "delay" | "smart_delay" | "payment" | "grant_access"
 type Snapshot = { nodes: Node[]; edges: Edge[] }
 
@@ -197,7 +197,7 @@ const NODE_PICKER_ITEMS_REMARKETING: { type: NodeType; label: string; icon: stri
   { type: "payment", label: "Pagamento", icon: "💳", color: "bg-violet-500" },
 ]
 
-function FlowEditorInner({ botId, botName, channelPermissionError, products, mode = "main" }: FlowEditorProps) {
+function FlowEditorInner({ botId, botName, userId, channelPermissionError, products, mode = "main" }: FlowEditorProps) {
   const [activeMode, setActiveMode] = useState<"main" | "remarketing">(mode)
   const [pendingMode, setPendingMode] = useState<"main" | "remarketing" | null>(null)
   const [showSwitchTabDialog, setShowSwitchTabDialog] = useState(false)
@@ -925,7 +925,7 @@ function FlowEditorInner({ botId, botName, channelPermissionError, products, mod
 
         {/* Config panel */}
         {selectedNode && (
-          <NodeConfigPanel node={selectedNode} botId={botId} botName={botName}
+          <NodeConfigPanel node={selectedNode} botId={botId} botName={botName} userId={userId}
             products={products} onUpdate={handleNodeUpdate} onClose={() => setSelectedNode(null)} />
         )}
       </div>

@@ -36,6 +36,7 @@ export default async function BotFlowPage({ params }: Props) {
     <FlowEditor
       botId={bot.id}
       botName={bot.name}
+      userId={session.user.id}
       channelPermissionError={(bot as Record<string, unknown>).channelPermissionError as string | null ?? null}
       products={products}
     />

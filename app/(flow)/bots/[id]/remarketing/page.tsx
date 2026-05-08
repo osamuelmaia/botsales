@@ -33,6 +33,7 @@ export default async function BotRemarketingFlowPage({ params }: Props) {
     <FlowEditor
       botId={bot.id}
       botName={bot.name}
+      userId={session.user.id}
       botChannelId={bot.channelId}
       products={products}
       mode="remarketing"

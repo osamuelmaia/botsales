@@ -2,9 +2,19 @@
 
 import { useState, useEffect, useRef } from "react"
 import { Node } from "@xyflow/react"
+import { upload } from "@vercel/blob/client"
 import {
   X, Loader2, CheckCircle2, AlertCircle, UploadCloud, Link2, Check, Film, Music, FileText, Plus, ArrowRight, Trash2,
 } from "lucide-react"
+import {
+  IMAGE_MAX_SIZE,
+  VIDEO_MAX_SIZE,
+  AUDIO_MAX_SIZE,
+  isAcceptableType,
+  folderFor,
+  extFromMimeOrName,
+  type MediaKind,
+} from "@/lib/media-upload"
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -14,18 +24,13 @@ interface NodeConfigPanelProps {
   node: Node
   botId: string
   botName: string
+  userId: string
   products: Product[]
   onUpdate: (nodeId: string, data: Record<string, unknown>) => void
   onClose: () => void
 }
 
-const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"]
-const ALLOWED_VIDEO_TYPES = ["video/mp4", "video/webm"]
-const ALLOWED_AUDIO_TYPES = ["audio/mpeg", "audio/ogg", "audio/wav", "audio/mp4", "audio/aac"]
-const IMAGE_MAX_SIZE = 4 * 1024 * 1024
-const VIDEO_MAX_SIZE = 50 * 1024 * 1024
-const AUDIO_MAX_SIZE = 20 * 1024 * 1024
-const FILE_MAX_SIZE = 50 * 1024 * 1024
+const FILE_MAX_SIZE = VIDEO_MAX_SIZE // "file" kind shares the 50MB cap
 
 const inputCls = "w-full h-9 rounded-md border border-gray-300 px-3 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent"
 const labelCls = "block text-xs font-medium text-gray-600 mb-1"
@@ -33,29 +38,77 @@ const textareaCls = "w-full rounded-md border border-gray-300 px-3 py-2 text-sm 
 
 // ─── Generic Upload Component ────────────────────────────────────────────────
 
-function MediaUpload({ url, accept, allowedTypes, maxSize, maxSizeLabel, formatLabel, icon, onUploaded, onRemove, preview }: {
-  url: string; accept: string; allowedTypes: string[] | null; maxSize: number; maxSizeLabel: string
+function MediaUpload({ url, accept, kind, userId, maxSize, maxSizeLabel, formatLabel, icon, onUploaded, onRemove, preview }: {
+  url: string; accept: string; kind: MediaKind; userId: string; maxSize: number; maxSizeLabel: string
   formatLabel: string; icon: React.ReactNode
   onUploaded: (url: string, mediaId: string) => void; onRemove: () => void; preview?: React.ReactNode
 }) {
   const [uploading, setUploading] = useState(false)
+  const [progress, setProgress] = useState(0)
   const [error, setError] = useState("")
   const [dragOver, setDragOver] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
 
   async function uploadFile(file: File) {
     setError("")
-    if (allowedTypes && !allowedTypes.includes(file.type)) { setError(`Formato inválido. Use ${formatLabel}.`); return }
+    setProgress(0)
+
+    // Lenient client-side type check: accept by family prefix (image/*, video/*, audio/*)
+    // since browsers report the same file with varying MIME strings.
+    if (!isAcceptableType(kind, file.type)) {
+      setError(`Formato inválido. Use ${formatLabel}.`); return
+    }
     if (file.size > maxSize) { setError(`Arquivo muito grande. Máximo ${maxSizeLabel}.`); return }
+    if (file.size === 0) { setError("Arquivo vazio."); return }
+
     setUploading(true)
-    const form = new FormData(); form.append("file", file)
     try {
-      const res = await fetch("/api/media/upload", { method: "POST", body: form })
-      const json = await res.json()
-      if (!res.ok) { setError(json.error ?? "Erro ao enviar"); return }
-      onUploaded(json.url, json.id)
-    } catch { setError("Erro de conexão. Tente novamente.") }
-    finally { setUploading(false) }
+      // Build pathname: bot-{kind}/{userId}/{uuid}.{ext}
+      // The server checks the {userId} segment matches the session.
+      const ext = extFromMimeOrName(file.type, file.name)
+      const pathname = `${folderFor(kind)}/${userId}/${crypto.randomUUID()}.${ext}`
+
+      const blob = await upload(pathname, file, {
+        access: "public",
+        contentType: file.type || undefined,
+        handleUploadUrl: "/api/media/upload",
+        clientPayload: JSON.stringify({
+          kind,
+          sizeBytes: file.size,
+          originalName: file.name,
+        }),
+        // Multipart for files >5MB makes large uploads more resilient
+        multipart: file.size > 5 * 1024 * 1024,
+        onUploadProgress: (p) => setProgress(Math.round(p.percentage ?? 0)),
+      })
+
+      // Tell our DB about the completed upload (works in both prod and dev,
+      // independent of the Blob webhook reaching our origin).
+      const confirmRes = await fetch("/api/media/confirm", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          pathname: blob.pathname,
+          url: blob.url,
+          contentType: blob.contentType,
+          sizeBytes: file.size,
+          originalName: file.name,
+        }),
+      })
+      const confirmJson = await confirmRes.json()
+      if (!confirmRes.ok) {
+        setError(confirmJson.error ?? "Erro ao registrar arquivo")
+        return
+      }
+      onUploaded(confirmJson.url ?? blob.url, confirmJson.id)
+    } catch (err) {
+      const msg = (err as Error)?.message ?? "Erro ao enviar"
+      // Vercel Blob client wraps server-thrown errors; surface them readably.
+      setError(msg.replace(/^Vercel Blob: /, "").replace(/^Error: /, ""))
+    } finally {
+      setUploading(false)
+      setProgress(0)
+    }
   }
 
   if (url) {
@@ -80,7 +133,9 @@ function MediaUpload({ url, accept, allowedTypes, maxSize, maxSizeLabel, formatL
           dragOver ? "border-blue-400 bg-blue-50" : "border-gray-200 hover:border-gray-400 hover:bg-gray-50"
         }`}>
         {uploading ? <Loader2 className="h-5 w-5 text-gray-400 animate-spin" /> : icon}
-        <p className="text-xs text-gray-500">{uploading ? "Enviando..." : "Arraste ou clique para enviar"}</p>
+        <p className="text-xs text-gray-500">
+          {uploading ? (progress > 0 ? `Enviando... ${progress}%` : "Enviando...") : "Arraste ou clique para enviar"}
+        </p>
         <p className="text-[10px] text-gray-400">{formatLabel} · máx. {maxSizeLabel}</p>
       </div>
       <input ref={inputRef} type="file" accept={accept} className="hidden"
@@ -116,7 +171,7 @@ function CheckoutLinkCopy({ productId }: { productId: string }) {
 
 // ─── NodeConfigPanel ──────────────────────────────────────────────────────────
 
-export function NodeConfigPanel({ node, botId, botName, products, onUpdate, onClose }: NodeConfigPanelProps) {
+export function NodeConfigPanel({ node, botId, botName, userId, products, onUpdate, onClose }: NodeConfigPanelProps) {
   const data = node.data as Record<string, unknown>
 
   // Grant access / Start (shared channel state)
@@ -350,8 +405,8 @@ export function NodeConfigPanel({ node, botId, botName, products, onUpdate, onCl
             <p className="text-xs text-gray-400 leading-relaxed">Envie uma imagem para chamar atenção. Ótimo para banners de produto ou capas de material.</p>
             <div>
               <label className={labelCls}>Imagem</label>
-              <MediaUpload url={imageUrl} accept={ALLOWED_IMAGE_TYPES.join(",")}
-                allowedTypes={ALLOWED_IMAGE_TYPES} maxSize={IMAGE_MAX_SIZE}
+              <MediaUpload url={imageUrl} accept="image/*"
+                kind="image" userId={userId} maxSize={IMAGE_MAX_SIZE}
                 maxSizeLabel="4 MB" formatLabel="JPEG, PNG, WebP, GIF"
                 icon={<UploadCloud className="h-5 w-5 text-gray-400" />}
                 onUploaded={(u, id) => { setImageUrl(u); setImageMediaId(id); emit({ url: u, mediaId: id }) }}
@@ -373,9 +428,9 @@ export function NodeConfigPanel({ node, botId, botName, products, onUpdate, onCl
             <p className="text-xs text-gray-400 leading-relaxed">Vídeos de vendas convertem bem. Use para apresentar o produto, depoimentos ou demonstrações.</p>
             <div>
               <label className={labelCls}>Vídeo</label>
-              <MediaUpload url={videoUrl} accept={ALLOWED_VIDEO_TYPES.join(",")}
-                allowedTypes={ALLOWED_VIDEO_TYPES} maxSize={VIDEO_MAX_SIZE}
-                maxSizeLabel="50 MB" formatLabel="MP4, WebM"
+              <MediaUpload url={videoUrl} accept="video/*"
+                kind="video" userId={userId} maxSize={VIDEO_MAX_SIZE}
+                maxSizeLabel="50 MB" formatLabel="MP4, MOV, WebM"
                 icon={<Film className="h-5 w-5 text-gray-400" />}
                 onUploaded={(u, id) => { setVideoUrl(u); setVideoMediaId(id); emit({ url: u, mediaId: id }) }}
                 onRemove={() => { deleteMedia(videoMediaId); setVideoUrl(""); setVideoMediaId(""); emit({ url: "", mediaId: "" }) }}
@@ -395,9 +450,9 @@ export function NodeConfigPanel({ node, botId, botName, products, onUpdate, onCl
           <div className="space-y-3">
             <p className="text-xs text-gray-400 leading-relaxed">Mensagens de voz geram mais engajamento e proximidade. Use para criar uma conexão mais pessoal com o cliente.</p>
             <label className={labelCls}>Arquivo de áudio</label>
-            <MediaUpload url={audioUrl} accept={ALLOWED_AUDIO_TYPES.join(",")}
-              allowedTypes={ALLOWED_AUDIO_TYPES} maxSize={AUDIO_MAX_SIZE}
-              maxSizeLabel="20 MB" formatLabel="MP3, OGG, WAV, M4A"
+            <MediaUpload url={audioUrl} accept="audio/*"
+              kind="audio" userId={userId} maxSize={AUDIO_MAX_SIZE}
+              maxSizeLabel="20 MB" formatLabel="MP3, OGG, WAV, M4A, AAC"
               icon={<Music className="h-5 w-5 text-gray-400" />}
               onUploaded={(u, id) => { setAudioUrl(u); setAudioMediaId(id); emit({ url: u, mediaId: id }) }}
               onRemove={() => { deleteMedia(audioMediaId); setAudioUrl(""); setAudioMediaId(""); emit({ url: "", mediaId: "" }) }}
@@ -413,7 +468,7 @@ export function NodeConfigPanel({ node, botId, botName, products, onUpdate, onCl
             <div>
               <label className={labelCls}>Arquivo</label>
               <MediaUpload url={fileUrl} accept="*/*"
-                allowedTypes={null} maxSize={FILE_MAX_SIZE}
+                kind="file" userId={userId} maxSize={FILE_MAX_SIZE}
                 maxSizeLabel="50 MB" formatLabel="PDF, DOC, ZIP, etc."
                 icon={<FileText className="h-5 w-5 text-gray-400" />}
                 onUploaded={(u, id) => { setFileUrl(u); setFileMediaId(id); emit({ url: u, mediaId: id }) }}
@@ -460,8 +515,8 @@ export function NodeConfigPanel({ node, botId, botName, products, onUpdate, onCl
             {/* Image */}
             <div>
               <label className={labelCls}>Imagem (recomendado)</label>
-              <MediaUpload url={btnImage} accept={ALLOWED_IMAGE_TYPES.join(",")}
-                allowedTypes={ALLOWED_IMAGE_TYPES} maxSize={IMAGE_MAX_SIZE}
+              <MediaUpload url={btnImage} accept="image/*"
+                kind="image" userId={userId} maxSize={IMAGE_MAX_SIZE}
                 maxSizeLabel="4 MB" formatLabel="JPEG, PNG, WebP, GIF"
                 icon={<UploadCloud className="h-5 w-5 text-gray-400" />}
                 onUploaded={(u, id) => { setBtnImage(u); setBtnImageMediaId(id); emit({ image: u, imageMediaId: id }) }}
@@ -628,8 +683,8 @@ export function NodeConfigPanel({ node, botId, botName, products, onUpdate, onCl
                 <div>
                   <label className={labelCls}>Imagem (opcional)</label>
                   <div className="rounded-lg border border-gray-200 bg-gray-50 overflow-hidden">
-                    <MediaUpload url={paymentImage} accept={ALLOWED_IMAGE_TYPES.join(",")}
-                      allowedTypes={ALLOWED_IMAGE_TYPES} maxSize={IMAGE_MAX_SIZE}
+                    <MediaUpload url={paymentImage} accept="image/*"
+                      kind="image" userId={userId} maxSize={IMAGE_MAX_SIZE}
                       maxSizeLabel="4 MB" formatLabel="JPEG, PNG, WebP, GIF"
                       icon={<UploadCloud className="h-5 w-5 text-gray-400" />}
                       onUploaded={(u, id) => { setPaymentImage(u); setPaymentImageMediaId(id); emit({ image: u, imageMediaId: id }) }}
